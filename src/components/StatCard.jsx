@@ -6,7 +6,11 @@ export default function StatCard({ label, value, sub, color }) {
       {/* Animated top shimmer border */}
       <div className="absolute top-0 left-0 right-0 h-[3px] stat-border-shimmer" />
       <div className="text-2xl font-extrabold leading-tight">
-        <span className="gradient-text">{value}</span>
+        {value === null || value === undefined ? (
+          <div className="h-7 w-20 rounded-lg skeleton" />
+        ) : (
+          <span className="gradient-text">{value}</span>
+        )}
       </div>
       <div className="text-sm text-gray-500 font-medium mt-2">{label}</div>
       {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}

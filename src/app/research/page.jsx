@@ -6,6 +6,8 @@ import Card from '@/components/Card';
 import StatCard from '@/components/StatCard';
 import LineChart from '@/components/charts/LineChart';
 import BarChart from '@/components/charts/BarChart';
+import FundamentalChart from '@/components/charts/FundamentalChart';
+import PriceChart from '@/components/charts/PriceChart';
 import Toast from '@/components/Toast';
 import { formatMoney, formatLargeNumber, formatShareCount, formatNumber } from '@/lib/formatters';
 
@@ -123,9 +125,9 @@ export default function ResearchPage() {
   const sharesData = tickerData?.buybacks?.map(b => b.shares_outstanding) || [];
   const priceLabels = tickerData?.daily_prices?.map(p => p.date) || [];
   const priceData = tickerData?.daily_prices?.map(p => p.close) || [];
-  const peLabels = tickerData?.valuation?.peHistory?.map(makeQuarterLabel) || [];
+  const peLabels = tickerData?.valuation?.peHistory?.map(p => p.date) || [];
   const peData = tickerData?.valuation?.peHistory?.map(p => p.pe_ratio) || [];
-  const fcfYieldLabels = tickerData?.valuation?.fcfYieldHistory?.map(makeQuarterLabel) || [];
+  const fcfYieldLabels = tickerData?.valuation?.fcfYieldHistory?.map(f => f.date) || [];
   const fcfYieldData = tickerData?.valuation?.fcfYieldHistory?.map(f => f.fcf_yield) || [];
   const valuation = tickerData?.valuation || {};
 
@@ -214,19 +216,22 @@ export default function ResearchPage() {
         <>
           {/* Position Snapshot */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-            <StatCard label="Current % of AUM" value={`${pctAum}%`} />
-            <StatCard
-              label="Cost Value"
-              value={formatMoney(holdingValue)}
-              sub={holding ? `${holding.shares.toFixed(4)} shares x $${holding.cost_basis.toFixed(2)}` : ''}
-            />
             <StatCard label="Ticker" value={selectedTicker} />
+            <StatCard label="% of AUM" value={`${pctAum}%`} />
+            <StatCard
+              label="Unrealized Gain/Loss"
+              value={
+                quoteLoading ? null :
+                (holding && displayPrice)
+                  ? `${((displayPrice - holding.cost_basis) / holding.cost_basis * 100) >= 0 ? '+' : ''}${((displayPrice - holding.cost_basis) / holding.cost_basis * 100).toFixed(2)}%`
+                  : '—'
+              }
+            />
           </div>
 
+
           {/* Price Chart */}
-          <Card title="Price" className="mb-6">
-            <LineChart labels={priceLabels} data={priceData} label="Price" color="#10b981" formatY={(v) => `$${v.toFixed(2)}`} />
-          </Card>
+          <PriceChart labels={priceLabels} data={priceData} color="#10b981" />
 
           {/* Data Points */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
@@ -249,36 +254,22 @@ export default function ResearchPage() {
 
           {/* Charts Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <Card title="Revenue">
-              <BarChart labels={revenueLabels} data={revenueData} label="Revenue" formatY={(v) => formatLargeNumber(v)} />
-            </Card>
-            <Card title="Operating Margins">
-              <LineChart labels={marginLabels} data={marginData} label="Op Margin" color="#f59e0b" formatY={(v) => `${v.toFixed(1)}%`} />
-            </Card>
+            <FundamentalChart title="Revenue" labels={revenueLabels} data={revenueData} label="Revenue" formatY={(v) => formatLargeNumber(v)} />
+            <FundamentalChart title="Operating Margins" labels={marginLabels} data={marginData} chartType="line" label="Op Margin" color="#f59e0b" formatY={(v) => `${v.toFixed(1)}%`} showCagr={false} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <Card title="Outstanding Shares">
-              <BarChart labels={sharesLabels} data={sharesData} label="Shares" formatY={(v) => formatShareCount(v)} colorPositive="#06b6d4" colorNegative="#06b6d4" />
-            </Card>
-            <Card title="EPS (Diluted)">
-              <BarChart labels={epsLabels} data={epsData} label="EPS" formatY={(v) => `$${v.toFixed(2)}`} />
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <Card title="Free Cash Flow">
-              <BarChart labels={fcfLabels} data={fcfData} label="FCF" formatY={(v) => formatLargeNumber(v)} />
-            </Card>
-            <Card title="PE Ratio">
-              <LineChart labels={peLabels} data={peData} label="PE Ratio" color="#8b5cf6" formatY={(v) => v.toFixed(1)} />
-            </Card>
+            <FundamentalChart title="Outstanding Shares" labels={sharesLabels} data={sharesData} label="Shares" formatY={(v) => formatShareCount(v)} colorPositive="#06b6d4" colorNegative="#06b6d4" />
+            <FundamentalChart title="EPS (Diluted)" labels={epsLabels} data={epsData} label="EPS" formatY={(v) => `$${v.toFixed(2)}`} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <Card title="FCF Yield">
-              <LineChart labels={fcfYieldLabels} data={fcfYieldData} label="FCF Yield" color="#10b981" formatY={(v) => `${v.toFixed(1)}%`} />
-            </Card>
+            <FundamentalChart title="Free Cash Flow" labels={fcfLabels} data={fcfData} label="FCF" formatY={(v) => formatLargeNumber(v)} />
+            <PriceChart title="PE Ratio" labels={peLabels} data={peData} label="PE Ratio" color="#8b5cf6" formatY={(v) => v.toFixed(1)} showCagr={false} className="" />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <PriceChart title="FCF Yield" labels={fcfYieldLabels} data={fcfYieldData} label="FCF Yield" color="#10b981" formatY={(v) => `${v.toFixed(1)}%`} showCagr={false} className="" />
           </div>
         </>
       )}
