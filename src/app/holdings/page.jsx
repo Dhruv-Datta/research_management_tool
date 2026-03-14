@@ -7,11 +7,13 @@ import StatCard from '@/components/StatCard';
 import Treemap from '@/components/Treemap';
 import Toast from '@/components/Toast';
 import { formatMoney, formatMoneyPrecise, formatPct, formatLargeNumber } from '@/lib/formatters';
+import { useCache } from '@/lib/CacheContext';
 
 export default function HoldingsPage() {
-  const [portfolio, setPortfolio] = useState(null);
-  const [quotes, setQuotes] = useState({});
-  const [loading, setLoading] = useState(true);
+  const cache = useCache();
+  const [portfolio, setPortfolio] = useState(() => cache.get('holdings_portfolio') || null);
+  const [quotes, setQuotes] = useState(() => cache.get('holdings_quotes') || {});
+  const [loading, setLoading] = useState(() => !cache.get('holdings_portfolio'));
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [treemapMode, setTreemapMode] = useState('alltime');
@@ -36,6 +38,7 @@ export default function HoldingsPage() {
       const res = await fetch('/api/portfolio');
       const data = await res.json();
       setPortfolio(data);
+      cache.set('holdings_portfolio', data);
       setCash(String(data.cash || 0));
       return data;
     } catch (e) {
@@ -44,7 +47,7 @@ export default function HoldingsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [cache]);
 
   const loadQuotes = useCallback(async (holdings) => {
     if (!holdings?.length) return;
@@ -53,13 +56,16 @@ export default function HoldingsPage() {
       const tickers = holdings.map(h => h.ticker).join(',');
       const res = await fetch(`/api/quotes?tickers=${tickers}`);
       const data = await res.json();
-      if (data.quotes) setQuotes(data.quotes);
+      if (data.quotes) {
+        setQuotes(data.quotes);
+        cache.set('holdings_quotes', data.quotes);
+      }
     } catch (e) {
       // silent fail
     } finally {
       setQuotesLoading(false);
     }
-  }, []);
+  }, [cache]);
 
   const loadRisk = useCallback(async (holdings) => {
     if (!holdings?.length) return;
@@ -102,9 +108,12 @@ export default function HoldingsPage() {
 
   useEffect(() => {
     loadPortfolio().then(data => {
-      if (data?.holdings?.length) loadQuotes(data.holdings);
+      // Only fetch quotes if not already cached
+      if (data?.holdings?.length && !cache.get('holdings_quotes')) {
+        loadQuotes(data.holdings);
+      }
     });
-  }, [loadPortfolio, loadQuotes]);
+  }, [loadPortfolio, loadQuotes, cache]);
 
   useEffect(() => {
     if (activeSubTab === 'risk' && !riskData && !riskLoading && portfolio?.holdings?.length) {
@@ -116,6 +125,7 @@ export default function HoldingsPage() {
   }, [activeSubTab, riskData, riskLoading, fundamentalsData, fundamentalsLoading, portfolio, loadRisk, loadFundamentals]);
 
   const refreshAll = async () => {
+    cache.set('holdings_quotes', null);
     const data = await loadPortfolio();
     if (data?.holdings?.length) {
       loadQuotes(data.holdings);

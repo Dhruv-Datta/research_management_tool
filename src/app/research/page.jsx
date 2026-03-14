@@ -10,28 +10,33 @@ import FundamentalChart from '@/components/charts/FundamentalChart';
 import PriceChart from '@/components/charts/PriceChart';
 import Toast from '@/components/Toast';
 import { formatMoney, formatLargeNumber, formatShareCount, formatNumber } from '@/lib/formatters';
+import { useCache } from '@/lib/CacheContext';
 
 export default function ResearchPage() {
-  const [portfolio, setPortfolio] = useState(null);
-  const [selectedTicker, setSelectedTicker] = useState('');
-  const [tickerData, setTickerData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const cache = useCache();
+  const [portfolio, setPortfolio] = useState(() => cache.get('research_portfolio') || null);
+  const [selectedTicker, setSelectedTicker] = useState(() => cache.get('research_selectedTicker') || '');
+  const [tickerData, setTickerData] = useState(() => cache.get('research_tickerData') || null);
+  const [loading, setLoading] = useState(() => !cache.get('research_portfolio'));
   const [tickerLoading, setTickerLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [liveQuote, setLiveQuote] = useState(null);
-  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [liveQuote, setLiveQuote] = useState(() => cache.get('research_liveQuote') || null);
+  const [quoteLoading, setQuoteLoading] = useState(() => !cache.get('research_liveQuote') && !!cache.get('research_selectedTicker'));
 
   useEffect(() => {
     fetch('/api/portfolio')
       .then(r => r.json())
       .then(data => {
         setPortfolio(data);
+        cache.set('research_portfolio', data);
         setLoading(false);
         if (data.holdings?.length && !selectedTicker) {
-          setSelectedTicker(data.holdings[0].ticker);
+          const first = data.holdings[0].ticker;
+          setSelectedTicker(first);
+          cache.set('research_selectedTicker', first);
         }
       })
       .catch(() => setLoading(false));
@@ -39,33 +44,53 @@ export default function ResearchPage() {
 
   const loadTickerData = useCallback(async (ticker) => {
     if (!ticker) return;
+    // Use cache if available for this ticker
+    const cached = cache.get(`research_tickerData_${ticker}`);
+    if (cached) {
+      setTickerData(cached);
+      cache.set('research_tickerData', cached);
+      return;
+    }
     setTickerLoading(true);
     try {
       const res = await fetch(`/api/ticker/${ticker}`);
       const data = await res.json();
       setTickerData(data);
+      cache.set('research_tickerData', data);
+      cache.set(`research_tickerData_${ticker}`, data);
     } catch (e) {
       setToast({ message: `Failed to load data for ${ticker}`, type: 'error' });
     } finally {
       setTickerLoading(false);
     }
-  }, []);
+  }, [cache]);
 
   useEffect(() => {
     if (selectedTicker) {
+      cache.set('research_selectedTicker', selectedTicker);
       loadTickerData(selectedTicker);
-      // Fetch live quote
-      setLiveQuote(null);
-      setQuoteLoading(true);
-      fetch(`/api/quotes?tickers=${selectedTicker}`)
-        .then(r => r.json())
-        .then(data => {
-          if (data.quotes?.[selectedTicker]) setLiveQuote(data.quotes[selectedTicker]);
-        })
-        .catch(() => {})
-        .finally(() => setQuoteLoading(false));
+      // Only fetch quote if not cached for this ticker
+      const cachedQuote = cache.get(`research_quote_${selectedTicker}`);
+      if (cachedQuote) {
+        setLiveQuote(cachedQuote);
+        setQuoteLoading(false);
+      } else {
+        setLiveQuote(null);
+        setQuoteLoading(true);
+        fetch(`/api/quotes?tickers=${selectedTicker}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data.quotes?.[selectedTicker]) {
+              setLiveQuote(data.quotes[selectedTicker]);
+              cache.set('research_liveQuote', data.quotes[selectedTicker]);
+              cache.set(`research_quote_${selectedTicker}`, data.quotes[selectedTicker]);
+            }
+          })
+          .catch(() => {})
+          .finally(() => setQuoteLoading(false));
+      }
     }
-  }, [selectedTicker, loadTickerData]);
+  }, [selectedTicker, loadTickerData, cache]);
 
   const generateData = async () => {
     setGenerating(true);
@@ -81,6 +106,10 @@ export default function ResearchPage() {
       const data = await res.json();
       if (data.success) {
         setToast({ message: `Data generated for ${selectedTicker}!`, type: 'success' });
+        // Clear caches so fresh data is loaded
+        cache.set(`research_tickerData_${selectedTicker}`, null);
+        cache.set(`research_quote_${selectedTicker}`, null);
+        cache.set('research_liveQuote', null);
         loadTickerData(selectedTicker);
       } else {
         setToast({ message: `Error: ${data.error}`, type: 'error' });
