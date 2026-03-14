@@ -430,8 +430,8 @@ export default function ResearchPage() {
               label="Unrealized Gain/Loss"
               value={
                 quoteLoading ? null :
-                (holding && displayPrice)
-                  ? `${((displayPrice - holding.cost_basis) / holding.cost_basis * 100) >= 0 ? '+' : ''}${((displayPrice - holding.cost_basis) / holding.cost_basis * 100).toFixed(2)}%`
+                (holding && livePrice)
+                  ? `${((livePrice - holding.cost_basis) / holding.cost_basis * 100) >= 0 ? '+' : ''}${((livePrice - holding.cost_basis) / holding.cost_basis * 100).toFixed(2)}%`
                   : '—'
               }
             />

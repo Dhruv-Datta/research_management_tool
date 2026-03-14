@@ -4,6 +4,7 @@ import {
   ShadingType, TableBorders, PageBreak,
 } from 'docx';
 import { saveAs } from 'file-saver';
+import { Chart } from 'chart.js';
 
 const COLORS = {
   primary: '0F766E',
@@ -90,27 +91,52 @@ function lightBorders() {
   return { top: b, bottom: b, left: b, right: b };
 }
 
-// Capture all Chart.js canvases as base64 PNGs
+// Capture all Chart.js canvases as base64 PNGs with proper aspect ratio and no tooltips
 function captureCharts() {
   const canvases = document.querySelectorAll('.chart-container canvas');
   const images = [];
   canvases.forEach(canvas => {
     try {
+      // Get the Chart.js instance to disable tooltip before capture
+      const chartInstance = Chart.getChart(canvas);
+      let tooltipWasEnabled = true;
+      if (chartInstance) {
+        tooltipWasEnabled = chartInstance.options.plugins.tooltip.enabled !== false;
+        // Disable tooltip and clear any active hover state
+        chartInstance.options.plugins.tooltip.enabled = false;
+        chartInstance.setActiveElements([]);
+        chartInstance.tooltip?.setActiveElements([], { x: 0, y: 0 });
+        chartInstance.update('none');
+      }
+
       const url = canvas.toDataURL('image/png');
+      const w = canvas.width;
+      const h = canvas.height;
       const label = canvas.closest('[data-chart-title]')?.getAttribute('data-chart-title') ||
         canvas.closest('.bg-white')?.querySelector('h3, p.text-sm.font-bold, .text-sm.font-semibold')?.textContent || '';
-      images.push({ url, label });
+      images.push({ url, label, width: w, height: h });
+
+      // Re-enable tooltip after capture
+      if (chartInstance && tooltipWasEnabled) {
+        chartInstance.options.plugins.tooltip.enabled = true;
+        chartInstance.update('none');
+      }
     } catch {}
   });
   return images;
 }
 
-function chartImageRun(dataUrl) {
+function chartImageRun(dataUrl, canvasWidth, canvasHeight) {
   const base64 = dataUrl.split(',')[1];
   const buffer = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+  // Scale to fit within max width while preserving aspect ratio
+  const MAX_WIDTH = 560;
+  const ratio = (canvasWidth && canvasHeight) ? canvasHeight / canvasWidth : 0.45;
+  const width = MAX_WIDTH;
+  const height = Math.round(MAX_WIDTH * ratio);
   return new ImageRun({
     data: buffer,
-    transformation: { width: 580, height: 220 },
+    transformation: { width, height },
     type: 'png',
   });
 }
@@ -197,7 +223,7 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
       }
       sections.push(new Paragraph({
         spacing: { after: 160 },
-        children: [chartImageRun(img.url)],
+        children: [chartImageRun(img.url, img.width, img.height)],
       }));
     }
     sections.push(spacer());
