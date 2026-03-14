@@ -1,0 +1,22 @@
+{
+  "inputs": {
+    "ticker": "AMZN",
+    "sharePrice": 207.67,
+    "targetPE": 32,
+    "revenueGrowth": 0.1151,
+    "opexGrowth": 0.11,
+    "cogsGrowth": 0.1075,
+    "netShareDilution": 0.008,
+    "dividendGrowth": 0,
+    "currentDividend": 0,
+    "taxRate": 0.21,
+    "baseRevenue": 691.33,
+    "baseCOGS": 345.35,
+    "baseOpex": 269.78,
+    "baseNonOpIncome": 16.85,
+    "baseTaxExpense": 16.57,
+    "baseShares": 10.81,
+    "baseYear": 2026
+  },
+  "updatedAt": "2026-03-14T21:43:45.143Z"
+}
