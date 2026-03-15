@@ -20,10 +20,12 @@ const COLORS = {
 
 const FONT = 'Calibri';
 
-function heading(text, level = HeadingLevel.HEADING_1) {
+function heading(text, level = HeadingLevel.HEADING_1, opts = {}) {
   return new Paragraph({
     heading: level,
     spacing: { before: level === HeadingLevel.HEADING_1 ? 400 : 240, after: 120 },
+    keepNext: true,
+    ...opts,
     children: [new TextRun({ text, font: FONT, bold: true, size: level === HeadingLevel.HEADING_1 ? 32 : level === HeadingLevel.HEADING_2 ? 26 : 22, color: COLORS.dark })],
   });
 }
@@ -52,6 +54,12 @@ function bulletPoint(text) {
     bullet: { level: 0 },
     spacing: { after: 60 },
     children: [new TextRun({ text, font: FONT, size: 20, color: COLORS.dark })],
+  });
+}
+
+function pageBreakParagraph() {
+  return new Paragraph({
+    children: [new TextRun({ children: [new PageBreak()] })],
   });
 }
 
@@ -167,7 +175,7 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
 
   // ═══════════ COVER / TITLE ═══════════
   sections.push(
-    new Paragraph({ spacing: { before: 600, after: 0 }, children: [] }),
+    new Paragraph({ spacing: { before: 2400, after: 0 }, children: [] }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { after: 80 },
@@ -183,12 +191,12 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
       spacing: { after: 400 },
       children: [new TextRun({ text: dateStr, font: FONT, size: 22, color: COLORS.light })],
     }),
-    dividerLine(),
   );
 
-  // ═══════════ KEY METRICS ═══════════
+  // ═══════════ KEY METRICS (on cover page) ═══════════
   if (displayPrice || liveQuote) {
-    sections.push(heading('Key Metrics', HeadingLevel.HEADING_1));
+    sections.push(spacer(600));
+    sections.push(dividerLine());
 
     const metricsRows = [];
     if (displayPrice) metricsRows.push(['Current Price', `$${fmt(displayPrice)}`]);
@@ -202,7 +210,7 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
 
     if (metricsRows.length) {
       sections.push(new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
+        width: { size: 60, type: WidthType.PERCENTAGE },
         borders: lightBorders(),
         rows: [
           new TableRow({
@@ -220,30 +228,44 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
         ],
       }));
     }
-    sections.push(spacer());
   }
 
   // ═══════════ FUNDAMENTAL CHARTS ═══════════
+  // Page break before charts section
   if (chartImages.length > 0) {
+    sections.push(pageBreakParagraph());
     sections.push(heading('Fundamental Analysis', HeadingLevel.HEADING_1));
     sections.push(bodyText('The following charts illustrate the company\'s key financial metrics and trends over time.', { color: COLORS.mid }));
-    sections.push(spacer(100));
+    sections.push(spacer(80));
 
-    for (const img of chartImages) {
+    for (let ci = 0; ci < chartImages.length; ci++) {
+      const img = chartImages[ci];
+
+      // Page break before every 2nd chart (i.e. after every pair), but not before the 1st
+      if (ci > 0 && ci % 2 === 0) {
+        sections.push(pageBreakParagraph());
+      }
+
+      // Chart title — keepNext keeps it on same page as the image
       if (img.label) {
         sections.push(new Paragraph({
-          spacing: { before: 200, after: 80 },
+          spacing: { before: ci % 2 === 0 ? 100 : 300, after: 80 },
+          keepNext: true,
           children: [new TextRun({ text: img.label, font: FONT, size: 22, bold: true, color: COLORS.dark })],
         }));
       }
+
+      // Chart image — keepNext keeps it with CAGR line
       sections.push(new Paragraph({
-        spacing: { after: img.cagrs?.length ? 80 : 160 },
+        spacing: { after: img.cagrs?.length ? 40 : 120 },
+        keepNext: true,
         children: [chartImageRun(img.url, img.width, img.height)],
       }));
-      // Add CAGR values below the chart
+
+      // CAGR values below chart
       if (img.cagrs && img.cagrs.length > 0) {
         sections.push(new Paragraph({
-          spacing: { after: 160 },
+          spacing: { after: 120 },
           children: img.cagrs.flatMap((c, i) => [
             ...(i > 0 ? [new TextRun({ text: '    ', font: FONT, size: 18 })] : []),
             new TextRun({ text: `${c.label}: `, font: FONT, size: 18, color: COLORS.light }),
@@ -252,11 +274,11 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
         }));
       }
     }
-    sections.push(spacer());
   }
 
   // ═══════════ INVESTMENT THESIS ═══════════
   if (thesis) {
+    sections.push(pageBreakParagraph());
     sections.push(heading('Investment Thesis', HeadingLevel.HEADING_1));
 
     // Core reasons (supports both old string format and new {title, description} format)
@@ -280,9 +302,9 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
       sections.push(spacer(100));
     }
 
-    // Key assumptions
+    // Key assumptions / The Story
     if (thesis.assumptions && thesis.assumptions.trim()) {
-      sections.push(heading('Key Assumptions', HeadingLevel.HEADING_2));
+      sections.push(heading('The Story', HeadingLevel.HEADING_2));
       thesis.assumptions.split('\n').filter(l => l.trim()).forEach(line => sections.push(bodyText(line)));
       sections.push(spacer(100));
     }
@@ -293,23 +315,23 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
       thesis.valuation.split('\n').filter(l => l.trim()).forEach(line => sections.push(bodyText(line)));
       sections.push(spacer(100));
     }
-
-    sections.push(dividerLine());
   }
 
   // ═══════════ NEWS & UPDATES ═══════════
   if (thesis?.newsUpdates?.length > 0) {
     const updates = thesis.newsUpdates.filter(u => u.title || u.body);
     if (updates.length > 0) {
+      sections.push(pageBreakParagraph());
       sections.push(heading('Recent Developments', HeadingLevel.HEADING_1));
 
       // Show newest first
-      [...updates].reverse().forEach(entry => {
+      [...updates].reverse().forEach((entry, idx) => {
         const titleParts = [];
         if (entry.title) titleParts.push(new TextRun({ text: entry.title, font: FONT, size: 22, bold: true, color: COLORS.dark }));
         if (entry.date) titleParts.push(new TextRun({ text: `  |  ${entry.date}`, font: FONT, size: 18, color: COLORS.light }));
 
-        sections.push(new Paragraph({ spacing: { before: 240, after: 80 }, children: titleParts }));
+        // keepNext so title stays with body
+        sections.push(new Paragraph({ spacing: { before: idx > 0 ? 300 : 200, after: 80 }, keepNext: true, children: titleParts }));
 
         if (entry.body && entry.body.trim()) {
           entry.body.split('\n').filter(l => l.trim()).forEach(line => sections.push(bodyText(line)));
@@ -318,6 +340,7 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
         if (entry.impactOnAssumptions && entry.impactOnAssumptions.trim()) {
           sections.push(new Paragraph({
             spacing: { before: 120, after: 40 },
+            keepNext: true,
             children: [new TextRun({ text: 'Impact on Assumptions:', font: FONT, size: 18, bold: true, color: 'B45309' })],
           }));
           entry.impactOnAssumptions.split('\n').filter(l => l.trim()).forEach(line =>
@@ -325,15 +348,17 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
           );
         }
 
-        sections.push(spacer(80));
+        // Divider between entries
+        if (idx < updates.length - 1) {
+          sections.push(dividerLine());
+        }
       });
-
-      sections.push(dividerLine());
     }
   }
 
   // ═══════════ VALUATION MODEL ═══════════
   if (model) {
+    sections.push(pageBreakParagraph());
     sections.push(heading('EPS Based Valuation Model', HeadingLevel.HEADING_1));
 
     const inp = model.inputs || {};
@@ -342,7 +367,6 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
     // --- Helper: clean academic-style cell (no background, no vertical borders) ---
     const TB_NONE = { style: BorderStyle.NONE, size: 0, color: COLORS.white };
     const TB_LINE = { style: BorderStyle.SINGLE, size: 1, color: '000000' };
-    const TB_THIN = { style: BorderStyle.SINGLE, size: 1, color: '999999' };
 
     function cleanCell(text, opts = {}) {
       const borders = {
@@ -408,7 +432,7 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
     ];
 
     sections.push(new Table({
-      width: { size: 80, type: WidthType.PERCENTAGE },
+      width: { size: 100, type: WidthType.PERCENTAGE },
       rows: [
         new TableRow({
           children: inputRow2Header.map(h =>
@@ -428,7 +452,6 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
     // ── Main projection table ──
     if (model.computed) {
       const yearLabels = model.computed.yearLabels || [];
-      const numCols = 1 + yearLabels.length; // label col + year cols
       const labelWidth = 30;
       const yearWidth = (100 - labelWidth) / yearLabels.length;
 
@@ -463,10 +486,7 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
 
       for (let ri = 0; ri < projRows.length; ri++) {
         const row = projRows[ri];
-        if (row.sep) {
-          // Thin separator — apply top border to the NEXT non-sep row
-          continue;
-        }
+        if (row.sep) continue;
 
         // Check if previous row was a separator
         const prevIsSep = ri > 0 && projRows[ri - 1]?.sep;
@@ -483,7 +503,6 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
       const cagrCells = [
         cleanCell('Total CAGR', { bold: true, width: labelWidth, borderTop: true, borderBottom: true }),
       ];
-      // Empty cells for all years except last
       for (let i = 0; i < yearLabels.length - 1; i++) {
         cagrCells.push(cleanCell('', { width: yearWidth, borderTop: true, borderBottom: true }));
       }
@@ -508,7 +527,7 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
         })],
       }));
 
-      sections.push(spacer(200));
+      sections.push(spacer(300));
 
       // ── Model Output Summary ──
       sections.push(new Table({
@@ -534,7 +553,7 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
   }
 
   // ═══════════ DISCLAIMER ═══════════
-  sections.push(spacer(400));
+  sections.push(spacer(600));
   sections.push(dividerLine());
   sections.push(bodyText('This report was generated for internal research purposes only. It does not constitute investment advice.', { color: COLORS.light, italic: true }));
   sections.push(bodyText(`Generated on ${dateStr}`, { color: COLORS.light, italic: true }));
