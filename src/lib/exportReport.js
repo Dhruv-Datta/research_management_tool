@@ -371,13 +371,38 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
     }
   }
 
-  // ═══════════ NEWS & UPDATES ═══════════
-  if (thesis?.newsUpdates?.length > 0) {
-    const updates = thesis.newsUpdates.filter(u => u.title || u.body);
-    if (updates.length > 0) {
-      sections.push(pageBreakParagraph());
-      sections.push(heading('Recent Developments', HeadingLevel.HEADING_1));
+  // ═══════════ RESEARCH TO-DO ═══════════
+  {
+    sections.push(pageBreakParagraph());
+    sections.push(heading('Research To-Do', HeadingLevel.HEADING_1));
+    const todos = (thesis?.todos || []).filter(t => t.text && t.text.trim());
+    if (todos.length > 0) {
+      todos.forEach(t => {
+        const prefix = t.done ? '[x] ' : '[ ] ';
+        sections.push(new Paragraph({
+          bullet: { level: 0 },
+          spacing: { after: 40 },
+          children: [new TextRun({
+            text: prefix + t.text,
+            font: FONT,
+            size: 19,
+            color: t.done ? COLORS.light : COLORS.dark,
+            strikeThrough: t.done,
+          })],
+        }));
+      });
+    } else {
+      sections.push(bodyText('No outstanding research items at this time.', { color: COLORS.light, italic: true }));
+    }
+  }
 
+  // ═══════════ NEWS & UPDATES ═══════════
+  {
+    sections.push(pageBreakParagraph());
+    sections.push(heading('Recent Developments', HeadingLevel.HEADING_1));
+    const updates = (thesis?.newsUpdates || []).filter(u => u.title || u.body);
+
+    if (updates.length > 0) {
       // Show newest first
       [...updates].reverse().forEach((entry, idx) => {
         const titleParts = [];
@@ -407,6 +432,8 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
           sections.push(dividerLine());
         }
       });
+    } else {
+      sections.push(bodyText('No recent developments to report.', { color: COLORS.light, italic: true }));
     }
   }
 

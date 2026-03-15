@@ -21,6 +21,7 @@ const DEFAULT_THESIS = {
     terminalGrowthRate: '',
   },
   newsUpdates: [],
+  todos: [],
 };
 
 export async function GET(request, { params }) {
@@ -58,6 +59,7 @@ export async function POST(request, { params }) {
       valuation: body.valuation || '',
       underwriting: { ...DEFAULT_THESIS.underwriting, ...(body.underwriting || {}) },
       newsUpdates: body.newsUpdates || [],
+      todos: body.todos || [],
       updatedAt: new Date().toISOString(),
     };
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));

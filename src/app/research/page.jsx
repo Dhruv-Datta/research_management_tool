@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { RefreshCw, Download, AlertTriangle, Save, Plus, Trash2, CheckCircle, FileDown } from 'lucide-react';
+import { RefreshCw, Download, AlertTriangle, Save, Plus, Trash2, CheckCircle, FileDown, Check } from 'lucide-react';
 import Card from '@/components/Card';
 import StatCard from '@/components/StatCard';
 import LineChart from '@/components/charts/LineChart';
@@ -200,6 +200,28 @@ export default function ResearchPage() {
       }),
     }));
     setThesisDirty(true);
+  };
+
+  const addTodo = () => {
+    const updated = { ...thesis, todos: [...(thesis.todos || []), { text: '', done: false }] };
+    setThesis(updated);
+    setThesisDirty(true);
+    saveThesis(updated);
+  };
+
+  const removeTodo = (idx) => {
+    const updated = { ...thesis, todos: (thesis.todos || []).filter((_, i) => i !== idx) };
+    setThesis(updated);
+    setThesisDirty(true);
+    saveThesis(updated);
+  };
+
+  const updateTodo = (idx, field, value) => {
+    const updated = { ...thesis, todos: (thesis.todos || []).map((t, i) => i === idx ? { ...t, [field]: value } : t) };
+    setThesis(updated);
+    setThesisDirty(true);
+    // Save immediately for checkbox toggles, blur handles text inputs
+    if (field === 'done') saveThesis(updated);
   };
 
   const generateData = async () => {
@@ -618,6 +640,60 @@ export default function ResearchPage() {
                     />
                   </div>
 
+                </Card>
+
+                {/* ── Research To-Do ── */}
+                <Card>
+                  <div className="flex items-center justify-between mb-1">
+                    <h2 className="text-lg font-bold text-gray-900">Research To-Do</h2>
+                    <button
+                      onClick={addTodo}
+                      className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
+                    >
+                      <Plus size={13} />
+                      Add Item
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 mb-4">Quick checklist of things to research or follow up on (do not delete until checked off by other founder)</p>
+
+                  {(!thesis.todos || thesis.todos.length === 0) ? (
+                    <div className="text-center py-6 border border-dashed border-gray-200 rounded-xl">
+                      <p className="text-sm text-gray-400 mb-1">No items yet</p>
+                      <p className="text-xs text-gray-300">Add tasks like "check Q4 guidance" or "review competitor margins"</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {(thesis.todos || []).map((todo, idx) => (
+                        <div key={idx} className="flex items-center gap-3 group">
+                          <button
+                            onClick={() => updateTodo(idx, 'done', !todo.done)}
+                            className={`flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
+                              todo.done
+                                ? 'bg-emerald-500 border-emerald-500'
+                                : 'border-gray-300 hover:border-emerald-400'
+                            }`}
+                          >
+                            {todo.done && <Check size={12} className="text-white" strokeWidth={3} />}
+                          </button>
+                          <input
+                            type="text"
+                            value={todo.text}
+                            onChange={e => updateTodo(idx, 'text', e.target.value)}
+                            placeholder="What needs to be done..."
+                            className={`flex-1 bg-transparent border-none outline-none text-sm transition-all duration-200 placeholder:text-gray-300 ${
+                              todo.done ? 'line-through text-gray-400' : 'text-gray-900'
+                            }`}
+                          />
+                          <button
+                            onClick={() => removeTodo(idx)}
+                            className="flex-shrink-0 p-1.5 text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </Card>
 
                 {/* ── News & Updates ── */}
