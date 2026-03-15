@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Plus, Trash2, RefreshCw, Pencil, Check, X } from 'lucide-react';
 import Card from '@/components/Card';
 import StatCard from '@/components/StatCard';
 import Treemap from '@/components/Treemap';
@@ -29,6 +29,13 @@ export default function HoldingsPage() {
   const [fundamentalsData, setFundamentalsData] = useState(null);
   const [fundamentalsLoading, setFundamentalsLoading] = useState(false);
   const [fundamentalsSearch, setFundamentalsSearch] = useState('');
+
+  // Sector label overrides
+  const [sectorConfig, setSectorConfig] = useState({});
+  const [editingSector, setEditingSector] = useState(null);
+  const [editValue, setEditValue] = useState('');
+  const [colorPickSector, setColorPickSector] = useState(null);
+  const editInputRef = useRef(null);
 
   // Form state
   const [ticker, setTicker] = useState('');
@@ -126,7 +133,43 @@ export default function HoldingsPage() {
     if (activeSubTab === 'factors' && !fundamentalsData && !fundamentalsLoading && portfolio?.holdings?.length) {
       loadFundamentals(portfolio.holdings);
     }
+    // Also load risk data for weighted correlation metric in factors tab
+    if (activeSubTab === 'factors' && !riskData && !riskLoading && portfolio?.holdings?.length) {
+      loadRisk(portfolio.holdings);
+    }
   }, [activeSubTab, riskData, riskLoading, fundamentalsData, fundamentalsLoading, portfolio, loadRisk, loadFundamentals]);
+
+  // Load sector config (labels + colors)
+  useEffect(() => {
+    fetch('/api/sector-labels').then(r => r.json()).then(setSectorConfig).catch(() => {});
+  }, []);
+
+  const getSectorLabel = (sector) => sectorConfig[sector]?.label || sector;
+  const getSectorColor = (sector, fallback) => sectorConfig[sector]?.color || fallback;
+
+  const saveSectorLabel = async (sector, label) => {
+    try {
+      const res = await fetch('/api/sector-labels', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sector, label }),
+      });
+      setSectorConfig(await res.json());
+    } catch {}
+    setEditingSector(null);
+  };
+
+  const saveSectorColor = async (sector, color) => {
+    try {
+      const res = await fetch('/api/sector-labels', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sector, color }),
+      });
+      setSectorConfig(await res.json());
+    } catch {}
+    setColorPickSector(null);
+  };
 
   const refreshAll = async () => {
     cache.set('holdings_quotes', null);
@@ -500,9 +543,7 @@ export default function HoldingsPage() {
             </Card>
           ) : (
             <>
-              {/* Sector Exposure */}
-              <Card title="Sector Exposure" className="mb-6">
-                {(() => {
+              {(() => {
                   const sectors = {};
                   positions.forEach(p => {
                     const f = fundamentalsData[p.ticker];
@@ -524,11 +565,9 @@ export default function HoldingsPage() {
                     'Utilities': '#14b8a6', 'Unknown': '#9ca3af',
                   };
 
-                  if (sorted.length === 0) return <p className="text-gray-400 text-sm text-center py-6">No sector data</p>;
-
-                  const labels = sorted.map(([s]) => s);
+                  const labels = sorted.map(([s]) => getSectorLabel(s));
                   const weights = sorted.map(([, d]) => d.weight);
-                  const colors = labels.map(s => sectorColors[s] || '#10b981');
+                  const colors = sorted.map(([s]) => getSectorColor(s, sectorColors[s] || '#10b981'));
 
                   const chartData = {
                     labels,
@@ -568,25 +607,173 @@ export default function HoldingsPage() {
                     },
                   };
 
+                  // Concentration metrics
+                  const sortedPositions = [...positions].sort((a, b) => b.value - a.value);
+                  const top5Value = sortedPositions.slice(0, 5).reduce((s, p) => s + p.value, 0);
+                  const top5Pct = totalAum > 0 ? (top5Value / totalAum) * 100 : 0;
+                  const largestPct = totalAum > 0 && sortedPositions.length > 0 ? (sortedPositions[0].value / totalAum) * 100 : 0;
+                  // Weighted average correlation from risk data
+                  let weightedCorr = null;
+                  if (riskData?.correlation?.matrix && riskData.correlation.tickers?.length >= 2) {
+                    const corrTickers = riskData.correlation.tickers;
+                    const corrMatrix = riskData.correlation.matrix;
+                    const posMap = {};
+                    positions.forEach(p => { posMap[p.ticker] = totalAum > 0 ? p.value / totalAum : 0; });
+                    let sumWC = 0, sumW = 0;
+                    for (let i = 0; i < corrTickers.length; i++) {
+                      for (let j = i + 1; j < corrTickers.length; j++) {
+                        const wi = posMap[corrTickers[i]] || 0;
+                        const wj = posMap[corrTickers[j]] || 0;
+                        const pairWeight = wi * wj;
+                        sumWC += pairWeight * corrMatrix[i][j];
+                        sumW += pairWeight;
+                      }
+                    }
+                    if (sumW > 0) weightedCorr = sumWC / sumW;
+                  }
+
+                  // Sector performance (avg day change by sector)
+                  const sectorPerf = {};
+                  positions.forEach(p => {
+                    const f = fundamentalsData[p.ticker];
+                    const sector = f?.sector || 'Unknown';
+                    if (!sectorPerf[sector]) sectorPerf[sector] = { totalDayChange: 0, totalWeight: 0 };
+                    const w = totalAum > 0 ? (p.value / totalAum) * 100 : 0;
+                    sectorPerf[sector].totalDayChange += p.dayChangePct * w;
+                    sectorPerf[sector].totalWeight += w;
+                  });
+                  const sectorPerfSorted = Object.entries(sectorPerf)
+                    .map(([s, d]) => ({ sector: s, avgChange: d.totalWeight > 0 ? d.totalDayChange / d.totalWeight : 0, weight: d.totalWeight }))
+                    .sort((a, b) => b.avgChange - a.avgChange);
+                  const maxAbsChange = Math.max(...sectorPerfSorted.map(s => Math.abs(s.avgChange)), 0.01);
+
                   return (
-                    <div className="flex flex-col md:flex-row items-center gap-8">
-                      <div className="w-[220px] h-[220px] shrink-0">
-                        <Doughnut data={chartData} options={chartOptions} />
-                      </div>
-                      <div className="space-y-1.5">
-                        {sorted.map(([sector, data]) => (
-                          <div key={sector} className="flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: sectorColors[sector] || '#10b981' }} />
-                            <span className="text-[13px] text-gray-600 w-[160px] truncate">{sector}</span>
-                            <span className="text-[13px] font-semibold text-gray-900 tabular-nums w-[45px] text-right">{data.weight.toFixed(1)}%</span>
-                            <span className="text-[11px] text-gray-400 tabular-nums w-[72px] text-right">{formatMoney(data.value)}</span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                      {/* Sector Exposure */}
+                      <Card title="Sector Exposure">
+                        {sorted.length === 0 ? (
+                          <p className="text-gray-400 text-sm text-center py-6">No sector data</p>
+                        ) : (
+                          <div className="flex flex-col items-center gap-6">
+                            <div className="w-[200px] h-[200px] shrink-0">
+                              <Doughnut data={chartData} options={chartOptions} />
+                            </div>
+                            <div className="w-full space-y-1">
+                              {sorted.map(([sector, data]) => {
+                                const displayName = getSectorLabel(sector);
+                                const isEditing = editingSector === sector;
+
+                                const currentColor = getSectorColor(sector, sectorColors[sector] || '#10b981');
+                                const PALETTE = ['#10b981','#06b6d4','#f59e0b','#059669','#ef4444','#0891b2','#8b5cf6','#f97316','#84cc16','#ec4899','#14b8a6','#3b82f6','#e11d48','#a855f7','#64748b'];
+
+                                return (
+                                  <div key={sector} className="relative flex items-center gap-2 group">
+                                    <span
+                                      className="w-3 h-3 rounded-full shrink-0 cursor-pointer ring-2 ring-transparent hover:ring-gray-300 transition-all"
+                                      style={{ backgroundColor: currentColor }}
+                                      onClick={(e) => { e.stopPropagation(); setColorPickSector(colorPickSector === sector ? null : sector); }}
+                                      title="Click to change color"
+                                    />
+                                    {colorPickSector === sector && (
+                                      <div className="absolute top-6 left-0 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-2 flex flex-wrap gap-1.5 w-[160px]">
+                                        {PALETTE.map(c => (
+                                          <button
+                                            key={c}
+                                            className={`w-5 h-5 rounded-full transition-all hover:scale-125 ${c === currentColor ? 'ring-2 ring-offset-1 ring-gray-400' : ''}`}
+                                            style={{ backgroundColor: c }}
+                                            onClick={(e) => { e.stopPropagation(); saveSectorColor(sector, c); }}
+                                          />
+                                        ))}
+                                      </div>
+                                    )}
+                                    {isEditing ? (
+                                      <form
+                                        className="flex items-center gap-1 flex-1 min-w-0"
+                                        onSubmit={(e) => { e.preventDefault(); saveSectorLabel(sector, editValue); }}
+                                      >
+                                        <input
+                                          ref={editInputRef}
+                                          value={editValue}
+                                          onChange={(e) => setEditValue(e.target.value)}
+                                          className="flex-1 min-w-0 text-[13px] text-gray-900 bg-gray-50 border border-gray-200 rounded-md px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400"
+                                          autoFocus
+                                        />
+                                        <button type="submit" className="text-emerald-500 hover:text-emerald-700 p-0.5"><Check size={12} /></button>
+                                        <button type="button" onClick={() => setEditingSector(null)} className="text-gray-400 hover:text-gray-600 p-0.5"><X size={12} /></button>
+                                      </form>
+                                    ) : (
+                                      <span
+                                        className="text-[13px] text-gray-600 flex-1 truncate cursor-pointer hover:text-gray-900 transition-colors"
+                                        onClick={() => { setEditingSector(sector); setEditValue(displayName); }}
+                                        title="Click to rename"
+                                      >
+                                        {displayName}
+                                        <Pencil size={10} className="inline ml-1 opacity-0 group-hover:opacity-40 transition-opacity" />
+                                      </span>
+                                    )}
+                                    <span className="text-[13px] font-semibold text-gray-900 tabular-nums">{data.weight.toFixed(1)}%</span>
+                                    <span className="text-[11px] text-gray-400 tabular-nums w-[72px] text-right">{formatMoney(data.value)}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                        ))}
+                        )}
+                      </Card>
+
+                      {/* Concentration + Sector Performance */}
+                      <div className="flex flex-col gap-6">
+                        <Card title="Concentration">
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="bg-gray-50/80 rounded-xl p-3">
+                              <div className="text-lg font-bold text-gray-900 tabular-nums">{largestPct.toFixed(1)}%</div>
+                              <div className="text-[11px] text-gray-400 mt-0.5">Largest Position</div>
+                            </div>
+                            <div className="bg-gray-50/80 rounded-xl p-3">
+                              <div className="text-lg font-bold text-gray-900 tabular-nums">{top5Pct.toFixed(1)}%</div>
+                              <div className="text-[11px] text-gray-400 mt-0.5">Top 5 Weight</div>
+                            </div>
+                            <div className="bg-gray-50/80 rounded-xl p-3">
+                              <div className={`text-lg font-bold tabular-nums ${weightedCorr === null ? 'text-gray-400' : weightedCorr >= 0.5 ? 'text-red-500' : weightedCorr >= 0.3 ? 'text-amber-500' : 'text-emerald-600'}`}>
+                                {weightedCorr !== null ? weightedCorr.toFixed(2) : '—'}
+                              </div>
+                              <div className="text-[11px] text-gray-400 mt-0.5">Wtd Avg Corr</div>
+                            </div>
+                          </div>
+                        </Card>
+
+                        <Card title="Sector Performance Today" className="flex-1">
+                          <div className="space-y-2.5">
+                            {sectorPerfSorted.map(({ sector, avgChange }) => (
+                              <div key={sector} className="flex items-center gap-2">
+                                <span className="text-[12px] text-gray-500 w-[130px] truncate">{getSectorLabel(sector)}</span>
+                                <div className="flex-1 h-5 flex items-center">
+                                  <div className="w-full relative h-[6px] rounded-full bg-gray-100">
+                                    {avgChange >= 0 ? (
+                                      <div
+                                        className="absolute left-1/2 h-full rounded-full bg-emerald-400"
+                                        style={{ width: `${(avgChange / maxAbsChange) * 50}%` }}
+                                      />
+                                    ) : (
+                                      <div
+                                        className="absolute right-1/2 h-full rounded-full bg-red-400"
+                                        style={{ width: `${(Math.abs(avgChange) / maxAbsChange) * 50}%` }}
+                                      />
+                                    )}
+                                    <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-300" />
+                                  </div>
+                                </div>
+                                <span className={`text-[12px] font-semibold tabular-nums w-[50px] text-right ${avgChange >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                  {avgChange >= 0 ? '+' : ''}{avgChange.toFixed(2)}%
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </Card>
                       </div>
                     </div>
                   );
                 })()}
-              </Card>
 
               {/* Position Fundamentals Table */}
               <Card
@@ -613,7 +800,7 @@ export default function HoldingsPage() {
                           if (!fundamentalsSearch) return true;
                           const q = fundamentalsSearch.toLowerCase();
                           const f = fundamentalsData[p.ticker];
-                          return p.ticker.toLowerCase().includes(q) || (f?.sector || '').toLowerCase().includes(q) || (f?.industry || '').toLowerCase().includes(q);
+                          return p.ticker.toLowerCase().includes(q) || getSectorLabel(f?.sector || '').toLowerCase().includes(q) || (f?.industry || '').toLowerCase().includes(q);
                         })
                         .map(p => {
                           const f = fundamentalsData[p.ticker] || {};
@@ -627,7 +814,7 @@ export default function HoldingsPage() {
                           return (
                             <tr key={p.ticker} className="border-b border-gray-50 hover:bg-emerald-50/30 transition-colors duration-150">
                               <td className="py-3 px-2"><span className="bg-emerald-50 text-emerald-700 font-bold text-xs px-2 py-0.5 rounded-lg">{p.ticker}</span></td>
-                              <td className="text-right py-3 px-2 text-gray-500 text-xs">{f.sector || '—'}</td>
+                              <td className="text-right py-3 px-2 text-gray-500 text-xs">{f.sector ? getSectorLabel(f.sector) : '—'}</td>
                               <td className="text-right py-3 px-2 text-gray-500 text-xs max-w-[120px] truncate">{f.industry || '—'}</td>
                               <td className="text-right py-3 px-2 text-gray-900 font-medium">{formatMoney(p.value)}</td>
                               <td className="text-right py-3 px-2 text-gray-700">{fmtVal(f.marketCap)}</td>
