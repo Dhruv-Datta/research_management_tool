@@ -330,6 +330,16 @@ export default function ResearchPage() {
         } catch {}
       }
 
+      // Fetch a fresh quote with all extended fields for the export
+      let freshQuote = liveQuote;
+      try {
+        const quoteRes = await fetch(`/api/quotes?tickers=${selectedTicker}`);
+        const quoteJson = await quoteRes.json();
+        if (quoteJson.quotes?.[selectedTicker]) {
+          freshQuote = quoteJson.quotes[selectedTicker];
+        }
+      } catch {}
+
       const prevTab = activeResearchTab;
       if (prevTab !== 'fundamentals') {
         setActiveResearchTab('fundamentals');
@@ -343,8 +353,8 @@ export default function ResearchPage() {
         thesis,
         model: modelData,
         tickerData,
-        liveQuote,
-        displayPrice,
+        liveQuote: freshQuote,
+        displayPrice: freshQuote?.price || displayPrice,
       });
 
       if (prevTab !== 'fundamentals') {

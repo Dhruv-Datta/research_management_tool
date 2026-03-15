@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { Briefcase, Search } from 'lucide-react';
@@ -28,11 +29,17 @@ export default function Navbar() {
     }`}>
       <div className="max-w-7xl mx-auto px-6 lg:px-12 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3 no-underline group">
-          <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-            <span className="text-white font-extrabold text-sm">RM</span>
-          </div>
-          <span className="text-gray-900 font-bold text-lg tracking-tight group-hover:text-emerald-700 transition-colors">
-            Research Manager
+          <Image
+            src="/images/logo.png"
+            alt="B.D. Sterling Capital"
+            width={160}
+            height={44}
+            className="h-9 w-auto object-contain"
+            priority
+          />
+          <span className="text-gray-400 text-sm font-medium">|</span>
+          <span className="text-gray-700 font-semibold text-sm tracking-tight group-hover:text-emerald-700 transition-colors">
+            Research Tool
           </span>
         </Link>
 

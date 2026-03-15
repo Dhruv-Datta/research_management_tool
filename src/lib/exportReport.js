@@ -184,7 +184,7 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
     new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { after: 40 },
-      children: [new TextRun({ text: 'Equity Research Report', font: FONT, size: 28, color: COLORS.mid })],
+      children: [new TextRun({ text: 'Equity Research Update', font: FONT, size: 28, color: COLORS.mid })],
     }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
@@ -194,40 +194,94 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
   );
 
   // ═══════════ KEY METRICS (on cover page) ═══════════
-  if (displayPrice || liveQuote) {
-    sections.push(spacer(600));
+  {
+    sections.push(spacer(400));
     sections.push(dividerLine());
 
-    const metricsRows = [];
-    if (displayPrice) metricsRows.push(['Current Price', `$${fmt(displayPrice)}`]);
-    if (liveQuote?.dayChangePct !== undefined) metricsRows.push(['Day Change', `${liveQuote.dayChangePct >= 0 ? '+' : ''}${fmt(liveQuote.dayChangePct)}%`]);
-
-    // Valuation metrics from tickerData
+    const q = liveQuote || {};
     const val = tickerData?.valuation || {};
-    if (val.peRatio) metricsRows.push(['P/E Ratio', fmt(Number(val.peRatio), 1)]);
-    if (val.fcfYield) metricsRows.push(['FCF Yield', `${fmt(Number(val.fcfYield), 1)}%`]);
-    if (val.priceToSales) metricsRows.push(['Price / Sales', fmt(Number(val.priceToSales), 1)]);
 
-    if (metricsRows.length) {
-      sections.push(new Table({
-        width: { size: 60, type: WidthType.PERCENTAGE },
-        borders: lightBorders(),
-        rows: [
-          new TableRow({
-            children: [
-              makeCell('Metric', { bold: true, shading: COLORS.headerBg, width: 50 }),
-              makeCell('Value', { bold: true, shading: COLORS.headerBg, align: AlignmentType.RIGHT, width: 50 }),
-            ],
-          }),
-          ...metricsRows.map((r, i) => new TableRow({
-            children: [
-              makeCell(r[0], { shading: i % 2 ? COLORS.rowAlt : COLORS.white }),
-              makeCell(r[1], { align: AlignmentType.RIGHT, bold: true, shading: i % 2 ? COLORS.rowAlt : COLORS.white }),
-            ],
-          })),
-        ],
-      }));
+    // Helper formatters for large numbers
+    const fmtLarge = (v) => {
+      if (!v) return '—';
+      const n = Number(v);
+      if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
+      if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
+      if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
+      return `$${fmt(n)}`;
+    };
+    const fmtVol = (v) => {
+      if (!v) return '—';
+      const n = Number(v);
+      if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
+      if (n >= 1e3) return `${(n / 1e3).toFixed(0)}K`;
+      return fmt(n, 0);
+    };
+
+    // Compute operating margin and buyback yield from tickerData
+    const opMargins = tickerData?.operating_margins || [];
+    const latestOpMargin = opMargins.length ? opMargins[opMargins.length - 1].operating_margin : null;
+    const shares = tickerData?.buybacks || [];
+    let buybackYield = null;
+    if (shares.length >= 5) {
+      const cur = shares[shares.length - 1].shares_outstanding;
+      const prev = shares[shares.length - 5].shares_outstanding; // ~1 year ago
+      if (cur && prev && prev > 0) buybackYield = ((prev - cur) / prev);
     }
+
+    // FCF yield from computed valuation or quote
+    const fcfYield = val.fcfYield ? Number(val.fcfYield) : null;
+
+    // 52-week range
+    const hi52 = q.fiftyTwoWeekHigh || val.high52w;
+    const lo52 = q.fiftyTwoWeekLow || val.low52w;
+    const range52 = (lo52 && hi52) ? `$${fmt(Number(lo52))} – $${fmt(Number(hi52))}` : '—';
+
+    // Net Debt / EBITDA — approximate from EV - MarketCap = Net Debt, EV/EBITDA gives EBITDA
+    let netDebtEbitda = '—';
+    if (q.enterpriseValue && q.marketCap && q.evToEbitda && q.evToEbitda > 0) {
+      const netDebt = q.enterpriseValue - q.marketCap;
+      const ebitda = q.enterpriseValue / q.evToEbitda;
+      if (ebitda > 0) netDebtEbitda = fmt(netDebt / ebitda, 1) + 'x';
+    }
+
+    const metricsRows = [
+      ['Current Price', displayPrice ? `$${fmt(displayPrice)}` : '—'],
+      ['Market Cap', fmtLarge(q.marketCap)],
+      ['Enterprise Value', fmtLarge(q.enterpriseValue)],
+      ['P/E Ratio', q.trailingPE ? fmt(Number(q.trailingPE), 1) + 'x' : (val.peRatio ? fmt(Number(val.peRatio), 1) + 'x' : '—')],
+      ['EV / EBITDA', q.evToEbitda ? fmt(Number(q.evToEbitda), 1) + 'x' : '—'],
+      ['FCF Yield', fcfYield ? `${fmt(fcfYield, 1)}%` : '—'],
+      ['Revenue Growth YoY', q.revenueGrowth != null ? `${(q.revenueGrowth * 100).toFixed(1)}%` : '—'],
+      ['EPS Growth YoY', q.earningsGrowth != null ? `${(q.earningsGrowth * 100).toFixed(1)}%` : '—'],
+      ['Operating Margin', latestOpMargin != null ? `${(latestOpMargin * 100).toFixed(1)}%` : '—'],
+      ['Return on Equity', q.roic != null ? `${(q.roic * 100).toFixed(1)}%` : '—'],
+      ['Net Debt / EBITDA', netDebtEbitda],
+      ['Buyback Yield', buybackYield != null ? `${(buybackYield * 100).toFixed(1)}%` : '—'],
+      ['Dividend Yield', q.dividendYield != null ? `${Number(q.dividendYield).toFixed(2)}%` : '—'],
+      ['52 Week Range', range52],
+      ['Average Daily Volume', fmtVol(q.avgVolume)],
+    ];
+
+    sections.push(new Table({
+      width: { size: 65, type: WidthType.PERCENTAGE },
+      alignment: AlignmentType.CENTER,
+      borders: lightBorders(),
+      rows: [
+        new TableRow({
+          children: [
+            makeCell('Metric', { bold: true, shading: COLORS.headerBg, width: 50 }),
+            makeCell('Value', { bold: true, shading: COLORS.headerBg, align: AlignmentType.RIGHT, width: 50 }),
+          ],
+        }),
+        ...metricsRows.map((r, i) => new TableRow({
+          children: [
+            makeCell(r[0], { shading: i % 2 ? COLORS.rowAlt : COLORS.white }),
+            makeCell(r[1], { align: AlignmentType.RIGHT, bold: true, shading: i % 2 ? COLORS.rowAlt : COLORS.white }),
+          ],
+        })),
+      ],
+    }));
   }
 
   // ═══════════ FUNDAMENTAL CHARTS ═══════════
@@ -404,6 +458,7 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
     sections.push(spacer(100));
     sections.push(new Table({
       width: { size: 80, type: WidthType.PERCENTAGE },
+      alignment: AlignmentType.CENTER,
       rows: [
         new TableRow({
           children: inputRow1Header.map(h =>
