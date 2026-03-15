@@ -14,32 +14,108 @@
       "addedAt": "2026-03-15T02:31:51.477Z"
     },
     {
-      "ticker": "INTU",
-      "stage": "researching",
-      "note": "asdfsd",
-      "dislocation": {
-        "mispricing": "",
-        "marketVsYou": "",
-        "catalyst": "",
-        "downsideRisk": "",
-        "variantPerception": ""
+      "ticker": "MSFT",
+      "stage": "watching",
+      "note": "",
+      "fundamentals": {
+        "revenueGrowth": "",
+        "profitability": "",
+        "capitalReturn": "",
+        "misc": ""
       },
-      "addedAt": "2026-03-15T02:32:29.555Z",
-      "fundamentalsGlance": "",
-      "dislocationNotes": ""
+      "dislocationItems": [],
+      "addedAt": "2026-03-15T02:58:15.600Z"
     },
     {
-      "ticker": "MSFT",
-      "stage": "researching",
+      "ticker": "INTU",
+      "stage": "watching",
       "note": "",
-      "dislocation": {
-        "mispricing": "",
-        "marketVsYou": "",
-        "catalyst": "",
-        "downsideRisk": "",
-        "variantPerception": ""
+      "fundamentals": {
+        "revenueGrowth": "",
+        "profitability": "",
+        "capitalReturn": "",
+        "misc": ""
       },
-      "addedAt": "2026-03-15T02:33:15.700Z"
+      "dislocationItems": [],
+      "addedAt": "2026-03-15T02:58:18.501Z"
+    },
+    {
+      "ticker": "MCO",
+      "stage": "watching",
+      "note": "",
+      "fundamentals": {
+        "revenueGrowth": "",
+        "profitability": "",
+        "capitalReturn": "",
+        "misc": ""
+      },
+      "dislocationItems": [],
+      "addedAt": "2026-03-15T02:58:22.541Z"
+    },
+    {
+      "ticker": "ISRG",
+      "stage": "watching",
+      "note": "",
+      "fundamentals": {
+        "revenueGrowth": "",
+        "profitability": "",
+        "capitalReturn": "",
+        "misc": ""
+      },
+      "dislocationItems": [],
+      "addedAt": "2026-03-15T02:58:54.867Z"
+    },
+    {
+      "ticker": "SPGI",
+      "stage": "watching",
+      "note": "",
+      "fundamentals": {
+        "revenueGrowth": "",
+        "profitability": "",
+        "capitalReturn": "",
+        "misc": ""
+      },
+      "dislocationItems": [],
+      "addedAt": "2026-03-15T03:05:40.981Z"
+    },
+    {
+      "ticker": "ADP",
+      "stage": "watching",
+      "note": "",
+      "fundamentals": {
+        "revenueGrowth": "",
+        "profitability": "",
+        "capitalReturn": "",
+        "misc": ""
+      },
+      "dislocationItems": [],
+      "addedAt": "2026-03-15T03:49:35.295Z"
+    },
+    {
+      "ticker": "FICO",
+      "stage": "watching",
+      "note": "",
+      "fundamentals": {
+        "revenueGrowth": "",
+        "profitability": "",
+        "capitalReturn": "",
+        "misc": ""
+      },
+      "dislocationItems": [],
+      "addedAt": "2026-03-15T03:49:40.299Z"
+    },
+    {
+      "ticker": "CNSWF",
+      "stage": "watching",
+      "note": "",
+      "fundamentals": {
+        "revenueGrowth": "",
+        "profitability": "",
+        "capitalReturn": "",
+        "misc": ""
+      },
+      "dislocationItems": [],
+      "addedAt": "2026-03-15T03:51:35.954Z"
     }
   ]
 }

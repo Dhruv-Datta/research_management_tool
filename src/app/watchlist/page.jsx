@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useCache } from '@/lib/CacheContext';
 import { formatMoneyPrecise, formatPct, formatLargeNumber } from '@/lib/formatters';
-import { Plus, X, ArrowRight, ArrowLeft, Eye, FlaskConical, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, X, ArrowRight, ArrowLeft, Eye, FlaskConical, TrendingUp, TrendingDown, Square, CheckSquare } from 'lucide-react';
 import { Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -21,20 +21,88 @@ function autoExpand(el) {
   el.style.height = el.scrollHeight + 'px';
 }
 
+const DIP_PERIODS = [
+  { key: '52w', label: '% from 52W High' },
+  { key: '1d', label: '1D' },
+  { key: '1mo', label: '1M' },
+  { key: '3mo', label: '3M' },
+  { key: '6mo', label: '6M' },
+  { key: '1y', label: '1Y' },
+  { key: '2y', label: '2Y' },
+  { key: '5y', label: '5Y' },
+];
+
+const PERIOD_SUBTITLES = {
+  '52w': '% off 52-week high',
+  '1d': 'Price change for current trading day',
+  '1mo': 'Price change over the last month',
+  '3mo': 'Price change over the last 3 months',
+  '6mo': 'Price change over the last 6 months',
+  '1y': 'Price change over the last year',
+  '2y': 'Price change over the last 2 years',
+  '5y': 'Price change over the last 5 years',
+};
+
 /* ── Dip Finder Bar Chart (Chart.js) ──────────────────────────── */
 function DipFinder({ stocks, quotes }) {
+  const [period, setPeriod] = useState('52w');
+  const [periodData, setPeriodData] = useState({});
+  const [periodLoading, setPeriodLoading] = useState(false);
+  const fetchedPeriods = useRef({});
+
+  const tickers = useMemo(() => stocks.map(s => s.ticker).filter(Boolean), [stocks]);
+
+  // Fetch period data when period changes
+  useEffect(() => {
+    if (period === '52w' || period === '1d' || tickers.length === 0) return;
+    if (fetchedPeriods.current[period]) {
+      setPeriodData(prev => ({ ...prev, [period]: fetchedPeriods.current[period] }));
+      return;
+    }
+    setPeriodLoading(true);
+    fetch(`/api/period-changes?tickers=${tickers.join(',')}&period=${period}`)
+      .then(r => r.json())
+      .then(data => {
+        fetchedPeriods.current[period] = data.changes || {};
+        setPeriodData(prev => ({ ...prev, [period]: data.changes || {} }));
+      })
+      .catch(() => {})
+      .finally(() => setPeriodLoading(false));
+  }, [period, tickers]);
+
   const items = useMemo(() => {
+    if (period === '52w') {
+      return stocks
+        .map(s => {
+          const q = quotes[s.ticker];
+          if (!q?.price || !q?.fiftyTwoWeekHigh) return null;
+          const pct = ((q.price - q.fiftyTwoWeekHigh) / q.fiftyTwoWeekHigh) * 100;
+          return { ticker: s.ticker, pct };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.pct - a.pct);
+    }
+    if (period === '1d') {
+      return stocks
+        .map(s => {
+          const q = quotes[s.ticker];
+          if (q?.dayChangePct == null) return null;
+          return { ticker: s.ticker, pct: q.dayChangePct };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.pct - a.pct);
+    }
+    // Other periods from fetched data
+    const changes = periodData[period] || {};
     return stocks
       .map(s => {
-        const q = quotes[s.ticker];
-        if (!q?.dayChangePct) return null;
-        return { ticker: s.ticker, pct: q.dayChangePct };
+        const pct = changes[s.ticker];
+        if (pct == null) return null;
+        return { ticker: s.ticker, pct };
       })
       .filter(Boolean)
-      .sort((a, b) => b.pct - a.pct); // highest first
-  }, [stocks, quotes]);
-
-  if (items.length === 0) return null;
+      .sort((a, b) => b.pct - a.pct);
+  }, [stocks, quotes, period, periodData]);
 
   const data = {
     labels: items.map(i => i.ticker),
@@ -97,15 +165,40 @@ function DipFinder({ stocks, quotes }) {
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-8">
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-base font-bold text-gray-900">Dip Finder</h2>
-          <p className="text-xs text-gray-400">Price change for current trading day</p>
+          <p className="text-xs text-gray-400">{PERIOD_SUBTITLES[period]}</p>
+        </div>
+        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+          {DIP_PERIODS.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setPeriod(key)}
+              className={`text-[11px] font-semibold px-2.5 py-1 rounded-md transition-all ${
+                period === key
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
-      <div style={{ height: Math.max(260, items.length * 12 + 120) }}>
-        <Bar data={data} options={options} />
-      </div>
+      {periodLoading ? (
+        <div className="flex items-center justify-center" style={{ height: 260 }}>
+          <div className="text-sm text-gray-400 animate-pulse">Loading data...</div>
+        </div>
+      ) : items.length === 0 ? (
+        <div className="flex items-center justify-center" style={{ height: 260 }}>
+          <div className="text-sm text-gray-400">No data available</div>
+        </div>
+      ) : (
+        <div style={{ height: Math.max(260, items.length * 12 + 120) }}>
+          <Bar data={data} options={options} />
+        </div>
+      )}
     </div>
   );
 }
@@ -139,17 +232,137 @@ function RangeBar({ low, high, current }) {
   );
 }
 
+const FUNDAMENTALS_BOXES = [
+  { key: 'revenueGrowth', label: 'Revenue & Growth Profile', color: 'blue', placeholder: 'Revenue CAGR, Revenue Segments, Growth Drivers...' },
+  { key: 'profitability', label: 'Profitability', color: 'emerald', placeholder: 'Margins, EPS, Operating Leverage, ROIC...' },
+  { key: 'capitalReturn', label: 'Capital Returned to Shareholders', color: 'violet', placeholder: 'Buybacks, Dividends...' },
+  { key: 'misc', label: 'Misc.', color: 'gray', placeholder: 'Non-recurring items, etc...' },
+];
+
+const BOX_STYLES = {
+  blue:    { bg: 'bg-blue-50/50', border: 'border-blue-200/60', ring: 'focus:ring-blue-200 focus:border-blue-300', label: 'text-blue-600' },
+  emerald: { bg: 'bg-emerald-50/50', border: 'border-emerald-200/60', ring: 'focus:ring-emerald-200 focus:border-emerald-300', label: 'text-emerald-600' },
+  violet:  { bg: 'bg-violet-50/50', border: 'border-violet-200/60', ring: 'focus:ring-violet-200 focus:border-violet-300', label: 'text-violet-600' },
+  gray:    { bg: 'bg-gray-50', border: 'border-gray-200', ring: 'focus:ring-gray-200 focus:border-gray-300', label: 'text-gray-600' },
+};
+
+/* ── Dislocation Checklist ────────────────────────────────────── */
+function DislocationChecklist({ items, onUpdate }) {
+  const [inputVal, setInputVal] = useState('');
+
+  const addItem = () => {
+    const text = inputVal.trim();
+    if (!text) return;
+    onUpdate([...items, { text, done: false }]);
+    setInputVal('');
+  };
+
+  const toggleItem = (idx) => {
+    const updated = items.map((item, i) => i === idx ? { ...item, done: !item.done } : item);
+    onUpdate(updated);
+  };
+
+  const removeItem = (idx) => {
+    onUpdate(items.filter((_, i) => i !== idx));
+  };
+
+  const updateText = (idx, text) => {
+    const updated = items.map((item, i) => i === idx ? { ...item, text } : item);
+    onUpdate(updated);
+  };
+
+  return (
+    <div>
+      <label className="text-xs font-semibold text-amber-600 uppercase tracking-wide flex items-center gap-1.5">
+        <FlaskConical size={12} />
+        Dislocation Questions
+      </label>
+      <div className="mt-2 space-y-1.5">
+        {items.map((item, idx) => (
+          <div key={idx} className="flex items-start gap-2 group">
+            <button
+              onClick={() => toggleItem(idx)}
+              className="mt-0.5 flex-shrink-0 text-amber-500 hover:text-amber-600 transition-colors"
+            >
+              {item.done ? <CheckSquare size={16} /> : <Square size={16} />}
+            </button>
+            <input
+              defaultValue={item.text}
+              onBlur={(e) => updateText(idx, e.target.value)}
+              className={`flex-1 text-sm bg-transparent border-none outline-none py-0.5 ${
+                item.done ? 'line-through text-gray-400' : 'text-gray-700'
+              }`}
+            />
+            <button
+              onClick={() => removeItem(idx)}
+              className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all flex-shrink-0 mt-0.5"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ))}
+      </div>
+      <form
+        onSubmit={(e) => { e.preventDefault(); addItem(); }}
+        className="flex items-center gap-2 mt-2"
+      >
+        <input
+          value={inputVal}
+          onChange={(e) => setInputVal(e.target.value)}
+          placeholder="Add a question..."
+          className="flex-1 text-sm text-gray-700 bg-amber-50/50 border border-amber-200/60 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300 transition-all"
+        />
+        <button
+          type="submit"
+          className="text-xs font-semibold text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-lg transition-colors"
+        >
+          <Plus size={14} />
+        </button>
+      </form>
+    </div>
+  );
+}
+
 /* ── Stock Card ───────────────────────────────────────────────── */
 function StockCard({ stock, quote, onRemove, onMove, onUpdateNote, onUpdateResearch }) {
   const isResearching = stock.stage === 'researching';
+  const fundamentals = stock.fundamentals || {};
+  const dislocationItems = stock.dislocationItems || [];
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-5">
+    <div className="relative bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-5">
+      {/* Delete confirmation overlay */}
+      {confirmDelete && (
+        <div className="absolute inset-0 z-10 bg-white/95 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center gap-3 p-6">
+          <p className="text-sm font-semibold text-gray-800">
+            Remove <span className="text-red-500">{stock.ticker}</span> from watchlist?
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="text-xs font-semibold text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 px-4 py-1.5 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => onRemove(stock.ticker)}
+              className="text-xs font-semibold text-white bg-red-500 hover:bg-red-600 px-4 py-1.5 rounded-lg transition-colors"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div>
           <div className="flex items-center gap-2">
             <span className="text-lg font-bold text-gray-900">{stock.ticker}</span>
+            {quote?.shortName && (
+              <span className="text-sm text-gray-400 font-medium">({quote.shortName})</span>
+            )}
             {isResearching && (
               <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
                 RESEARCHING
@@ -176,8 +389,8 @@ function StockCard({ stock, quote, onRemove, onMove, onUpdateNote, onUpdateResea
           )}
         </div>
         <button
-          onClick={() => onRemove(stock.ticker)}
-          className="text-gray-300 hover:text-red-400 transition-colors p-1"
+          onClick={() => setConfirmDelete(true)}
+          className="text-red-400 hover:text-red-600 transition-colors p-1"
           title="Remove"
         >
           <X size={16} />
@@ -213,39 +426,44 @@ function StockCard({ stock, quote, onRemove, onMove, onUpdateNote, onUpdateResea
         />
       </div>
 
-      {/* Researching: two free-form sections */}
+      {/* Researching sections */}
       {isResearching && (
         <div className="mt-4 space-y-4 border-t border-gray-100 pt-4">
-          {/* Fundamentals at a Glance */}
+          {/* Fundamentals at a Glance — 4 boxes */}
           <div>
-            <label className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
+            <label className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2 block">
               Fundamentals at a Glance
             </label>
-            <textarea
-              defaultValue={stock.fundamentalsGlance || ''}
-              placeholder="Key fundamentals, metrics, financial highlights..."
-              className="mt-1 w-full text-sm text-gray-700 bg-blue-50/50 border border-blue-200/60 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition-all"
-              rows={3}
-              onInput={(e) => autoExpand(e.target)}
-              onBlur={(e) => onUpdateResearch(stock.ticker, 'fundamentalsGlance', e.target.value)}
-            />
+            <div className="grid grid-cols-2 gap-2">
+              {FUNDAMENTALS_BOXES.map(({ key, label, color, placeholder }) => {
+                const s = BOX_STYLES[color];
+                return (
+                  <div key={key} className={`${s.bg} border ${s.border} rounded-xl p-3`}>
+                    <label className={`text-[10px] font-bold uppercase tracking-wider ${s.label}`}>
+                      {label}
+                    </label>
+                    <textarea
+                      defaultValue={fundamentals[key] || ''}
+                      placeholder={placeholder}
+                      className={`mt-1 w-full text-xs text-gray-700 bg-transparent border-none resize-none focus:outline-none p-0`}
+                      rows={2}
+                      onInput={(e) => autoExpand(e.target)}
+                      onBlur={(e) => onUpdateResearch(stock.ticker, 'fundamentals', {
+                        ...fundamentals,
+                        [key]: e.target.value,
+                      })}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Dislocation Questions */}
-          <div>
-            <label className="text-xs font-semibold text-amber-600 uppercase tracking-wide flex items-center gap-1.5">
-              <FlaskConical size={12} />
-              Dislocation Questions
-            </label>
-            <textarea
-              defaultValue={stock.dislocationNotes || ''}
-              placeholder="Your dislocation questions and analysis..."
-              className="mt-1 w-full text-sm text-gray-700 bg-amber-50/50 border border-amber-200/60 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300 transition-all"
-              rows={3}
-              onInput={(e) => autoExpand(e.target)}
-              onBlur={(e) => onUpdateResearch(stock.ticker, 'dislocationNotes', e.target.value)}
-            />
-          </div>
+          {/* Dislocation Questions — checklist */}
+          <DislocationChecklist
+            items={dislocationItems}
+            onUpdate={(items) => onUpdateResearch(stock.ticker, 'dislocationItems', items)}
+          />
         </div>
       )}
 
@@ -347,8 +565,8 @@ export default function WatchlistPage() {
       ticker,
       stage: 'watching',
       note: '',
-      fundamentalsGlance: '',
-      dislocationNotes: '',
+      fundamentals: { revenueGrowth: '', profitability: '', capitalReturn: '', misc: '' },
+      dislocationItems: [],
       addedAt: new Date().toISOString(),
     };
     const updated = [...stocks, newStock];
@@ -410,7 +628,7 @@ export default function WatchlistPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 pt-24 px-6 lg:px-12">
+      <div className="min-h-screen bg-gray-50 px-6 lg:px-12">
         <div className="max-w-7xl mx-auto">
           <div className="h-8 w-48 bg-gray-200 rounded animate-pulse mb-6" />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -424,7 +642,7 @@ export default function WatchlistPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-24 px-6 lg:px-12 pb-16">
+    <div className="min-h-screen bg-gray-50 px-6 lg:px-12 pb-16">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">

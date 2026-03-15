@@ -49,8 +49,10 @@ def fetch_quotes(tickers):
             roic = _safe_float(full_info.get('returnOnCapital')) or _safe_float(full_info.get('returnOnEquity'))
             fifty_two_high = _safe_float(full_info.get('fiftyTwoWeekHigh'))
             fifty_two_low = _safe_float(full_info.get('fiftyTwoWeekLow'))
+            short_name = full_info.get('shortName') or full_info.get('longName') or ''
 
             result[t] = {
+                "shortName": short_name,
                 "price": price,
                 "previousClose": prev,
                 "dayChange": round(day_change, 4),

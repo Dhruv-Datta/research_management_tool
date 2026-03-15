@@ -8,8 +8,8 @@ import { Briefcase, Search, Eye } from 'lucide-react';
 
 const navLinks = [
   { href: '/holdings', label: 'Our Holdings', icon: Briefcase },
-  { href: '/research', label: 'Research', icon: Search },
   { href: '/watchlist', label: 'Watchlist', icon: Eye },
+  { href: '/research', label: 'Research', icon: Search },
 ];
 
 export default function Navbar() {
