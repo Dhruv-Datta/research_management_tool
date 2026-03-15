@@ -1,0 +1,22 @@
+{
+  "inputs": {
+    "ticker": "MA",
+    "sharePrice": 497.989990234375,
+    "targetPE": 32,
+    "revenueGrowth": 0.12,
+    "opexGrowth": 0.11199999999999999,
+    "cogsGrowth": 0,
+    "netShareDilution": -0.015,
+    "dividendGrowth": 0.13,
+    "currentDividend": 3.04,
+    "taxRate": 0.15,
+    "baseRevenue": 32.79,
+    "baseCOGS": 0,
+    "baseOpex": 13.89,
+    "baseNonOpIncome": -0.32,
+    "baseTaxExpense": 3.61,
+    "baseShares": 0.906,
+    "baseYear": 2026
+  },
+  "updatedAt": "2026-03-15T01:06:36.221Z"
+}

@@ -60,6 +60,7 @@ export default function PriceChart({
     { label: '1Y', value: computeCAGR(labels, data, 1) },
     { label: '2Y', value: computeCAGR(labels, data, 2) },
     { label: '5Y', value: computeCAGR(labels, data, 5) },
+    { label: '10Y', value: computeCAGR(labels, data, 10) },
   ] : [];
 
   return (
