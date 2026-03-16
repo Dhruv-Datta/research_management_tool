@@ -5,7 +5,7 @@ export async function GET(request, { params }) {
   const { ticker } = await params;
   const upper = ticker.toUpperCase();
 
-  const exists = tickerDataExists(upper);
+  const exists = await tickerDataExists(upper);
 
   if (!exists) {
     return NextResponse.json({
@@ -15,7 +15,7 @@ export async function GET(request, { params }) {
     });
   }
 
-  const data = loadTickerFundamentals(upper);
+  const data = await loadTickerFundamentals(upper);
   const valuation = computeValuationMetrics(data);
 
   return NextResponse.json({

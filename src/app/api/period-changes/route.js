@@ -1,9 +1,5 @@
 import { NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import path from 'path';
-
-const execAsync = promisify(exec);
+import { fetchPeriodChanges } from '@/lib/yahoo';
 
 export async function GET(request) {
   try {
@@ -21,11 +17,7 @@ export async function GET(request) {
     }
 
     const tickerList = tickers.split(',').map(t => t.trim().toUpperCase()).filter(Boolean);
-    const scriptPath = path.join(process.cwd(), 'scripts', 'fetch_period_changes.py');
-    const cmd = `python3 "${scriptPath}" ${period} ${tickerList.join(' ')}`;
-
-    const { stdout } = await execAsync(cmd, { timeout: 60000 });
-    const changes = JSON.parse(stdout);
+    const changes = await fetchPeriodChanges(tickerList, period);
 
     return NextResponse.json({ changes });
   } catch (e) {
