@@ -10,7 +10,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'cash must be a number' }, { status: 400 });
     }
 
-    const portfolio = updateCash(Number(cash));
+    const portfolio = await updateCash(Number(cash));
     return NextResponse.json({ success: true, portfolio });
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 });

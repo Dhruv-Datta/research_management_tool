@@ -1,7 +1,4 @@
-import fs from 'fs';
-import path from 'path';
-
-const WATCHLIST_PATH = path.join(process.cwd(), 'watchlist.json');
+import { supabase } from './supabase';
 
 const DEFAULT_WATCHLIST = {
   watchlists: [
@@ -10,32 +7,55 @@ const DEFAULT_WATCHLIST = {
   activeWatchlistId: 'default',
 };
 
-export function loadWatchlist() {
-  if (!fs.existsSync(WATCHLIST_PATH)) {
+export async function loadWatchlist() {
+  const [{ data: watchlists, error: wErr }, { data: setting, error: sErr }] = await Promise.all([
+    supabase.from('watchlists').select('*'),
+    supabase.from('app_settings').select('value').eq('key', 'activeWatchlistId').single(),
+  ]);
+
+  if (wErr || !watchlists || watchlists.length === 0) {
     return { ...DEFAULT_WATCHLIST, watchlists: [{ ...DEFAULT_WATCHLIST.watchlists[0] }] };
   }
-  try {
-    const raw = fs.readFileSync(WATCHLIST_PATH, 'utf-8');
-    const data = JSON.parse(raw);
 
-    // Migrate old single-watchlist format
-    if (data.stocks && !data.watchlists) {
-      const migrated = {
-        watchlists: [
-          { id: 'default', name: 'My Watchlist', stocks: data.stocks }
-        ],
-        activeWatchlistId: 'default',
-      };
-      fs.writeFileSync(WATCHLIST_PATH, JSON.stringify(migrated, null, 2));
-      return migrated;
-    }
-
-    return data;
-  } catch {
-    return { ...DEFAULT_WATCHLIST, watchlists: [{ ...DEFAULT_WATCHLIST.watchlists[0] }] };
-  }
+  return {
+    watchlists: watchlists.map(w => ({
+      id: w.id,
+      name: w.name,
+      stocks: w.stocks || [],
+    })),
+    activeWatchlistId: setting?.value || 'default',
+  };
 }
 
-export function saveWatchlist(data) {
-  fs.writeFileSync(WATCHLIST_PATH, JSON.stringify(data, null, 2));
+export async function saveWatchlist(data) {
+  const { watchlists, activeWatchlistId } = data;
+
+  // Get existing watchlist IDs
+  const { data: existing } = await supabase.from('watchlists').select('id');
+  const existingIds = new Set((existing || []).map(w => w.id));
+  const newIds = new Set(watchlists.map(w => w.id));
+
+  // Delete removed watchlists
+  const toDelete = [...existingIds].filter(id => !newIds.has(id));
+  if (toDelete.length > 0) {
+    await supabase.from('watchlists').delete().in('id', toDelete);
+  }
+
+  // Upsert all watchlists
+  if (watchlists.length > 0) {
+    const { error } = await supabase.from('watchlists').upsert(
+      watchlists.map(w => ({
+        id: w.id,
+        name: w.name,
+        stocks: w.stocks || [],
+      }))
+    );
+    if (error) throw new Error(error.message);
+  }
+
+  // Upsert activeWatchlistId
+  await supabase.from('app_settings').upsert({
+    key: 'activeWatchlistId',
+    value: activeWatchlistId || 'default',
+  });
 }

@@ -1,60 +1,60 @@
-import fs from 'fs';
-import path from 'path';
+import { supabase } from './supabase';
 
-const PORTFOLIO_PATH = path.join(process.cwd(), 'portfolio.json');
+export async function loadPortfolio() {
+  const [{ data: holdings, error: hErr }, { data: cashRow, error: cErr }] = await Promise.all([
+    supabase.from('holdings').select('*').order('added_at'),
+    supabase.from('portfolio_cash').select('cash').eq('id', 1).single(),
+  ]);
 
-export function loadPortfolio() {
-  try {
-    const raw = fs.readFileSync(PORTFOLIO_PATH, 'utf-8');
-    const data = JSON.parse(raw);
-    return {
-      holdings: Array.isArray(data.holdings) ? data.holdings : [],
-      cash: Number(data.cash) || 0,
-    };
-  } catch {
-    return { holdings: [], cash: 0 };
-  }
+  if (hErr) throw new Error(hErr.message);
+
+  return {
+    holdings: (holdings || []).map(h => ({
+      ticker: h.ticker,
+      shares: Number(h.shares),
+      cost_basis: Number(h.cost_basis),
+      added_at: h.added_at,
+      updated_at: h.updated_at,
+    })),
+    cash: Number(cashRow?.cash) || 0,
+  };
 }
 
-export function savePortfolio(portfolio) {
-  fs.writeFileSync(PORTFOLIO_PATH, JSON.stringify(portfolio, null, 2), 'utf-8');
-}
-
-export function addHolding(ticker, shares, costBasis) {
-  const portfolio = loadPortfolio();
+export async function addHolding(ticker, shares, costBasis) {
   const upper = ticker.trim().toUpperCase();
-  const existing = portfolio.holdings.find(h => h.ticker === upper);
   const now = new Date().toISOString();
 
-  if (existing) {
-    existing.shares = shares;
-    existing.cost_basis = costBasis;
-    existing.updated_at = now;
-  } else {
-    portfolio.holdings.push({
+  const { error } = await supabase
+    .from('holdings')
+    .upsert({
       ticker: upper,
       shares,
       cost_basis: costBasis,
-      added_at: now,
       updated_at: now,
-    });
-  }
+    }, { onConflict: 'ticker' });
 
-  savePortfolio(portfolio);
-  return portfolio;
+  if (error) throw new Error(error.message);
+  return loadPortfolio();
 }
 
-export function removeHolding(ticker) {
-  const portfolio = loadPortfolio();
+export async function removeHolding(ticker) {
   const upper = ticker.trim().toUpperCase();
-  portfolio.holdings = portfolio.holdings.filter(h => h.ticker !== upper);
-  savePortfolio(portfolio);
-  return portfolio;
+
+  const { error } = await supabase
+    .from('holdings')
+    .delete()
+    .eq('ticker', upper);
+
+  if (error) throw new Error(error.message);
+  return loadPortfolio();
 }
 
-export function updateCash(cash) {
-  const portfolio = loadPortfolio();
-  portfolio.cash = Number(cash) || 0;
-  savePortfolio(portfolio);
-  return portfolio;
+export async function updateCash(cash) {
+  const { error } = await supabase
+    .from('portfolio_cash')
+    .update({ cash: Number(cash) || 0 })
+    .eq('id', 1);
+
+  if (error) throw new Error(error.message);
+  return loadPortfolio();
 }

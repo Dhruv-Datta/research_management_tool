@@ -1,9 +1,5 @@
 import { NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import path from 'path';
-
-const execAsync = promisify(exec);
+import { fetchQuotes } from '@/lib/yahoo';
 
 export async function GET(request) {
   try {
@@ -14,11 +10,7 @@ export async function GET(request) {
     }
 
     const tickerList = tickers.split(',').map(t => t.trim().toUpperCase()).filter(Boolean);
-    const scriptPath = path.join(process.cwd(), 'scripts', 'fetch_quotes.py');
-    const cmd = `python3 "${scriptPath}" ${tickerList.join(' ')}`;
-
-    const { stdout } = await execAsync(cmd, { timeout: 30000 });
-    const quotes = JSON.parse(stdout);
+    const quotes = await fetchQuotes(tickerList);
 
     return NextResponse.json({ quotes });
   } catch (e) {

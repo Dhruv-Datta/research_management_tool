@@ -1,31 +1,45 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { supabase } from '@/lib/supabase';
 
-const FILE_PATH = path.join(process.cwd(), 'data', 'factor-config.json');
+async function readConfig() {
+  const { data, error } = await supabase
+    .from('factor_config')
+    .select('factors, importance_weights, exposures')
+    .eq('id', 1)
+    .single();
 
-function readConfig() {
-  try {
-    return JSON.parse(fs.readFileSync(FILE_PATH, 'utf-8'));
-  } catch {
+  if (error || !data) {
     return { factors: [], importanceWeights: { Volatility: 0.9 }, exposures: {} };
   }
+
+  return {
+    factors: data.factors || [],
+    importanceWeights: data.importance_weights || { Volatility: 0.9 },
+    exposures: data.exposures || {},
+  };
 }
 
-function writeConfig(config) {
-  const dir = path.dirname(FILE_PATH);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(FILE_PATH, JSON.stringify(config, null, 2));
+async function writeConfig(config) {
+  const { error } = await supabase
+    .from('factor_config')
+    .update({
+      factors: config.factors,
+      importance_weights: config.importanceWeights,
+      exposures: config.exposures,
+    })
+    .eq('id', 1);
+
+  if (error) throw new Error(error.message);
 }
 
 export async function GET() {
-  return NextResponse.json(readConfig());
+  return NextResponse.json(await readConfig());
 }
 
 export async function PUT(request) {
   try {
     const body = await request.json();
-    const config = readConfig();
+    const config = await readConfig();
 
     if (body.factors !== undefined) {
       config.factors = body.factors;
@@ -39,7 +53,7 @@ export async function PUT(request) {
       }
     }
 
-    writeConfig(config);
+    await writeConfig(config);
     return NextResponse.json(config);
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 });

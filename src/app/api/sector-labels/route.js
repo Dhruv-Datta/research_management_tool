@@ -1,25 +1,28 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { supabase } from '@/lib/supabase';
 
-const FILE_PATH = path.join(process.cwd(), 'data', 'sector-config.json');
+async function readConfig() {
+  const { data, error } = await supabase
+    .from('sector_config')
+    .select('config')
+    .eq('id', 1)
+    .single();
 
-function readConfig() {
-  try {
-    return JSON.parse(fs.readFileSync(FILE_PATH, 'utf-8'));
-  } catch {
-    return {};
-  }
+  if (error || !data) return {};
+  return data.config || {};
 }
 
-function writeConfig(config) {
-  const dir = path.dirname(FILE_PATH);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(FILE_PATH, JSON.stringify(config, null, 2));
+async function writeConfig(config) {
+  const { error } = await supabase
+    .from('sector_config')
+    .update({ config })
+    .eq('id', 1);
+
+  if (error) throw new Error(error.message);
 }
 
 export async function GET() {
-  return NextResponse.json(readConfig());
+  return NextResponse.json(await readConfig());
 }
 
 export async function PUT(request) {
@@ -29,7 +32,7 @@ export async function PUT(request) {
       return NextResponse.json({ error: 'sector is required' }, { status: 400 });
     }
 
-    const config = readConfig();
+    const config = await readConfig();
     if (!config[sector]) config[sector] = {};
 
     if (label !== undefined) {
@@ -48,10 +51,9 @@ export async function PUT(request) {
       }
     }
 
-    // Clean up empty entries
     if (Object.keys(config[sector]).length === 0) delete config[sector];
 
-    writeConfig(config);
+    await writeConfig(config);
     return NextResponse.json(config);
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 });
