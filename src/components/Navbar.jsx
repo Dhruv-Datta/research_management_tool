@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Briefcase, Search, Eye, FolderOpen, LogOut, ClipboardList,
   ChevronDown, Shield, BarChart3, PieChart, FileText, Scale, DollarSign,
+  ListTodo,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -16,12 +17,12 @@ const NAV_GROUPS = [
     icon: Briefcase,
     items: [
       { href: '/holdings', label: 'Holdings', icon: Briefcase },
+      { href: '/tasks', label: 'Tasks', icon: ListTodo },
       { href: '/holdings?tab=risk', label: 'Risk', icon: Shield },
       { href: '/holdings?tab=factors', label: 'Factors', icon: BarChart3 },
       { href: '/allocation', label: 'Allocation', icon: PieChart },
     ],
-    // Active if any child route is active
-    matchPaths: ['/holdings', '/allocation'],
+    matchPaths: ['/holdings', '/tasks', '/allocation'],
   },
   {
     label: 'Equity Research',
