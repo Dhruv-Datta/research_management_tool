@@ -39,7 +39,6 @@ const NAV_GROUPS = [
     items: [
       { href: '/documents', label: 'Documents', icon: FolderOpen },
       { href: '/financials', label: 'Financials', icon: DollarSign },
-      { href: '/financials/accounting', label: 'Accounting', icon: BarChart3 },
       { href: '/legal', label: 'Legal', icon: Scale },
     ],
     matchPaths: ['/documents', '/financials', '/legal'],

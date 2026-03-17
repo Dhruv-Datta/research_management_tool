@@ -3,12 +3,13 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   Plus, Trash2, ChevronLeft, ChevronRight, AlertTriangle,
-  CheckCircle, DollarSign, TrendingUp, BarChart3, Layers
+  CheckCircle, DollarSign, TrendingUp, BarChart3, Layers, Users, ChevronDown
 } from 'lucide-react';
 import StatCard from '@/components/StatCard';
 import ConfirmModal from '@/components/ConfirmModal';
 import {
   createSeedState, computeFullTimeline, validateTimeline, getLatestMetrics,
+  computeInvestorPerformance,
   updateEndAUM, addContribution, removeContribution, addPeriod, removePeriod,
   addQuarter, removeQuarter, updateContribution, updatePeriodDates,
   updateContributionDate
@@ -619,10 +620,201 @@ function InvestorRows({ investor, columns, cellBase, rowLabel, sectionLabel, sta
 }
 
 
+// ─── Investor Performance Tab ────────────────────────────────────────────────
+
+function InvestorPerformanceTab({ computedTimeline, state }) {
+  const [selectedInvestor, setSelectedInvestor] = useState(null);
+
+  const perfData = useMemo(() => {
+    if (!state || computedTimeline.length === 0) return null;
+    return computeInvestorPerformance(computedTimeline, state);
+  }, [computedTimeline, state]);
+
+  if (!perfData) {
+    return <div className="text-gray-400 text-sm py-12 text-center">No data available.</div>;
+  }
+
+  const { investorMetrics, validationErrors } = perfData;
+
+  const cellBase = 'px-3 py-2 text-[13px] font-medium tabular-nums text-right whitespace-nowrap';
+  const headerCell = 'px-3 py-2.5 text-[11px] font-bold text-gray-400 uppercase tracking-wider text-right whitespace-nowrap';
+
+  const valColor = (v) => v == null ? '' : v >= 0 ? 'text-emerald-700' : 'text-red-600';
+
+  return (
+    <div className="space-y-6">
+      {/* ── Section 1: Summary Table ──────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100">
+          <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wider flex items-center gap-2">
+            <Users size={16} className="text-emerald-600" />
+            Investor Performance Summary
+          </h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50/50">
+                <th className={`${headerCell} text-left`}>Investor</th>
+                <th className={headerCell}>Total Contributed</th>
+                <th className={headerCell}>Current Shares</th>
+                <th className={headerCell}>Ownership %</th>
+                <th className={headerCell}>Avg Cost NAV</th>
+                <th className={headerCell}>Current NAV</th>
+                <th className={headerCell}>Current Capital</th>
+                <th className={headerCell}>Unrealized P/L $</th>
+                <th className={headerCell}>Since Inception TWR</th>
+                <th className={headerCell}>S&P 500 TWR</th>
+                <th className={headerCell}>Alpha</th>
+              </tr>
+            </thead>
+            <tbody>
+              {investorMetrics.map((m) => (
+                <tr
+                  key={m.name}
+                  className={`border-b border-gray-50 hover:bg-emerald-50/30 cursor-pointer transition-colors ${selectedInvestor === m.name ? 'bg-emerald-50/50' : ''}`}
+                  onClick={() => setSelectedInvestor(selectedInvestor === m.name ? null : m.name)}
+                >
+                  <td className="px-3 py-2 text-[13px] font-bold text-gray-900 whitespace-nowrap text-left">
+                    <div className="flex items-center gap-1.5">
+                      <ChevronDown size={12} className={`text-gray-400 transition-transform ${selectedInvestor === m.name ? 'rotate-180' : ''}`} />
+                      {m.name}
+                    </div>
+                  </td>
+                  <td className={`${cellBase} text-gray-900`}>{fmt$(m.totalContributed)}</td>
+                  <td className={`${cellBase} text-gray-900`}>{fmtShares(m.shares)}</td>
+                  <td className={`${cellBase} text-gray-900`}>{fmtPct(m.ownership)}</td>
+                  <td className={`${cellBase} text-gray-900`}>{m.avgCostNAV != null ? fmtNav(m.avgCostNAV) : '—'}</td>
+                  <td className={`${cellBase} text-gray-900`}>{fmtNav(m.currentNAV)}</td>
+                  <td className={`${cellBase} text-gray-900 font-semibold`}>{fmt$(m.currentValue)}</td>
+                  <td className={`${cellBase} font-semibold ${valColor(m.unrealizedPL)}`}>{fmt$(m.unrealizedPL)}</td>
+                  <td className={`${cellBase} font-semibold ${valColor(m.sinceInceptionTWR)}`}>{m.sinceInceptionTWR != null ? fmtPct(m.sinceInceptionTWR) : '—'}</td>
+                  <td className={`${cellBase} font-semibold ${valColor(m.sinceInceptionSPTWR)}`}>{m.sinceInceptionSPTWR != null ? fmtPct(m.sinceInceptionSPTWR) : '—'}</td>
+                  <td className={`${cellBase} font-semibold ${valColor(m.alpha)}`}>{m.alpha != null ? fmtPct(m.alpha) : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Section 2: Investor Detail View ───────────────────────── */}
+      {selectedInvestor && (() => {
+        const m = investorMetrics.find(x => x.name === selectedInvestor);
+        if (!m) return null;
+
+        return (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wider">{m.name} — Detail</h2>
+            </div>
+
+            {/* Contribution History */}
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Contribution History</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-gray-50/50">
+                      <th className={headerCell}>Date</th>
+                      <th className={headerCell}>Amount</th>
+                      <th className={headerCell}>NAV at Issuance</th>
+                      <th className={headerCell}>Shares Issued</th>
+                      <th className={headerCell}>Running Shares</th>
+                      <th className={headerCell}>Running Contributed</th>
+                      <th className={headerCell}>Running Current Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {m.contributionDetail.map((c, i) => (
+                      <tr key={i} className="border-b border-gray-50 hover:bg-gray-50/30">
+                        <td className={`${cellBase} text-gray-600`}>{fmtDate(c.date)}</td>
+                        <td className={`${cellBase} text-emerald-700 font-semibold`}>{fmt$(c.amount)}</td>
+                        <td className={`${cellBase} text-gray-900`}>{fmtNav(c.nav)}</td>
+                        <td className={`${cellBase} text-gray-900`}>{fmtShares(c.sharesIssued)}</td>
+                        <td className={`${cellBase} text-gray-900`}>{fmtShares(c.runningShares)}</td>
+                        <td className={`${cellBase} text-gray-900`}>{fmt$(c.runningContributed)}</td>
+                        <td className={`${cellBase} text-gray-900 font-semibold`}>{fmt$(c.runningCurrentValue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Period-by-Period Returns */}
+            <div className="px-5 py-4">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Period-by-Period Returns (Active Periods Only)</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-gray-50/50">
+                      <th className={headerCell}>Quarter</th>
+                      <th className={headerCell}>Start Date</th>
+                      <th className={headerCell}>End Date</th>
+                      <th className={headerCell}>Start NAV</th>
+                      <th className={headerCell}>End NAV</th>
+                      <th className={headerCell}>Shares at Start</th>
+                      <th className={headerCell}>Period Return</th>
+                      <th className={headerCell}>Cumulative TWR</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {m.periodDetail.map((p, i) => (
+                      <tr key={i} className="border-b border-gray-50 hover:bg-gray-50/30">
+                        <td className={`${cellBase} text-gray-600`}>{p.quarterLabel}</td>
+                        <td className={`${cellBase} text-gray-600`}>{fmtDate(p.startDate)}</td>
+                        <td className={`${cellBase} text-gray-600`}>{fmtDate(p.endDate)}</td>
+                        <td className={`${cellBase} text-gray-900`}>{fmtNav(p.startNAV)}</td>
+                        <td className={`${cellBase} text-gray-900`}>{fmtNav(p.endNAV)}</td>
+                        <td className={`${cellBase} text-gray-900`}>{fmtShares(p.sharesAtStart)}</td>
+                        <td className={`${cellBase} font-semibold ${valColor(p.periodReturn)}`}>{fmtPct(p.periodReturn)}</td>
+                        <td className={`${cellBase} font-semibold ${valColor(p.cumulativeTWR)}`}>{fmtPct(p.cumulativeTWR)}</td>
+                      </tr>
+                    ))}
+                    {m.periodDetail.length === 0 && (
+                      <tr><td colSpan={8} className="px-3 py-6 text-center text-sm text-gray-400">No active periods — investor has not yet been invested at the start of any subperiod.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Validation ────────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+          {validationErrors.length === 0 ? (
+            <><CheckCircle size={16} className="text-emerald-500" /> Investor Validation Passed</>
+          ) : (
+            <><AlertTriangle size={16} className="text-amber-500" /> Investor Validation Issues ({validationErrors.length})</>
+          )}
+        </h3>
+        {validationErrors.length === 0 ? (
+          <p className="text-sm text-gray-500">Shares match engine, ownership sums to 100%, capital values sum to AUM.</p>
+        ) : (
+          <div className="space-y-2">
+            {validationErrors.map((err, i) => (
+              <div key={i} className="flex items-start gap-2 text-sm text-red-600">
+                <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+                <span>{err}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function AccountingTool() {
   const [state, setState] = useState(null);
+  const [activeTab, setActiveTab] = useState('accounting'); // 'accounting' | 'investor-performance'
   const [activeQuarter, setActiveQuarter] = useState(0);
   const [showAddQuarter, setShowAddQuarter] = useState(false);
 
@@ -631,7 +823,25 @@ export default function AccountingTool() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        setState(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        // Always sync S&P benchmark data from seed
+        const seed = createSeedState();
+        parsed.inceptionSP = seed.inceptionSP;
+        for (let qi = 0; qi < parsed.quarters.length && qi < seed.quarters.length; qi++) {
+          const savedEvents = parsed.quarters[qi].events;
+          const seedEvents = seed.quarters[qi].events;
+          let si = 0;
+          for (let ei = 0; ei < savedEvents.length; ei++) {
+            if (savedEvents[ei].type === 'period') {
+              while (si < seedEvents.length && seedEvents[si].type !== 'period') si++;
+              if (si < seedEvents.length) {
+                savedEvents[ei].spEnd = seedEvents[si].spEnd;
+              }
+              si++;
+            }
+          }
+        }
+        setState(parsed);
       } else {
         setState(createSeedState());
       }
@@ -675,40 +885,46 @@ export default function AccountingTool() {
   return (
     <div className="max-w-[1600px] mx-auto px-6 lg:px-12 pb-16">
       {/* Header */}
-      <div className="mb-8 flex items-end justify-between">
+      <div className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Fund Accounting</h1>
           <p className="text-sm text-gray-500 mt-1">NAV-based share accounting &middot; {state.investors.join(', ')}</p>
         </div>
       </div>
 
-      {/* Stat Cards */}
-      {latest && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <StatCard
-            label="Current NAV"
-            value={fmtNav(latest.nav)}
-            sub={`Inception NAV: ${state.inceptionNAV}`}
-          />
-          <StatCard
-            label="Total AUM"
-            value={fmt$(latest.aum)}
-            sub={`${state.investors.length} investors`}
-          />
-          <StatCard
-            label="Cumulative Return"
-            value={fmtPct(latest.cumulativeReturn)}
-            sub={`Since ${fmtDate(state.inceptionDate)}`}
-            variant={latest.cumulativeReturn >= 0 ? 'positive' : 'negative'}
-          />
-          <StatCard
-            label="Total Shares"
-            value={fmtShares(latest.totalShares)}
-            sub="Outstanding"
-          />
-        </div>
+      {/* Top-level tab switcher */}
+      <div className="flex items-center gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit">
+        <button
+          onClick={() => setActiveTab('accounting')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+            activeTab === 'accounting'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Layers size={15} />
+          Workbook
+        </button>
+        <button
+          onClick={() => setActiveTab('investor-performance')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+            activeTab === 'investor-performance'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Users size={15} />
+          Investor Performance
+        </button>
+      </div>
+
+      {/* ── Investor Performance Tab ────────────────────────────── */}
+      {activeTab === 'investor-performance' && (
+        <InvestorPerformanceTab computedTimeline={computedTimeline} state={state} />
       )}
 
+      {/* ── Workbook Tab ─────────────────────────────────────────── */}
+      {activeTab === 'accounting' && <>
       {/* Quarter Tabs */}
       <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
         {state.quarters.map((q, qi) => (
@@ -791,6 +1007,8 @@ export default function AccountingTool() {
           </div>
         )}
       </div>
+
+      </>}
 
       {/* Modals */}
       {showAddQuarter && (

@@ -48,70 +48,51 @@ export function createSeedState() {
     // These represent shares at inception, issued at NAV=100
     // Bhuvan: 3271.90/100 = 32.71903056, Dhruv: 1592.66/100 = 15.92656944
     initialShares: { Bhuvan: 32.71903056, Dhruv: 15.92656944, Amit: 0 },
+    // S&P 500 price at fund inception — benchmark anchor
+    inceptionSP: 5634.58,
     quarters: [
       {
-        // Workbook: "Q4 2024 (Sept to Dec)" sheet
-        // Cols C:D = single period, no contributions mid-quarter
-        // C3=4864.56 (start AUM), D3=5923.04 (end AUM)
-        // C4=100 (NAV start, =C3/C5), D4=121.759 (=D3/C5)
-        // C5=48.6456 (total shares), D5=48.6456 (=C5, unchanged)
         label: 'Q4 2024',
         events: [
-          { type: 'period', startDate: '2024-09-17', endDate: '2024-12-31', endAUM: 5923.04 }
+          { type: 'period', startDate: '2024-09-17', endDate: '2024-12-31', endAUM: 5923.04, spEnd: 5881.63 }
         ]
       },
       {
-        // Workbook: "Q1 2025 (Jan to Mar)" sheet
-        // C:D = period 1, E = contribution, F:G = period 2, H = contribution, I:J = period 3
-        // C3=5923.04, D3=5790.92, G3=8207.62, J3=10594.99
-        // E15=2500 (Amit), H15=2500 (Amit)
-        // F17=E15/D4+D17 (new shares for Amit at frozen NAV)
         label: 'Q1 2025',
         events: [
-          { type: 'period', startDate: '2025-01-01', endDate: '2025-03-17', endAUM: 5790.92 },
+          { type: 'period', startDate: '2025-01-01', endDate: '2025-03-17', endAUM: 5790.92, spEnd: 5675.12 },
           { type: 'contribution', date: '2025-03-17', amounts: { Amit: 2500 } },
-          { type: 'period', startDate: '2025-03-18', endDate: '2025-03-18', endAUM: 8207.62 },
+          { type: 'period', startDate: '2025-03-18', endDate: '2025-03-18', endAUM: 8207.62, spEnd: 5614.66 },
           { type: 'contribution', date: '2025-03-18', amounts: { Amit: 2500 } },
-          { type: 'period', startDate: '2025-03-19', endDate: '2025-03-31', endAUM: 10594.99 }
+          { type: 'period', startDate: '2025-03-19', endDate: '2025-03-31', endAUM: 10594.99, spEnd: 5611.85 }
         ]
       },
       {
-        // Workbook: "Q2 2025 (Apr to June)" sheet
-        // C:D=P1, E=contrib, F:G=P2, H=contrib, I:J=P3, K=contrib, L:M=P4, N=contrib, O:P=P5
-        // Contributions: E11=2500(Dhruv), H7=601.49(Bhuvan)+H11=1130.52(Dhruv),
-        //   K7=2000(Bhuvan), N11=1100(Dhruv)
         label: 'Q2 2025',
         events: [
-          { type: 'period', startDate: '2025-04-01', endDate: '2025-04-09', endAUM: 10838.33 },
+          { type: 'period', startDate: '2025-04-01', endDate: '2025-04-09', endAUM: 10838.33, spEnd: 5456.90 },
           { type: 'contribution', date: '2025-04-09', amounts: { Dhruv: 2500 } },
-          { type: 'period', startDate: '2025-04-10', endDate: '2025-05-28', endAUM: 14948.95 },
+          { type: 'period', startDate: '2025-04-10', endDate: '2025-05-28', endAUM: 14948.95, spEnd: 5888.55 },
           { type: 'contribution', date: '2025-05-28', amounts: { Bhuvan: 601.49, Dhruv: 1130.52 } },
-          { type: 'period', startDate: '2025-05-29', endDate: '2025-06-17', endAUM: 17142.37 },
+          { type: 'period', startDate: '2025-05-29', endDate: '2025-06-17', endAUM: 17142.37, spEnd: 5982.72 },
           { type: 'contribution', date: '2025-06-17', amounts: { Bhuvan: 2000 } },
-          { type: 'period', startDate: '2025-06-18', endDate: '2025-06-24', endAUM: 19348.68 },
+          { type: 'period', startDate: '2025-06-18', endDate: '2025-06-24', endAUM: 19348.68, spEnd: 6092.18 },
           { type: 'contribution', date: '2025-06-24', amounts: { Dhruv: 1100 } },
-          { type: 'period', startDate: '2025-06-25', endDate: '2025-06-30', endAUM: 21236.56 }
+          { type: 'period', startDate: '2025-06-25', endDate: '2025-06-30', endAUM: 21236.56, spEnd: 6204.95 }
         ]
       },
       {
-        // Workbook: "Q3 2025 (July to Sept)" sheet
-        // D:E=P1, F=contrib, G:H=P2
-        // F7=500(Bhuvan), F11=500(Dhruv)
-        // New shares: G9=F7/E4+E9, G13=F11/E4+E13
         label: 'Q3 2025',
         events: [
-          { type: 'period', startDate: '2025-07-01', endDate: '2025-07-31', endAUM: 21167.07 },
+          { type: 'period', startDate: '2025-07-01', endDate: '2025-07-31', endAUM: 21167.07, spEnd: 6339.39 },
           { type: 'contribution', date: '2025-07-31', amounts: { Bhuvan: 500, Dhruv: 500 } },
-          { type: 'period', startDate: '2025-08-01', endDate: '2025-09-30', endAUM: 25655.34 }
+          { type: 'period', startDate: '2025-08-01', endDate: '2025-09-30', endAUM: 25655.34, spEnd: 6688.46 }
         ]
       },
       {
-        // Workbook: "Q4 2025 (Oct to Dec)" sheet
-        // D:E = single period, no contributions
-        // D3=25655.34, E3=27219.64
         label: 'Q4 2025',
         events: [
-          { type: 'period', startDate: '2025-10-01', endDate: '2025-12-01', endAUM: 27219.64 }
+          { type: 'period', startDate: '2025-10-01', endDate: '2025-12-01', endAUM: 27219.64, spEnd: 6812.63 }
         ]
       }
     ]
@@ -133,6 +114,7 @@ export function computeFullTimeline(state) {
 
   // Running state across all quarters
   let currentNAV = inceptionNAV; // Workbook Q4'24 C4 = 100
+  let currentSP = state.inceptionSP || null; // S&P 500 benchmark tracking
   let shares = { ...initialShares };
   let totalShares = investors.reduce((sum, inv) => sum + (shares[inv] || 0), 0);
   const inceptionOpenNAV = inceptionNAV; // For cumulative return: always 100
@@ -232,8 +214,13 @@ export function computeFullTimeline(state) {
         const qtdReturn = quarterOpenNAV > 0 ? (endNAV / quarterOpenNAV - 1) : 0;
         const cumulativeReturn = inceptionOpenNAV > 0 ? (endNAV / inceptionOpenNAV - 1) : 0;
 
+        // S&P 500 benchmark for this period
+        const spStart = currentSP;
+        const spEnd = event.spEnd != null ? event.spEnd : null;
+
         // Update running state
         currentNAV = endNAV;
+        if (spEnd != null) currentSP = spEnd;
 
         computedEvents.push({
           type: 'period',
@@ -249,7 +236,9 @@ export function computeFullTimeline(state) {
           investorEnd,
           periodReturn,
           qtdReturn,
-          cumulativeReturn
+          cumulativeReturn,
+          spStart,
+          spEnd
         });
       }
     }
@@ -464,6 +453,216 @@ export function validateTimeline(computedTimeline, state) {
   }
 
   return errors;
+}
+
+
+// ─── Investor Performance ────────────────────────────────────────────────────
+// Derives per-investor metrics from the computed timeline.
+// Does NOT create a separate accounting system — reads the same
+// computedTimeline produced by computeFullTimeline.
+
+export function computeInvestorPerformance(computedTimeline, state) {
+  const { investors, inceptionNAV, initialShares, inceptionDate } = state;
+  const EPSILON = 0.01;
+
+  // ── Collect all contribution events and period events in order ──────
+  const investorContributions = {};
+  const allPeriods = [];
+
+  for (const inv of investors) {
+    investorContributions[inv] = [];
+    const initShares = initialShares[inv] || 0;
+    if (initShares > 0) {
+      investorContributions[inv].push({
+        date: inceptionDate,
+        amount: initShares * inceptionNAV,
+        nav: inceptionNAV,
+        sharesIssued: initShares
+      });
+    }
+  }
+
+  for (const quarter of computedTimeline) {
+    for (const event of quarter.computedEvents) {
+      if (event.type === 'contribution') {
+        for (const inv of investors) {
+          const amount = event.amounts[inv] || 0;
+          if (amount > 0) {
+            investorContributions[inv].push({
+              date: event.date,
+              amount,
+              nav: event.frozenNAV,
+              sharesIssued: event.newShares[inv]
+            });
+          }
+        }
+      } else if (event.type === 'period') {
+        const investorSharesAtStart = {};
+        for (const inv of investors) {
+          investorSharesAtStart[inv] = event.investorStart[inv]?.shares || 0;
+        }
+        allPeriods.push({
+          startNAV: event.startNAV,
+          endNAV: event.endNAV,
+          spStart: event.spStart,
+          spEnd: event.spEnd,
+          startDate: event.startDate,
+          endDate: event.endDate,
+          quarterLabel: quarter.label,
+          investorSharesAtStart,
+          periodReturn: event.periodReturn
+        });
+      }
+    }
+  }
+
+  const lastPeriod = allPeriods[allPeriods.length - 1];
+  if (!lastPeriod) return null;
+
+  const currentNAV = lastPeriod.endNAV;
+
+  // Get current shares from the last period event
+  let currentTotalShares = 0;
+  const currentShares = {};
+  for (let qi = computedTimeline.length - 1; qi >= 0; qi--) {
+    const events = computedTimeline[qi].computedEvents;
+    for (let ei = events.length - 1; ei >= 0; ei--) {
+      if (events[ei].type === 'period') {
+        for (const inv of investors) {
+          currentShares[inv] = events[ei].investorEnd[inv]?.shares || 0;
+        }
+        currentTotalShares = events[ei].endTotalShares;
+        qi = -1;
+        break;
+      }
+    }
+  }
+
+  const lastQuarterLabel = computedTimeline[computedTimeline.length - 1]?.label;
+
+  // ── Build per-investor metrics ─────────────────────────────────────
+  const investorMetrics = [];
+  const validationErrors = [];
+
+  for (const inv of investors) {
+    const contribs = investorContributions[inv];
+    const shares = currentShares[inv] || 0;
+    const totalContributed = contribs.reduce((s, c) => s + c.amount, 0);
+    const currentValue = shares * currentNAV;
+    const ownership = currentTotalShares > 0 ? shares / currentTotalShares : 0;
+    const avgCostNAV = shares > 0 ? totalContributed / shares : null;
+    const unrealizedPL = currentValue - totalContributed;
+    const unrealizedPLPct = totalContributed > 0 ? (currentValue / totalContributed - 1) : null;
+
+    const firstDate = contribs.length > 0 ? contribs[0].date : null;
+    const latestDate = contribs.length > 0 ? contribs[contribs.length - 1].date : null;
+    const numContributions = contribs.length;
+
+    // ── Contribution detail with running balances ──────────────────
+    let runningShares = 0;
+    let runningContributed = 0;
+    const contributionDetail = contribs.map(c => {
+      runningShares += c.sharesIssued;
+      runningContributed += c.amount;
+      return {
+        date: c.date,
+        amount: c.amount,
+        nav: c.nav,
+        sharesIssued: c.sharesIssued,
+        runningShares,
+        runningContributed,
+        runningCurrentValue: runningShares * currentNAV
+      };
+    });
+
+    // ── TWR: chain subperiod returns where investor had shares ─────
+    let twrProduct = 1;
+    let spTwrProduct = 1;
+    let hasActivePeriod = false;
+    let hasActiveSP = false;
+    let qtdProduct = 1;
+    let hasActiveQTD = false;
+    let latestPeriodReturn = null;
+    const periodDetail = [];
+
+    for (let pi = 0; pi < allPeriods.length; pi++) {
+      const p = allPeriods[pi];
+      const sharesAtStart = p.investorSharesAtStart[inv] || 0;
+
+      if (sharesAtStart > EPSILON) {
+        const r = p.startNAV > 0 ? (p.endNAV / p.startNAV - 1) : 0;
+        twrProduct *= (1 + r);
+        hasActivePeriod = true;
+        latestPeriodReturn = r;
+
+        // S&P 500 return for same subperiod
+        let spReturn = null;
+        if (p.spStart != null && p.spEnd != null && p.spStart > 0) {
+          spReturn = p.spEnd / p.spStart - 1;
+          spTwrProduct *= (1 + spReturn);
+          hasActiveSP = true;
+        }
+
+        if (p.quarterLabel === lastQuarterLabel) {
+          qtdProduct *= (1 + r);
+          hasActiveQTD = true;
+        }
+
+        periodDetail.push({
+          startDate: p.startDate,
+          endDate: p.endDate,
+          quarterLabel: p.quarterLabel,
+          startNAV: p.startNAV,
+          endNAV: p.endNAV,
+          periodReturn: r,
+          spReturn,
+          cumulativeTWR: twrProduct - 1,
+          cumulativeSPTWR: hasActiveSP ? spTwrProduct - 1 : null,
+          sharesAtStart
+        });
+      }
+    }
+
+    const sinceInceptionTWR = hasActivePeriod ? twrProduct - 1 : null;
+    const sinceInceptionSPTWR = hasActiveSP ? spTwrProduct - 1 : null;
+    const alpha = (sinceInceptionTWR != null && sinceInceptionSPTWR != null)
+      ? sinceInceptionTWR - sinceInceptionSPTWR : null;
+    const qtdTWR = hasActiveQTD ? qtdProduct - 1 : null;
+
+    // ── Per-investor validation ────────────────────────────────────
+    const engineShares = currentShares[inv] || 0;
+    const computedShareSum = contribs.reduce((s, c) => s + c.sharesIssued, 0);
+    if (Math.abs(engineShares - computedShareSum) > EPSILON) {
+      validationErrors.push(`${inv}: share mismatch — engine=${engineShares.toFixed(6)}, computed=${computedShareSum.toFixed(6)}`);
+    }
+    if (shares > 0 && avgCostNAV === null) {
+      validationErrors.push(`${inv}: has shares but no avg cost NAV`);
+    }
+    if (totalContributed <= 0 && unrealizedPLPct !== null) {
+      validationErrors.push(`${inv}: unrealized P/L % exists with zero contributed capital`);
+    }
+
+    investorMetrics.push({
+      name: inv, firstDate, latestDate, numContributions,
+      totalContributed, shares, ownership, avgCostNAV,
+      currentNAV, currentValue, unrealizedPL, unrealizedPLPct,
+      qtdTWR, sinceInceptionTWR, sinceInceptionSPTWR, alpha,
+      latestPeriodReturn, contributionDetail, periodDetail
+    });
+  }
+
+  // ── Cross-investor validation ────────────────────────────────────────
+  const ownershipSum = investorMetrics.reduce((s, m) => s + m.ownership, 0);
+  if (Math.abs(ownershipSum - 1) > 0.001) {
+    validationErrors.push(`Ownership sum = ${(ownershipSum * 100).toFixed(4)}%, expected 100%`);
+  }
+  const valueSum = investorMetrics.reduce((s, m) => s + m.currentValue, 0);
+  const currentAUM = currentNAV * currentTotalShares;
+  if (Math.abs(valueSum - currentAUM) > EPSILON) {
+    validationErrors.push(`Value sum = ${valueSum.toFixed(2)}, AUM = ${currentAUM.toFixed(2)} — mismatch`);
+  }
+
+  return { investorMetrics, validationErrors, currentNAV, currentTotalShares, currentAUM };
 }
 
 
