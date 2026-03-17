@@ -15,6 +15,7 @@ import {
   updateContributionDate
 } from '@/lib/accounting';
 import { formatMoneyPrecise, formatPct, formatNumber } from '@/lib/formatters';
+import { supabase } from '@/lib/supabase';
 
 const STORAGE_KEY = 'fund-accounting-state';
 
@@ -818,43 +819,88 @@ export default function AccountingTool() {
   const [activeQuarter, setActiveQuarter] = useState(0);
   const [showAddQuarter, setShowAddQuarter] = useState(false);
 
-  // Load from localStorage
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Always sync S&P benchmark data from seed
-        const seed = createSeedState();
-        parsed.inceptionSP = seed.inceptionSP;
-        for (let qi = 0; qi < parsed.quarters.length && qi < seed.quarters.length; qi++) {
-          const savedEvents = parsed.quarters[qi].events;
-          const seedEvents = seed.quarters[qi].events;
-          let si = 0;
-          for (let ei = 0; ei < savedEvents.length; ei++) {
-            if (savedEvents[ei].type === 'period') {
-              while (si < seedEvents.length && seedEvents[si].type !== 'period') si++;
-              if (si < seedEvents.length) {
-                savedEvents[ei].spEnd = seedEvents[si].spEnd;
-              }
-              si++;
-            }
+  // Backfill S&P benchmark data from seed onto a parsed state object
+  const backfillSP = useCallback((parsed) => {
+    const seed = createSeedState();
+    parsed.inceptionSP = seed.inceptionSP;
+    for (let qi = 0; qi < parsed.quarters.length && qi < seed.quarters.length; qi++) {
+      const savedEvents = parsed.quarters[qi].events;
+      const seedEvents = seed.quarters[qi].events;
+      let si = 0;
+      for (let ei = 0; ei < savedEvents.length; ei++) {
+        if (savedEvents[ei].type === 'period') {
+          while (si < seedEvents.length && seedEvents[si].type !== 'period') si++;
+          if (si < seedEvents.length) {
+            savedEvents[ei].spEnd = seedEvents[si].spEnd;
           }
+          si++;
         }
-        setState(parsed);
-      } else {
-        setState(createSeedState());
       }
-    } catch {
-      setState(createSeedState());
     }
+    return parsed;
   }, []);
 
-  // Persist to localStorage
+  // Load: migrate localStorage → Supabase (one-time), then Supabase-only
+  const loadedRef = useRef(false);
   useEffect(() => {
-    if (state) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (loadedRef.current) return;
+    loadedRef.current = true;
+
+    async function load() {
+      // One-time migration: if localStorage has data, push it to Supabase and delete local
+      try {
+        const local = localStorage.getItem(STORAGE_KEY);
+        if (local) {
+          const parsed = backfillSP(JSON.parse(local));
+          await supabase.from('app_settings').upsert({
+            key: STORAGE_KEY,
+            value: JSON.stringify(parsed),
+          });
+          localStorage.removeItem(STORAGE_KEY);
+          setState(parsed);
+          return;
+        }
+      } catch {}
+
+      // Normal load from Supabase
+      try {
+        const { data, error } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', STORAGE_KEY)
+          .single();
+
+        if (!error && data?.value) {
+          const parsed = JSON.parse(data.value);
+          setState(backfillSP(parsed));
+          return;
+        }
+      } catch {}
+
+      // Nothing anywhere — use seed
+      const seed = createSeedState();
+      await supabase.from('app_settings').upsert({
+        key: STORAGE_KEY,
+        value: JSON.stringify(seed),
+      });
+      setState(seed);
     }
+
+    load();
+  }, [backfillSP]);
+
+  // Persist to Supabase only
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (!state) return;
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    supabase.from('app_settings').upsert({
+      key: STORAGE_KEY,
+      value: JSON.stringify(state),
+    });
   }, [state]);
 
   // Compute timeline
