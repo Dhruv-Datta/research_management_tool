@@ -73,12 +73,33 @@ function squarify(items, x, y, w, h) {
   return rects;
 }
 
-function getPnlColor(pct) {
+function getPnlColor(pct, mode = 'alltime') {
   const abs = Math.abs(pct);
+
+  if (mode === 'day') {
+    if (abs === 0) {
+      return 'rgb(156, 163, 175)';
+    }
+
+    // Same palette as all-time mode, but intensifies more distinctly every ~0.5%.
+    const intensity = Math.min(0.18 + abs / 2.5, 1);
+    if (pct > 0) {
+      const r = Math.round(74 - intensity * 52);
+      const g = Math.round(222 - intensity * 59);
+      const b = Math.round(128 - intensity * 54);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    const r = Math.round(248 - intensity * 28);
+    const g = Math.round(113 - intensity * 75);
+    const b = Math.round(113 - intensity * 75);
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+
   if (abs < 0.5) {
-    // Near zero — gray
     return 'rgb(156, 163, 175)';
   }
+
   const intensity = Math.min(abs / 20, 1); // 0 to 1 over 20%
   if (pct > 0) {
     // Green: from mild #4ade80 to vivid #16a34a
@@ -131,7 +152,7 @@ export default function Treemap({ positions, mode = 'alltime' }) {
     <div ref={containerRef} className="relative w-full rounded-2xl overflow-hidden" style={{ height: 400 }}>
       {rects.map((r) => {
         const pnlPct = mode === 'day' ? (r.dayChangePct || 0) : (r.pnlPct || 0);
-        const bg = getPnlColor(pnlPct);
+        const bg = getPnlColor(pnlPct, mode);
         const weight = total > 0 ? (r.value / total) * 100 : 0;
         const showTicker = r.rw > 35 && r.rh > 30;
         const showPnl = r.rw > 50 && r.rh > 45;

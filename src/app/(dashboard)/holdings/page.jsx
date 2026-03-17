@@ -14,7 +14,7 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearSca
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
-const BENCHMARK_TICKER = '^GSPC';
+const BENCHMARK_TICKER = 'SPY';
 
 export default function HoldingsPage() {
   const cache = useCache();
@@ -406,6 +406,7 @@ export default function HoldingsPage() {
             />
             <StatCard
               label="Unrealized P&L"
+              sub="*from Jan 1st 2026"
               variant={quotesLoaded ? (totalUnrealizedPnl >= 0 ? 'positive' : 'negative') : 'default'}
               value={quotesLoaded ? (
                 <>

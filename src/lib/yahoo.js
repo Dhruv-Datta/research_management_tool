@@ -7,6 +7,19 @@ function safeFloat(val) {
   return Number.isFinite(v) ? v : null;
 }
 
+function getEffectiveMarketPrice(quote) {
+  const postMarketPrice = safeFloat(quote.postMarketPrice);
+  if (postMarketPrice) return { price: postMarketPrice, session: 'post' };
+
+  const preMarketPrice = safeFloat(quote.preMarketPrice);
+  if (preMarketPrice) return { price: preMarketPrice, session: 'pre' };
+
+  const regularMarketPrice = safeFloat(quote.regularMarketPrice);
+  if (regularMarketPrice) return { price: regularMarketPrice, session: 'regular' };
+
+  return { price: null, session: 'unknown' };
+}
+
 export async function fetchQuotes(tickers) {
   const result = {};
 
@@ -23,7 +36,10 @@ export async function fetchQuotes(tickers) {
       const fin = summary?.financialData || {};
       const stats = summary?.defaultKeyStatistics || {};
 
-      const price = safeFloat(quote.regularMarketPrice);
+      const { price, session } = getEffectiveMarketPrice(quote);
+      const regularMarketPrice = safeFloat(quote.regularMarketPrice);
+      const postMarketPrice = safeFloat(quote.postMarketPrice);
+      const preMarketPrice = safeFloat(quote.preMarketPrice);
       const prev = safeFloat(quote.regularMarketPreviousClose);
       const dayChange = (price && prev) ? price - prev : 0;
       const dayChangePct = prev ? (dayChange / prev) * 100 : 0;
@@ -31,6 +47,10 @@ export async function fetchQuotes(tickers) {
       result[t] = {
         shortName: quote.shortName || quote.longName || '',
         price,
+        regularMarketPrice,
+        postMarketPrice,
+        preMarketPrice,
+        priceSession: session,
         previousClose: prev,
         dayChange: Math.round(dayChange * 10000) / 10000,
         dayChangePct: Math.round(dayChangePct * 10000) / 10000,
