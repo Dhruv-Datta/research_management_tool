@@ -43,11 +43,52 @@ function formatDate(dateStr) {
 }
 
 function fileIcon(doc) {
-  if (doc.file_type?.includes('pdf')) return <FileText size={20} className="text-red-500" />;
-  if (doc.file_type?.startsWith('image/')) return <ImageIcon size={20} className="text-blue-500" />;
-  if (doc.file_type?.includes('sheet') || doc.file_type?.includes('excel') || doc.file_name?.match(/\.(xlsx?|csv)$/i))
-    return <FileSpreadsheet size={20} className="text-emerald-600" />;
-  return <File size={20} className="text-gray-400" />;
+  const fileType = (doc.file_type || '').toLowerCase();
+  const fileName = (doc.file_name || '').toLowerCase();
+
+  if (fileType.includes('pdf') || fileName.endsWith('.pdf')) {
+    return {
+      icon: <FileText size={20} className="text-red-500" />,
+      wrapperClass: 'bg-red-50',
+    };
+  }
+
+  if (
+    fileType.includes('word') ||
+    fileType.includes('officedocument.wordprocessingml') ||
+    fileType.includes('google-apps.document') ||
+    fileName.match(/\.(docx?|gdoc)$/i)
+  ) {
+    return {
+      icon: <FileText size={20} className="text-blue-600" />,
+      wrapperClass: 'bg-blue-50',
+    };
+  }
+
+  if (
+    fileType.includes('sheet') ||
+    fileType.includes('excel') ||
+    fileType.includes('csv') ||
+    fileType.includes('google-apps.spreadsheet') ||
+    fileName.match(/\.(xlsx?|csv|gsheet)$/i)
+  ) {
+    return {
+      icon: <FileSpreadsheet size={20} className="text-emerald-600" />,
+      wrapperClass: 'bg-emerald-50',
+    };
+  }
+
+  if (fileType.startsWith('image/')) {
+    return {
+      icon: <ImageIcon size={20} className="text-blue-500" />,
+      wrapperClass: 'bg-blue-50',
+    };
+  }
+
+  return {
+    icon: <File size={20} className="text-gray-400" />,
+    wrapperClass: 'bg-gray-50',
+  };
 }
 
 export default function DocumentsPage() {
@@ -201,7 +242,7 @@ export default function DocumentsPage() {
           <div className="bg-white rounded-3xl shadow-2xl border-2 border-dashed border-emerald-400 px-16 py-12 text-center">
             <UploadCloud size={48} className="text-emerald-500 mx-auto mb-3" />
             <p className="text-lg font-bold text-gray-900">Drop files here</p>
-            <p className="text-sm text-gray-500 mt-1">They'll be added to your document hub</p>
+            <p className="text-sm text-gray-500 mt-1">They&apos;ll be added to your document hub</p>
           </div>
         </div>
       )}
@@ -211,7 +252,9 @@ export default function DocumentsPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Documents</h1>
           <p className="text-sm text-gray-400 mt-1">
-            {documents.length} file{documents.length !== 1 ? 's' : ''} · {formatFileSize(totalSize)}
+            <span>{documents.length} document{documents.length !== 1 ? 's' : ''}</span>
+            <span className="mx-2 text-gray-300">·</span>
+            <span>{formatFileSize(totalSize) || '0 B'} stored</span>
           </p>
         </div>
         <button
@@ -442,6 +485,7 @@ export default function DocumentsPage() {
                 const cat = CATEGORIES.find(c => c.value === doc.category);
                 const colors = COLOR_MAP[cat?.color || 'gray'];
                 const isDeleting = confirmDeleteId === doc.id;
+                const fileVisual = fileIcon(doc);
 
                 return (
                   <div
@@ -450,8 +494,8 @@ export default function DocumentsPage() {
                   >
                     <div className="flex items-center gap-4 px-5 py-4">
                       {/* File icon */}
-                      <div className="flex-shrink-0 w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center">
-                        {fileIcon(doc)}
+                      <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${fileVisual.wrapperClass}`}>
+                        {fileVisual.icon}
                       </div>
 
                       {/* Info */}
