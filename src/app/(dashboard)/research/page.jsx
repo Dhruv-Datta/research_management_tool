@@ -32,21 +32,49 @@ function autoExpand(el) {
   el.style.height = `${el.scrollHeight}px`;
 }
 
+function makeEditorItemId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `item_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function createSubQuestion(overrides = {}) {
+  return {
+    id: overrides.id || makeEditorItemId(),
+    text: overrides.text || '',
+    done: !!overrides.done,
+    answer: overrides.answer ?? '',
+  };
+}
+
+function createQuestionItem(overrides = {}) {
+  return {
+    id: overrides.id || makeEditorItemId(),
+    text: overrides.text || '',
+    done: !!overrides.done,
+    answer: overrides.answer ?? '',
+    subQuestions: (overrides.subQuestions || []).map(createSubQuestion),
+  };
+}
+
 function normalizeQuestionItems(items) {
   return (items || []).map(item => {
     if (typeof item === 'string') {
-      return { text: item, done: false, answer: '', subQuestions: [] };
+      return createQuestionItem({ text: item });
     }
-    return {
+    return createQuestionItem({
+      id: item?.id,
       text: item?.text || '',
       done: !!item?.done,
       answer: item?.answer ?? '',
       subQuestions: (item?.subQuestions || []).map(sq => ({
+        id: sq?.id,
         text: sq?.text || '',
         done: !!sq?.done,
         answer: sq?.answer ?? '',
       })),
-    };
+    });
   });
 }
 
@@ -61,7 +89,7 @@ function hasTextValue(value) {
 
 function pickWorkspaceValue(primary, fallback) {
   if (Array.isArray(primary)) {
-    return primary.length > 0 ? primary : fallback;
+    return primary;
   }
   if (typeof primary === 'string') {
     return primary.trim() ? primary : fallback;
@@ -125,47 +153,47 @@ function QuestionSection({
   const [expandedSubs, setExpandedSubs] = useState({});
   const [subInputs, setSubInputs] = useState({});
 
-  const toggleSubExpanded = (idx) => {
-    setExpandedSubs(prev => ({ ...prev, [idx]: !prev[idx] }));
+  const toggleSubExpanded = (itemId) => {
+    setExpandedSubs(prev => ({ ...prev, [itemId]: !prev[itemId] }));
   };
 
-  const addSubQuestion = (parentIdx) => {
-    const text = (subInputs[parentIdx] || '').trim();
+  const addSubQuestion = (parentId) => {
+    const text = (subInputs[parentId] || '').trim();
     if (!text) return;
-    const item = items[parentIdx];
-    const newSubs = [...(item.subQuestions || []), { text, done: false, answer: '' }];
-    onUpdateSubQuestions(parentIdx, newSubs);
-    setSubInputs(prev => ({ ...prev, [parentIdx]: '' }));
+    const item = items.find(entry => entry.id === parentId);
+    const newSubs = [...(item?.subQuestions || []), createSubQuestion({ text })];
+    onUpdateSubQuestions(parentId, newSubs);
+    setSubInputs(prev => ({ ...prev, [parentId]: '' }));
   };
 
-  const toggleSubDone = (parentIdx, subIdx) => {
-    const item = items[parentIdx];
+  const toggleSubDone = (parentId, subId) => {
+    const item = items.find(entry => entry.id === parentId);
     const newSubs = (item.subQuestions || []).map((sq, si) =>
-      si === subIdx ? { ...sq, done: !sq.done } : sq
+      sq.id === subId ? { ...sq, done: !sq.done } : sq
     );
-    onUpdateSubQuestions(parentIdx, newSubs);
+    onUpdateSubQuestions(parentId, newSubs);
   };
 
-  const updateSubText = (parentIdx, subIdx, text, persist = false) => {
-    const item = items[parentIdx];
+  const updateSubText = (parentId, subId, text, persist = false) => {
+    const item = items.find(entry => entry.id === parentId);
     const newSubs = (item.subQuestions || []).map((sq, si) =>
-      si === subIdx ? { ...sq, text } : sq
+      sq.id === subId ? { ...sq, text } : sq
     );
-    onUpdateSubQuestions(parentIdx, newSubs, persist);
+    onUpdateSubQuestions(parentId, newSubs, persist);
   };
 
-  const updateSubAnswer = (parentIdx, subIdx, value, persist = false) => {
-    const item = items[parentIdx];
+  const updateSubAnswer = (parentId, subId, value, persist = false) => {
+    const item = items.find(entry => entry.id === parentId);
     const newSubs = (item.subQuestions || []).map((sq, si) =>
-      si === subIdx ? { ...sq, answer: value } : sq
+      sq.id === subId ? { ...sq, answer: value } : sq
     );
-    onUpdateSubQuestions(parentIdx, newSubs, persist);
+    onUpdateSubQuestions(parentId, newSubs, persist);
   };
 
-  const removeSubQuestion = (parentIdx, subIdx) => {
-    const item = items[parentIdx];
-    const newSubs = (item.subQuestions || []).filter((_, si) => si !== subIdx);
-    onUpdateSubQuestions(parentIdx, newSubs);
+  const removeSubQuestion = (parentId, subId) => {
+    const item = items.find(entry => entry.id === parentId);
+    const newSubs = (item.subQuestions || []).filter((sq) => sq.id !== subId);
+    onUpdateSubQuestions(parentId, newSubs);
   };
 
   return (
@@ -196,12 +224,12 @@ function QuestionSection({
         <div className="mt-6 space-y-5">
           {items.map((item, idx) => {
             const subs = item.subQuestions || [];
-            const isSubExpanded = expandedSubs[idx] !== false;
+            const isSubExpanded = expandedSubs[item.id] !== false;
             return (
-              <div key={idx} className={`rounded-2xl border p-5 ${accentClasses.card}`}>
+              <div key={item.id} className={`rounded-2xl border p-5 ${accentClasses.card}`}>
                 <div className="flex items-start gap-3 mb-4">
                   <button
-                    onClick={() => onToggleDone(idx, !item.done)}
+                    onClick={() => onToggleDone(item.id, !item.done)}
                     className={`mt-0.5 flex-shrink-0 transition-colors ${accentClasses.icon}`}
                     title={item.done ? 'Mark incomplete' : 'Mark complete'}
                   >
@@ -214,14 +242,14 @@ function QuestionSection({
                     <input
                       type="text"
                       value={item.text}
-                      onChange={(e) => onChangeQuestion(idx, e.target.value)}
-                      onBlur={(e) => onSaveQuestion(idx, e.target.value)}
+                      onChange={(e) => onChangeQuestion(item.id, e.target.value)}
+                      onBlur={(e) => onSaveQuestion(item.id, e.target.value)}
                       placeholder="Write the research question..."
                       className="mt-2 w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                     />
                   </div>
                   <button
-                    onClick={() => onRemove(idx)}
+                    onClick={() => onRemove(item.id)}
                     className="flex-shrink-0 p-2 text-gray-300 hover:text-red-400 transition-colors"
                     title="Remove question"
                   >
@@ -236,9 +264,9 @@ function QuestionSection({
                   <div className="mt-2">
                     <RichTextArea
                       value={item.answer || ''}
-                      onChange={(value) => onChangeAnswer(idx, value)}
-                      onBlur={(value) => onSaveAnswer(idx, value)}
-                      onCommit={(value) => onSaveAnswer(idx, value)}
+                      onChange={(value) => onChangeAnswer(item.id, value)}
+                      onBlur={(value) => onSaveAnswer(item.id, value)}
+                      onCommit={(value) => onSaveAnswer(item.id, value)}
                       ticker={ticker}
                       placeholder="Write the full answer here. You can paste images directly into this answer."
                       rows={8}
@@ -251,14 +279,14 @@ function QuestionSection({
                 <div className="mt-4 border-t border-gray-100 pt-4">
                   <div className="flex items-center justify-between mb-3">
                     <button
-                      onClick={() => toggleSubExpanded(idx)}
+                      onClick={() => toggleSubExpanded(item.id)}
                       className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 hover:text-gray-600 transition-colors"
                     >
                       <ChevronRight size={12} className={`transition-transform ${isSubExpanded ? 'rotate-90' : ''}`} />
                       Sub-Questions {subs.length > 0 && `(${subs.length})`}
                     </button>
                     <button
-                      onClick={() => { setExpandedSubs(prev => ({ ...prev, [idx]: true })); addSubQuestion(idx); }}
+                      onClick={() => { setExpandedSubs(prev => ({ ...prev, [item.id]: true })); addSubQuestion(item.id); }}
                       className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md transition-colors ${accentClasses.button}`}
                     >
                       <Plus size={11} />
@@ -269,10 +297,10 @@ function QuestionSection({
                   {isSubExpanded && (
                     <div className="space-y-3 ml-2">
                       {subs.map((sq, si) => (
-                        <div key={si} className={`rounded-xl border p-4 ${accentClasses.card} bg-gray-50/50`}>
+                        <div key={sq.id} className={`rounded-xl border p-4 ${accentClasses.card} bg-gray-50/50`}>
                           <div className="flex items-start gap-2 mb-3">
                             <button
-                              onClick={() => toggleSubDone(idx, si)}
+                              onClick={() => toggleSubDone(item.id, sq.id)}
                               className={`mt-0.5 flex-shrink-0 transition-colors ${accentClasses.icon}`}
                             >
                               {sq.done ? <CheckSquare size={15} /> : <Square size={15} />}
@@ -284,14 +312,14 @@ function QuestionSection({
                               <input
                                 type="text"
                                 value={sq.text}
-                                onChange={(e) => updateSubText(idx, si, e.target.value)}
-                                onBlur={(e) => updateSubText(idx, si, e.target.value, true)}
+                                onChange={(e) => updateSubText(item.id, sq.id, e.target.value)}
+                                onBlur={(e) => updateSubText(item.id, sq.id, e.target.value, true)}
                                 placeholder="Write the sub-question..."
                                 className="mt-1 w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                               />
                             </div>
                             <button
-                              onClick={() => removeSubQuestion(idx, si)}
+                              onClick={() => removeSubQuestion(item.id, sq.id)}
                               className="flex-shrink-0 p-1.5 text-gray-300 hover:text-red-400 transition-colors"
                             >
                               <Trash2 size={12} />
@@ -304,9 +332,9 @@ function QuestionSection({
                             <div className="mt-1">
                               <RichTextArea
                                 value={sq.answer || ''}
-                                onChange={(value) => updateSubAnswer(idx, si, value)}
-                                onBlur={(value) => updateSubAnswer(idx, si, value, true)}
-                                onCommit={(value) => updateSubAnswer(idx, si, value, true)}
+                                onChange={(value) => updateSubAnswer(item.id, sq.id, value)}
+                                onBlur={(value) => updateSubAnswer(item.id, sq.id, value, true)}
+                                onCommit={(value) => updateSubAnswer(item.id, sq.id, value, true)}
                                 ticker={ticker}
                                 placeholder="Write the answer to this sub-question..."
                                 rows={4}
@@ -317,12 +345,12 @@ function QuestionSection({
                         </div>
                       ))}
                       <form
-                        onSubmit={(e) => { e.preventDefault(); addSubQuestion(idx); }}
+                        onSubmit={(e) => { e.preventDefault(); addSubQuestion(item.id); }}
                         className="flex items-center gap-2"
                       >
                         <input
-                          value={subInputs[idx] || ''}
-                          onChange={(e) => setSubInputs(prev => ({ ...prev, [idx]: e.target.value }))}
+                          value={subInputs[item.id] || ''}
+                          onChange={(e) => setSubInputs(prev => ({ ...prev, [item.id]: e.target.value }))}
                           placeholder="Add a sub-question..."
                           className={`flex-1 text-xs text-gray-600 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all`}
                         />
@@ -687,36 +715,36 @@ export default function ResearchPage() {
 
   const addQuestion = (field) => {
     const sourceItems = field === 'dueDiligenceItems' ? dueDiligenceItems : dislocationItems;
-    updateQuestionList(field, [...sourceItems, { text: '', done: false, answer: '' }], true);
+    updateQuestionList(field, [...sourceItems, createQuestionItem()], true);
   };
 
-  const updateQuestionText = (field, idx, value, persist = false) => {
+  const updateQuestionText = (field, itemId, value, persist = false) => {
     const sourceItems = field === 'dueDiligenceItems' ? dueDiligenceItems : dislocationItems;
-    const nextItems = sourceItems.map((item, i) => i === idx ? { ...item, text: value } : item);
+    const nextItems = sourceItems.map((item) => item.id === itemId ? { ...item, text: value } : item);
     updateQuestionList(field, nextItems, persist);
   };
 
-  const updateQuestionAnswer = (field, idx, value, persist = false) => {
+  const updateQuestionAnswer = (field, itemId, value, persist = false) => {
     const sourceItems = field === 'dueDiligenceItems' ? dueDiligenceItems : dislocationItems;
-    const nextItems = sourceItems.map((item, i) => i === idx ? { ...item, answer: value } : item);
+    const nextItems = sourceItems.map((item) => item.id === itemId ? { ...item, answer: value } : item);
     updateQuestionList(field, nextItems, persist);
   };
 
-  const toggleQuestionDone = (field, idx, done) => {
+  const toggleQuestionDone = (field, itemId, done) => {
     const sourceItems = field === 'dueDiligenceItems' ? dueDiligenceItems : dislocationItems;
-    const nextItems = sourceItems.map((item, i) => i === idx ? { ...item, done } : item);
+    const nextItems = sourceItems.map((item) => item.id === itemId ? { ...item, done } : item);
     updateQuestionList(field, nextItems, true);
   };
 
-  const removeQuestion = (field, idx) => {
+  const removeQuestion = (field, itemId) => {
     const sourceItems = field === 'dueDiligenceItems' ? dueDiligenceItems : dislocationItems;
-    updateQuestionList(field, sourceItems.filter((_, i) => i !== idx), true);
+    updateQuestionList(field, sourceItems.filter((item) => item.id !== itemId), true);
   };
 
-  const updateSubQuestions = (field, parentIdx, newSubs, persist = true) => {
+  const updateSubQuestions = (field, parentId, newSubs, persist = true) => {
     const sourceItems = field === 'dueDiligenceItems' ? dueDiligenceItems : dislocationItems;
-    const nextItems = sourceItems.map((item, i) =>
-      i === parentIdx ? { ...item, subQuestions: newSubs } : item
+    const nextItems = sourceItems.map((item) =>
+      item.id === parentId ? { ...item, subQuestions: newSubs.map(createSubQuestion) } : item
     );
     updateQuestionList(field, nextItems, persist);
   };
