@@ -1,36 +1,35 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(null);
-  const tokenRef = useRef(null);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Monkey-patch global fetch to inject Authorization header for /api/ calls
+  // On mount, check for an existing session cookie
   useEffect(() => {
-    const originalFetch = window.fetch;
-
-    window.fetch = function (input, init) {
-      const url = typeof input === 'string' ? input : input?.url || '';
-      if (tokenRef.current && url.startsWith('/api/') && !url.startsWith('/api/auth/')) {
-        init = init || {};
-        init.headers = {
-          ...(init.headers || {}),
-          Authorization: `Bearer ${tokenRef.current}`,
-        };
+    async function restoreSession() {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated) {
+            setAuthenticated(true);
+          }
+        }
+      } catch {
+        // No valid session — user will need to log in
+      } finally {
+        setLoading(false);
       }
-      return originalFetch.call(this, input, init);
-    };
-
-    return () => {
-      window.fetch = originalFetch;
-    };
+    }
+    restoreSession();
   }, []);
 
   const login = useCallback(async (username, password) => {
-    const res = await window.fetch('/api/auth/login', {
+    const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
@@ -41,19 +40,21 @@ export function AuthProvider({ children }) {
       throw new Error(data.error || 'Invalid credentials');
     }
 
-    const { token: jwt } = await res.json();
-    tokenRef.current = jwt;
-    setToken(jwt);
+    setAuthenticated(true);
     return true;
   }, []);
 
-  const logout = useCallback(() => {
-    tokenRef.current = null;
-    setToken(null);
+  const logout = useCallback(async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // Clear local state even if the server call fails
+    }
+    setAuthenticated(false);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ token, login, logout }}>
+    <AuthContext.Provider value={{ authenticated, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

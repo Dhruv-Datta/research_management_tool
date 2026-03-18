@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifySession } from '@/lib/auth';
+import { verifySession, SESSION_COOKIE_NAME } from '@/lib/auth';
 
 export async function proxy(request) {
   const { pathname } = request.nextUrl;
@@ -14,9 +14,13 @@ export async function proxy(request) {
     return NextResponse.next();
   }
 
-  // Check Authorization header
+  // Check Authorization header first, then fall back to cookie
   const authHeader = request.headers.get('Authorization');
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  let token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  if (!token) {
+    token = request.cookies.get(SESSION_COOKIE_NAME)?.value || null;
+  }
 
   if (!token) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

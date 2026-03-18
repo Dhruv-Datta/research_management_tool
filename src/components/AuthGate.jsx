@@ -4,15 +4,23 @@ import { useAuth } from '@/lib/AuthContext';
 import { useEffect } from 'react';
 
 export default function AuthGate({ children }) {
-  const { token } = useAuth();
+  const { authenticated, loading } = useAuth();
 
   useEffect(() => {
-    if (!token) {
+    if (!loading && !authenticated) {
       window.location.href = '/login';
     }
-  }, [token]);
+  }, [authenticated, loading]);
 
-  if (!token) {
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-gray-400 text-sm">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!authenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <p className="text-gray-400 text-sm">Redirecting to login...</p>

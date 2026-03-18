@@ -167,8 +167,8 @@ export default function Navbar() {
           ))}
 
           <button
-            onClick={() => {
-              logout();
+            onClick={async () => {
+              await logout();
               window.location.href = '/login';
             }}
             className="ml-4 p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
