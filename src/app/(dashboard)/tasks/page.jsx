@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Trash2, Check, X, Calendar, User, ChevronDown, ChevronRight, AlertTriangle, Clock } from 'lucide-react';
 import Card from '@/components/Card';
 import Toast from '@/components/Toast';
+import ConfirmModal from '@/components/ConfirmModal';
 
 const PRIORITY_CONFIG = {
   high: { label: 'Highest Priority', max: 3, color: 'emerald', accent: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -370,6 +371,7 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   const loadTasks = useCallback(async () => {
     try {
@@ -523,13 +525,21 @@ export default function TasksPage() {
           counts={openCounts[priority]}
           onAdd={addTask}
           onUpdate={updateTask}
-          onDelete={deleteTask}
+          onDelete={setPendingDelete}
           onAddSubtask={addSubtask}
           onUpdateSubtask={updateSubtask}
           onDeleteSubtask={deleteSubtask}
         />
       ))}
 
+      {pendingDelete && (
+        <ConfirmModal
+          title="Delete Task"
+          message="This will permanently delete the task and all its subtasks. Are you sure?"
+          onConfirm={() => { deleteTask(pendingDelete); setPendingDelete(null); }}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
       {toast && <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
     </div>
   );
