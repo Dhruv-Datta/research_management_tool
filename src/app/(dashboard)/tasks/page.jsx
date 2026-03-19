@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, X, Check, ChevronDown, ChevronRight, User, Pencil } from 'lucide-react';
+import { Plus, X, Check, ChevronDown, ChevronRight, User, Pencil, GripVertical } from 'lucide-react';
+import { DndContext, closestCenter, pointerWithin, rectIntersection, PointerSensor, useSensor, useSensors, DragOverlay, useDroppable } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const PRIORITY_SECTIONS = [
   { key: 'highest', label: 'HIGH PRIORITY',   color: 'bg-red-500',     maxTasks: 3 },
@@ -98,6 +101,42 @@ function AssigneePicker({ current, onSelect, onClose }) {
   );
 }
 
+function SortableTaskRow({ task, children }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    position: 'relative',
+    zIndex: isDragging ? 50 : 'auto',
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes}>
+      {children({ dragHandleProps: listeners })}
+    </div>
+  );
+}
+
+function DroppableSection({ id, isEmpty, children }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  // Only show the highlight on empty sections where there are no task items to drop onto
+  const showHighlight = isOver && isEmpty;
+  return (
+    <div ref={setNodeRef} className={`min-h-[2rem] rounded-xl ${showHighlight ? 'bg-emerald-50/60 ring-2 ring-emerald-200 ring-inset' : ''}`}>
+      {children}
+    </div>
+  );
+}
+
 export default function TaskBoardPage() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -112,8 +151,16 @@ export default function TaskBoardPage() {
   const [assigneePickerOpen, setAssigneePickerOpen] = useState(null);     // 'task-{id}' or 'sub-{taskId}-{subId}'
   const [editingSubId, setEditingSubId] = useState(null);                 // '{taskId}-{subId}'
   const [editingSubTitle, setEditingSubTitle] = useState('');
+  const [activeId, setActiveId] = useState(null);
+  const tasksSnapshot = useRef(null);
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
   const editRef = useRef(null);
   const subEditRef = useRef(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -319,6 +366,161 @@ export default function TaskBoardPage() {
     updateSubtasks(taskId, subtasks);
   };
 
+  // --- Drag and Drop ---
+
+  // Find which priority section a task or droppable belongs to
+  const findPriority = (id) => {
+    if (typeof id === 'string' && id.startsWith('section-')) return id.replace('section-', '');
+    const task = tasksRef.current.find(t => t.id === id);
+    return task?.priority ?? null;
+  };
+
+  const handleDragStart = (event) => {
+    setActiveId(event.active.id);
+    tasksSnapshot.current = tasks;
+  };
+
+  // onDragOver: ONLY handle cross-container moves (changing priority).
+  // Within the same container, do nothing — let onDragEnd handle it with arrayMove.
+  const handleDragOver = (event) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activePriority = findPriority(active.id);
+    const overPriority = findPriority(over.id);
+
+    if (!activePriority || !overPriority) return;
+    // Same container — skip, onDragEnd will handle reordering
+    if (activePriority === overPriority) return;
+
+    // Cross-container: move the active task into the over container
+    setTasks(prev => {
+      const activeTask = prev.find(t => t.id === active.id);
+      if (!activeTask) return prev;
+
+      // Check capacity
+      const section = PRIORITY_SECTIONS.find(s => s.key === overPriority);
+      const targetCount = prev.filter(t => t.priority === overPriority).length;
+      if (section?.maxTasks && targetCount >= section.maxTasks) return prev;
+
+      // Determine insert index
+      const overIsSection = typeof over.id === 'string' && over.id.startsWith('section-');
+      const targetTasks = prev.filter(t => t.priority === overPriority);
+      let insertIdx = targetTasks.length; // default: append to end
+      if (!overIsSection) {
+        const idx = targetTasks.findIndex(t => t.id === over.id);
+        if (idx !== -1) insertIdx = idx;
+      }
+
+      // Remove from old section, insert into new
+      const without = prev.filter(t => t.id !== active.id);
+      const movedTask = { ...activeTask, priority: overPriority };
+
+      // Find the global insert point
+      if (insertIdx >= targetTasks.length) {
+        // Append after the last task in target section
+        const lastTarget = targetTasks[targetTasks.length - 1];
+        const globalIdx = lastTarget ? without.findIndex(t => t.id === lastTarget.id) + 1 : without.length;
+        without.splice(globalIdx, 0, movedTask);
+      } else {
+        const globalIdx = without.findIndex(t => t.id === targetTasks[insertIdx].id);
+        without.splice(globalIdx, 0, movedTask);
+      }
+
+      // Reindex positions for affected sections
+      const affected = new Set([activePriority, overPriority]);
+      const counters = {};
+      for (const t of without) {
+        if (affected.has(t.priority)) {
+          counters[t.priority] = counters[t.priority] ?? 0;
+          t.position = counters[t.priority]++;
+        }
+      }
+      return without;
+    });
+  };
+
+  // onDragEnd: handle final positioning (same-container reorder + persist)
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    const snapshot = tasksSnapshot.current;
+    tasksSnapshot.current = null;
+    setActiveId(null);
+
+    if (!over || !snapshot) {
+      if (snapshot) setTasks(snapshot);
+      return;
+    }
+
+    // Apply final position with arrayMove within the same container
+    setTasks(prev => {
+      const activePriority = prev.find(t => t.id === active.id)?.priority;
+      if (!activePriority) return prev;
+
+      const overIsSection = typeof over.id === 'string' && over.id.startsWith('section-');
+      if (overIsSection) return prev; // cross-container was already handled in onDragOver
+
+      const overTask = prev.find(t => t.id === over.id);
+      if (!overTask || overTask.priority !== activePriority) return prev;
+
+      // Same container — reorder with arrayMove
+      const sectionTasks = prev.filter(t => t.priority === activePriority);
+      const oldIdx = sectionTasks.findIndex(t => t.id === active.id);
+      const newIdx = sectionTasks.findIndex(t => t.id === over.id);
+      if (oldIdx === -1 || newIdx === -1 || oldIdx === newIdx) return prev;
+
+      const reordered = arrayMove(sectionTasks, oldIdx, newIdx);
+      const reorderedWithPos = reordered.map((t, i) => ({ ...t, position: i }));
+
+      const otherTasks = prev.filter(t => t.priority !== activePriority);
+      return [...otherTasks, ...reorderedWithPos].sort((a, b) => {
+        const pa = PRIORITY_SECTIONS.findIndex(s => s.key === a.priority);
+        const pb = PRIORITY_SECTIONS.findIndex(s => s.key === b.priority);
+        if (pa !== pb) return pa - pb;
+        return a.position - b.position;
+      });
+    });
+
+    // Persist — diff final state against snapshot (wait one frame for setState to flush)
+    await new Promise(r => requestAnimationFrame(r));
+
+    const finalTasks = tasksRef.current;
+    if (!finalTasks || !snapshot) return;
+
+    const itemsToSave = [];
+    for (const task of finalTasks) {
+      const orig = snapshot.find(t => t.id === task.id);
+      if (!orig || orig.position !== task.position || orig.priority !== task.priority) {
+        const item = { id: task.id, position: task.position };
+        if (orig && orig.priority !== task.priority) item.priority = task.priority;
+        itemsToSave.push(item);
+      }
+    }
+
+    if (itemsToSave.length === 0) return;
+
+    try {
+      await fetch('/api/tasks/reorder', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: itemsToSave }),
+      });
+    } catch (err) {
+      console.error('Failed to reorder tasks', err);
+      setTasks(snapshot);
+    }
+  };
+
+  const handleDragCancel = () => {
+    setActiveId(null);
+    if (tasksSnapshot.current) {
+      setTasks(tasksSnapshot.current);
+      tasksSnapshot.current = null;
+    }
+  };
+
+  const activeTask = activeId ? tasks.find(t => t.id === activeId) : null;
+
   return (
     <div className="max-w-7xl mx-auto px-6 lg:px-12 pb-16">
       {/* Header */}
@@ -327,6 +529,14 @@ export default function TaskBoardPage() {
         <p className="text-sm text-gray-500 mt-1">{totalOpen} open task{totalOpen !== 1 ? 's' : ''}</p>
       </div>
 
+      <DndContext
+        sensors={sensors}
+        collisionDetection={pointerWithin}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
       {loading ? (
         <div className="space-y-6">
           {[1, 2, 3].map(i => (
@@ -343,6 +553,7 @@ export default function TaskBoardPage() {
             const openCount = sectionTasks.filter(t => !t.done).length;
             const atCapacity = maxTasks ? sectionTasks.length >= maxTasks : false;
             const countLabel = maxTasks ? `${sectionTasks.length} / ${maxTasks}` : `${openCount}`;
+            const taskIds = sectionTasks.map(t => t.id);
 
             return (
               <div key={key} className="bg-white rounded-3xl border border-gray-200 p-6 shadow-sm">
@@ -369,9 +580,11 @@ export default function TaskBoardPage() {
                 </div>
 
                 {/* Task List */}
+                <DroppableSection id={`section-${key}`} isEmpty={sectionTasks.length === 0}>
                 {sectionTasks.length === 0 && adding !== key ? (
                   <p className="text-center text-gray-400 py-8">No tasks yet</p>
                 ) : (
+                  <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
                   <div className="space-y-2">
                     {sectionTasks.map(task => {
                       const subtasks = task.subtasks || [];
@@ -381,7 +594,9 @@ export default function TaskBoardPage() {
                       const isEditing = editingId === task.id;
 
                       return (
-                        <div key={task.id}>
+                        <SortableTaskRow key={task.id} task={task}>
+                          {({ dragHandleProps }) => (
+                        <div>
                           {/* Main Task Row */}
                           <div
                             className={`rounded-xl border transition-all duration-200 ${
@@ -396,6 +611,15 @@ export default function TaskBoardPage() {
                             }}
                           >
                             <div className="flex items-center gap-3 px-4 py-3">
+                              {/* Drag handle */}
+                              <button
+                                {...dragHandleProps}
+                                className="flex-shrink-0 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 transition-colors touch-none"
+                                tabIndex={-1}
+                              >
+                                <GripVertical size={16} />
+                              </button>
+
                               {/* Expand toggle */}
                               <button
                                 onClick={() => toggleExpanded(task.id)}
@@ -626,10 +850,14 @@ export default function TaskBoardPage() {
                             </div>
                           )}
                         </div>
+                          )}
+                        </SortableTaskRow>
                       );
                     })}
                   </div>
+                  </SortableContext>
                 )}
+                </DroppableSection>
 
                 {/* Add Task Input — always at bottom of section */}
                 {adding === key && !atCapacity && (
@@ -664,7 +892,21 @@ export default function TaskBoardPage() {
             );
           })}
         </div>
+
       )}
+
+      {/* Drag overlay for visual feedback */}
+      <DragOverlay>
+        {activeTask ? (
+          <div className="rounded-xl border border-emerald-300 bg-white shadow-lg px-4 py-3 opacity-90">
+            <div className="flex items-center gap-3">
+              <GripVertical size={16} className="text-emerald-500" />
+              <span className="text-sm text-gray-800">{activeTask.title}</span>
+            </div>
+          </div>
+        ) : null}
+      </DragOverlay>
+      </DndContext>
     </div>
   );
 }

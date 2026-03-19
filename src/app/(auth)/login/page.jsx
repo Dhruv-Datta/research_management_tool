@@ -36,9 +36,9 @@ export default function LoginPage() {
             <Image
               src="/images/logo.png"
               alt="B.D. Sterling Capital"
-              width={200}
-              height={55}
-              className="h-11 w-auto object-contain"
+              width={220}
+              height={60}
+              className="h-13 w-auto object-contain"
               priority
             />
           </div>

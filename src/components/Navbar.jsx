@@ -150,9 +150,9 @@ export default function Navbar() {
           <Image
             src="/images/logo.png"
             alt="B.D. Sterling Capital"
-            width={160}
-            height={44}
-            className="h-9 w-auto object-contain"
+            width={180}
+            height={50}
+            className="h-11 w-auto object-contain"
             priority
           />
           <span className="text-gray-400 text-sm font-medium">|</span>
