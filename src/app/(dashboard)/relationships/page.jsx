@@ -233,32 +233,45 @@ export default function RelationshipsPage() {
   const [displayId, setDisplayId] = useState(null); // lags behind selId for animation
   const [panelAnim, setPanelAnim] = useState(false);
   const animTimer = useRef(null);
+  const closeTimer = useRef(null);
   const panelRef = useRef(null);
+  const displayIdRef = useRef(null);
 
   useEffect(() => {
     if (animTimer.current) clearTimeout(animTimer.current);
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    const prevDisplayId = displayIdRef.current;
+
     if (!selId) {
-      setDisplayId(null);
-      setPanelAnim(false);
-    } else if (!displayId) {
-      // opening fresh — show immediately
+      // Closing — keep displayId so content stays visible during slide-out
+      // Clear it after the slide-out animation finishes
+      closeTimer.current = setTimeout(() => {
+        setDisplayId(null);
+        displayIdRef.current = null;
+      }, 400);
+    } else if (!prevDisplayId) {
+      // Opening fresh
       setDisplayId(selId);
+      displayIdRef.current = selId;
       setPanelAnim(false);
-    } else if (selId !== displayId) {
-      // switching — fade out old content, swap while hidden, then fade in
-      setPanelAnim(true); // triggers fade-out (120ms CSS)
+    } else if (selId !== prevDisplayId) {
+      // Switching between bubbles — fade out old, swap, fade in new
+      setPanelAnim(true);
       animTimer.current = setTimeout(() => {
-        setDisplayId(selId); // swap content while faded out
-        // small delay before fading back in so React renders the new content first
+        setDisplayId(selId);
+        displayIdRef.current = selId;
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            setPanelAnim(false); // triggers fade-in
+            setPanelAnim(false);
           });
         });
-      }, 130);
+      }, 250);
     }
-    return () => { if (animTimer.current) clearTimeout(animTimer.current); };
-  }, [selId]); // intentionally only depends on selId
+    return () => {
+      if (animTimer.current) clearTimeout(animTimer.current);
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+    };
+  }, [selId]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const [adding, setAdding] = useState(false);
@@ -662,7 +675,7 @@ export default function RelationshipsPage() {
         </div>
 
         {/* Detail Panel — absolute overlay, slides in from right */}
-        <div ref={panelRef} className={`absolute top-0 right-0 h-full w-[380px] z-20 transition-all duration-200 ease-out ${selId ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0 pointer-events-none'}`}>
+        <div ref={panelRef} className={`absolute top-0 right-0 h-full w-[380px] z-20 ${selId ? 'translate-x-0 opacity-100 transition-all duration-[400ms] ease-out' : 'translate-x-6 opacity-0 pointer-events-none transition-all duration-[350ms] ease-in-out'}`}>
           {sel && (() => {
             const _d = daysSince(sel.last_contacted_at);
             const _zoneKey = getZone(sel);
@@ -672,7 +685,7 @@ export default function RelationshipsPage() {
               ? new Date(new Date(sel.last_contacted_at).getTime() + 14 * 86400000).toISOString().split('T')[0]
               : ahead(14);
             return (
-              <div className={`h-full bg-white border border-gray-200 rounded-2xl flex flex-col overflow-hidden shadow-lg ${panelAnim ? 'opacity-0 scale-[0.97] transition-all duration-[120ms] ease-in' : 'opacity-100 scale-100 transition-all duration-200 ease-out'}`} style={{ maxHeight: 'calc(100vh - 200px)' }}>
+              <div className={`h-full bg-white border border-gray-200 rounded-2xl flex flex-col overflow-hidden shadow-lg ${panelAnim ? 'opacity-0 scale-[0.97] transition-all duration-[220ms] ease-in' : 'opacity-100 scale-100 transition-all duration-[350ms] ease-out'}`} style={{ maxHeight: 'calc(100vh - 200px)' }}>
                 {/* Header */}
                 <div className="p-5 border-b border-gray-100">
                   <div className="flex items-start justify-between mb-1">
