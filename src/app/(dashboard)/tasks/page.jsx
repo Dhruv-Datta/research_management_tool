@@ -349,14 +349,32 @@ export default function TaskBoardPage() {
     setEditingSubTitle(sub.title);
   };
 
-  const saveSubtaskEdit = (taskId, subtaskId) => {
+  const saveSubtaskEdit = (taskId, subtaskId, { thenAdd = false } = {}) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) { setEditingSubId(null); return; }
     const newTitle = editingSubTitle.trim();
-    if (!newTitle) { setEditingSubId(null); return; }
-    const subtasks = (task.subtasks || []).map(s => s.id === subtaskId ? { ...s, title: newTitle } : s);
-    setEditingSubId(null);
-    updateSubtasks(taskId, subtasks);
+    if (!newTitle) {
+      // Remove the empty subtask if it has no title
+      const cleaned = (task.subtasks || []).filter(s => s.id !== subtaskId || s.title.trim());
+      if (cleaned.length !== (task.subtasks || []).length) updateSubtasks(taskId, cleaned);
+      setEditingSubId(null);
+      return;
+    }
+    const currentSubs = (task.subtasks || []).map(s => s.id === subtaskId ? { ...s, title: newTitle } : s);
+
+    if (thenAdd) {
+      // Insert a new empty subtask right after the current one
+      const idx = currentSubs.findIndex(s => s.id === subtaskId);
+      const newSub = { id: Date.now(), title: '', done: false, assignee: '' };
+      const subtasks = [...currentSubs.slice(0, idx + 1), newSub, ...currentSubs.slice(idx + 1)];
+      updateSubtasks(taskId, subtasks);
+      // Start editing the new subtask
+      setEditingSubId(`${taskId}-${newSub.id}`);
+      setEditingSubTitle('');
+    } else {
+      setEditingSubId(null);
+      updateSubtasks(taskId, currentSubs);
+    }
   };
 
   const updateSubtaskAssignee = (taskId, subtaskId, assignee) => {
@@ -774,7 +792,7 @@ export default function TaskBoardPage() {
                                         value={editingSubTitle}
                                         onChange={e => setEditingSubTitle(e.target.value)}
                                         onKeyDown={e => {
-                                          if (e.key === 'Enter') saveSubtaskEdit(task.id, sub.id);
+                                          if (e.key === 'Enter') { e.preventDefault(); saveSubtaskEdit(task.id, sub.id, { thenAdd: true }); }
                                           if (e.key === 'Escape') setEditingSubId(null);
                                         }}
                                         onBlur={() => saveSubtaskEdit(task.id, sub.id)}

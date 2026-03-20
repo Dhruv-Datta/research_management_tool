@@ -163,14 +163,15 @@ function computeZoneLayout(contacts, w, h, isHighZone) {
   return Object.fromEntries(nodes.map(nd => [nd.id, { x: nd.x, y: nd.y, r: nd.r }]));
 }
 
-/* ─── outreach type tabs ─── */
-const OUTREACH_TYPES = [
-  { key: 'all', label: 'All' },
+/* ─── contact tags (multi-select) ─── */
+const CONTACT_TAGS = [
   { key: 'mailing_list', label: 'Mailing List', color: '#6366f1' },
-  { key: 'in_person', label: 'In Person Meeting', color: '#f59e0b' },
-  { key: 'send_article', label: 'Email Article / Resource', color: '#10b981' },
-  { key: 'other', label: 'Other', color: '#8b5cf6' },
 ];
+const hasTag = (c, tag) => Array.isArray(c.tags) && c.tags.includes(tag);
+const toggleTag = (tags, tag) => {
+  const arr = Array.isArray(tags) ? [...tags] : [];
+  return arr.includes(tag) ? arr.filter(t => t !== tag) : [...arr, tag];
+};
 
 
 /* ═══════════════════════════════════════════
@@ -281,7 +282,7 @@ export default function RelationshipsPage() {
   const [draggingId, setDraggingId] = useState(null);
   const [pendingDrop, setPendingDrop] = useState(null); // { contactId, targetZone, suggestedDate }
 
-  const emptyC = { name: '', company: '', role: '', importance: 3, contact_method: 'email', contact_value: '', city: '', summary: '', outreach_type: 'other' };
+  const emptyC = { name: '', company: '', role: '', importance: 3, contact_method: 'email', contact_value: '', city: '', summary: '', tags: [] };
   const [cf, setCf] = useState(emptyC);
 
   const sel = contacts.find(c => c.id === displayId); // use displayId so old content stays during fade-out
@@ -330,7 +331,7 @@ export default function RelationshipsPage() {
       const q = search.toLowerCase();
       list = list.filter(c => c.name?.toLowerCase().includes(q) || c.company?.toLowerCase().includes(q) || c.role?.toLowerCase().includes(q) || c.city?.toLowerCase().includes(q));
     }
-    if (filter !== 'all') list = list.filter(c => (c.outreach_type || 'other') === filter);
+    if (filter !== 'all') list = list.filter(c => hasTag(c, filter));
     return list;
   }, [contacts, search, filter, getZone]);
 
@@ -445,16 +446,24 @@ export default function RelationshipsPage() {
         </div>
       </div>
 
-      {/* Outreach Type Tabs */}
+      {/* Tag Filter Tabs */}
       <div className="flex items-center gap-1.5 mb-3">
-        {OUTREACH_TYPES.map(t => {
-          const count = t.key === 'all' ? contacts.length : contacts.filter(c => (c.outreach_type || 'other') === t.key).length;
+        <button onClick={() => setFilter('all')}
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+            filter === 'all' ? 'bg-gray-900 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}>
+          All
+          <span className="opacity-60">({contacts.length})</span>
+        </button>
+        {CONTACT_TAGS.map(t => {
+          const count = contacts.filter(c => hasTag(c, t.key)).length;
           return (
-            <button key={t.key} onClick={() => setFilter(filter === t.key && t.key !== 'all' ? 'all' : t.key)}
+            <button key={t.key} onClick={() => setFilter(filter === t.key ? 'all' : t.key)}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
-                filter === t.key ? 'bg-gray-900 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}>
-              {t.color && <div className="w-2 h-2 rounded-full" style={{ background: t.color }} />}
+                filter === t.key ? 'text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+              style={filter === t.key ? { background: t.color } : {}}>
+              <div className="w-2 h-2 rounded-full" style={{ background: t.color }} />
               {t.label}
               <span className="opacity-60">({count})</span>
             </button>
@@ -491,14 +500,14 @@ export default function RelationshipsPage() {
               </div>
             </div>
             <div className="mt-3">
-              <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1.5">Outreach Type</label>
+              <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1.5">Tags</label>
               <div className="flex flex-wrap gap-1.5">
-                {OUTREACH_TYPES.filter(t => t.key !== 'all').map(t => (
-                  <button key={t.key} type="button" onClick={() => setCf({ ...cf, outreach_type: t.key })}
+                {CONTACT_TAGS.map(t => (
+                  <button key={t.key} type="button" onClick={() => setCf({ ...cf, tags: toggleTag(cf.tags, t.key) })}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-                      cf.outreach_type === t.key ? 'text-white border-transparent' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                      (cf.tags || []).includes(t.key) ? 'text-white border-transparent' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
                     }`}
-                    style={cf.outreach_type === t.key ? { background: t.color, borderColor: t.color } : {}}>
+                    style={(cf.tags || []).includes(t.key) ? { background: t.color, borderColor: t.color } : {}}>
                     {t.label}
                   </button>
                 ))}
@@ -740,17 +749,17 @@ export default function RelationshipsPage() {
                     </div>
                   </div>
 
-                  {/* Outreach Type */}
+                  {/* Tags */}
                   <div>
-                    <span className="text-[10px] text-gray-400">Outreach type</span>
+                    <span className="text-[10px] text-gray-400">Tags</span>
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {OUTREACH_TYPES.filter(t => t.key !== 'all').map(t => (
-                        <button key={t.key} onClick={() => update(sel.id, { outreach_type: t.key })}
+                      {CONTACT_TAGS.map(t => (
+                        <button key={t.key} onClick={() => update(sel.id, { tags: toggleTag(sel.tags, t.key) })}
                           className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all ${
-                            (sel.outreach_type || 'other') === t.key
+                            hasTag(sel, t.key)
                               ? 'text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                           }`}
-                          style={(sel.outreach_type || 'other') === t.key ? { background: t.color } : {}}>
+                          style={hasTag(sel, t.key) ? { background: t.color } : {}}>
                           {t.label}
                         </button>
                       ))}
