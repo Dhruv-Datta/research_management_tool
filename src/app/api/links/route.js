@@ -26,6 +26,9 @@ import { summarizeByType } from '@/lib/summarizer';
 
   CREATE INDEX idx_research_links_ticker ON research_links(ticker);
   CREATE INDEX idx_research_links_content_type ON research_links(content_type);
+
+  -- If table already exists, run these to add missing columns:
+  -- ALTER TABLE research_links ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT false;
 */
 
 const TABLE = 'research_links';
@@ -124,6 +127,7 @@ export async function POST(request) {
     manual_summary: null,
     summary_status: 'pending',
     summary_method: 'none',
+    is_read: false,
   };
 
   const { data: saved, error } = await supabase
@@ -187,6 +191,7 @@ export async function PUT(request) {
   if (body.contentType !== undefined) updateData.content_type = body.contentType;
   if (body.ticker !== undefined) updateData.ticker = (body.ticker || '').toUpperCase().trim();
   if (body.pastedText !== undefined) updateData.pasted_text = body.pastedText;
+  if (body.is_read !== undefined) updateData.is_read = body.is_read;
 
   if (body.manualSummary !== undefined) {
     updateData.manual_summary = body.manualSummary;
