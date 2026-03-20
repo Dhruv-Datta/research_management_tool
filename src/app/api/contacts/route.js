@@ -35,6 +35,7 @@ import { supabase } from '@/lib/supabase';
   -- ALTER TABLE contacts ADD COLUMN IF NOT EXISTS importance INTEGER DEFAULT 3;
   -- ALTER TABLE contacts ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT '';
   -- ALTER TABLE contacts ADD COLUMN IF NOT EXISTS last_meeting_note TEXT DEFAULT '';
+  -- ALTER TABLE contacts ADD COLUMN IF NOT EXISTS outreach_type TEXT DEFAULT 'other';
 */
 
 const TABLE = 'contacts';
@@ -67,6 +68,7 @@ export async function POST(req) {
     status: 'active',
     relationship_strength: 'new',
     importance: body.importance || 3,
+    outreach_type: body.outreach_type || 'other',
     summary: body.summary || '',
     next_action: '',
     follow_up_date: null,

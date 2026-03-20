@@ -11,7 +11,6 @@ import ConfirmModal from '@/components/ConfirmModal';
 /* ─── helpers ─── */
 const daysSince = (d) => d ? Math.floor((Date.now() - new Date(d).getTime()) / 86400000) : null;
 const fmtShort = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—';
-const ago = (n) => new Date(Date.now() - n * 86400000).toISOString();
 const ahead = (n) => new Date(Date.now() + n * 86400000).toISOString().split('T')[0];
 const hash = (s) => { let h = 0; for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0; return Math.abs(h); };
 const seeded = (s) => (hash(s) % 10000) / 10000;
@@ -86,79 +85,91 @@ const STRENGTHS = ['strong', 'warm', 'developing'];
 const STATUSES = ['active', 'nurturing', 'cold', 'dormant'];
 const sBadge = (s) => ({ strong: 'bg-emerald-100 text-emerald-700', warm: 'bg-amber-100 text-amber-700', developing: 'bg-blue-100 text-blue-700' }[s] || 'bg-gray-100 text-gray-600');
 
-/* ─── demo data ─── */
-const DEMO_CONTACTS = [
-  { id: 'demo-01', name: 'Sarah Chen', company: 'Sequoia Capital', role: 'Partner', relationship_type: 'investor', relationship_strength: 'strong', importance: 5, status: 'active', contact_method: 'email', contact_value: 'sarah.c@sequoiacap.com', city: 'San Francisco', summary: 'Key LP. Very responsive, strong rapport from Y Combinator days.', next_action: 'Send Q1 report', follow_up_date: ahead(2), last_contacted_at: ago(3), notes: 'Met at YC Demo Day 2023. Has since committed to Fund II.', tags: [] },
-  { id: 'demo-02', name: 'James Morrison', company: 'Goldman Sachs', role: 'Managing Director', relationship_type: 'investor', relationship_strength: 'warm', importance: 4, status: 'active', contact_method: 'email', contact_value: 'jmorrison@gs.com', city: 'New York', summary: 'Institutional allocator, exploring emerging managers.', next_action: 'Schedule dinner at Cipriani', follow_up_date: null, last_contacted_at: ago(11), notes: '', tags: [] },
-  { id: 'demo-03', name: 'Priya Patel', company: 'Andreessen Horowitz', role: 'Principal', relationship_type: 'advisor', relationship_strength: 'strong', importance: 5, status: 'active', contact_method: 'linkedin', contact_value: 'linkedin.com/in/priyap', city: 'Menlo Park', summary: 'Great sounding board for deal sourcing. Deep fintech expertise.', next_action: 'Ask about Series B deal', follow_up_date: ahead(-1), last_contacted_at: ago(5), notes: '', tags: [] },
-  { id: 'demo-04', name: 'David Kim', company: 'Stripe', role: 'VP Engineering', relationship_type: 'recruit', relationship_strength: 'developing', importance: 3, status: 'nurturing', contact_method: 'email', contact_value: 'dkim@stripe.com', city: 'San Francisco', summary: 'Potential operating advisor. Brilliant infra mind.', next_action: 'Send article on fund thesis', follow_up_date: null, last_contacted_at: ago(18), notes: '', tags: [] },
-  { id: 'demo-05', name: 'Elena Volkov', company: 'Tiger Global', role: 'Partner', relationship_type: 'investor', relationship_strength: 'developing', importance: 4, status: 'active', contact_method: 'email', contact_value: 'elena@tigerglobal.com', city: 'New York', summary: 'Warm intro from James M. Interested in our deal flow.', next_action: 'Share deck', follow_up_date: ahead(5), last_contacted_at: ago(14), notes: '', tags: [] },
-  { id: 'demo-06', name: 'Marcus Thompson', company: 'Blackstone', role: 'Senior Analyst', relationship_type: 'partner', relationship_strength: 'warm', importance: 4, status: 'active', contact_method: 'phone', contact_value: '+1 212-555-0173', city: 'New York', summary: 'Co-invest partner for larger deals. Good at due diligence.', next_action: 'Discuss Acme deal', follow_up_date: null, last_contacted_at: ago(6), notes: '', tags: [] },
-  { id: 'demo-07', name: 'Aisha Rahman', company: 'McKinsey', role: 'Senior Partner', relationship_type: 'advisor', relationship_strength: 'developing', importance: 2, status: 'nurturing', contact_method: 'email', contact_value: 'aisha_rahman@mckinsey.com', city: 'London', summary: 'Met at Davos. Deep ops transformation experience.', next_action: 'Rekindle relationship', follow_up_date: null, last_contacted_at: ago(45), notes: '', tags: [] },
-  { id: 'demo-08', name: 'Tom Bradley', company: 'Wilson Sonsini', role: 'Partner', relationship_type: 'vendor', relationship_strength: 'strong', importance: 3, status: 'active', contact_method: 'email', contact_value: 'tbradley@wsgr.com', city: 'Palo Alto', summary: 'Outside counsel. Handles all fund formation docs.', next_action: '', follow_up_date: null, last_contacted_at: ago(9), notes: '', tags: [] },
-  { id: 'demo-09', name: 'Nina Kowalski', company: 'Citadel', role: 'Portfolio Manager', relationship_type: 'investor', relationship_strength: 'developing', importance: 3, status: 'cold', contact_method: 'email', contact_value: 'nkowalski@citadel.com', city: 'Chicago', summary: 'Cold outreach via conference. Lukewarm initial response.', next_action: 'Follow up next week', follow_up_date: ahead(-5), last_contacted_at: ago(38), notes: '', tags: [] },
-  { id: 'demo-10', name: 'Alex Reeves', company: 'Notion', role: 'CTO', relationship_type: 'recruit', relationship_strength: 'warm', importance: 3, status: 'active', contact_method: 'linkedin', contact_value: 'linkedin.com/in/alexreeves', city: 'San Francisco', summary: 'Potential portfolio advisor for SaaS investments.', next_action: 'Schedule coffee', follow_up_date: null, last_contacted_at: ago(4), notes: '', tags: [] },
-  { id: 'demo-11', name: 'Rachel Foster', company: 'LP Advisory', role: 'Founder', relationship_type: 'partner', relationship_strength: 'developing', importance: 4, status: 'active', contact_method: 'email', contact_value: 'rachel@lpadvisory.com', city: 'Boston', summary: 'Placement agent. Helping with Fund III raise.', next_action: 'Review LP intro list', follow_up_date: ahead(3), last_contacted_at: ago(22), notes: '', tags: [] },
-  { id: 'demo-12', name: 'Wei Zhang', company: 'SoftBank Vision', role: 'Director', relationship_type: 'investor', relationship_strength: 'developing', importance: 2, status: 'dormant', contact_method: 'email', contact_value: 'wei.z@softbank.com', city: 'Tokyo', summary: 'Met briefly at conference. No real engagement yet.', next_action: 'Send intro email', follow_up_date: null, last_contacted_at: null, notes: '', tags: [] },
-  { id: 'demo-13', name: 'Olivia Hart', company: 'Deloitte', role: 'Tax Partner', relationship_type: 'vendor', relationship_strength: 'warm', importance: 2, status: 'active', contact_method: 'email', contact_value: 'ohart@deloitte.com', city: 'New York', summary: 'Handles fund tax compliance. Very thorough.', next_action: '', follow_up_date: null, last_contacted_at: ago(16), notes: '', tags: [] },
-  { id: 'demo-14', name: 'Carlos Ruiz', company: 'Founders Fund', role: 'VP', relationship_type: 'advisor', relationship_strength: 'strong', importance: 5, status: 'active', contact_method: 'phone', contact_value: '+1 415-555-0298', city: 'San Francisco', summary: 'Long-time friend. Always gives sharp deal feedback.', next_action: 'Catch up over lunch', follow_up_date: null, last_contacted_at: ago(1), notes: 'Known each other since Stanford MBA.', tags: [] },
-  { id: 'demo-15', name: 'Hannah Lee', company: 'Robinhood', role: 'Head of Product', relationship_type: 'other', relationship_strength: 'developing', importance: 1, status: 'nurturing', contact_method: 'email', contact_value: 'hlee@robinhood.com', city: 'Menlo Park', summary: 'Could be a future portfolio company exec hire.', next_action: 'Send article', follow_up_date: null, last_contacted_at: ago(25), notes: '', tags: [] },
-];
 
 /* ─── force-directed bubble layout (per zone) ─── */
 function computeZoneLayout(contacts, w, h, isHighZone) {
   if (!contacts.length) return {};
 
-  const nodes = contacts.map(c => {
+  const n = contacts.length;
+  // Auto-scale radii so total bubble area fits ~55% of panel
+  const baseRadii = contacts.map(c => 26 + (c.importance || 3) * 7);
+  const totalArea = baseRadii.reduce((s, r) => s + Math.PI * (r + 12) * (r + 12), 0);
+  const scale = Math.min(1, Math.sqrt((w * h * 0.55) / totalArea));
+  const gap = Math.max(10, 22 * scale);
+  const pad = 10;
+
+  // Seed positions using golden-angle spiral for natural, non-grid distribution
+  const nodes = contacts.map((c, i) => {
     const imp = c.importance || 3;
-    const r = 26 + imp * 7;
-    // Badge adds ~12px to effective radius for high-importance contacts in the red zone
+    const r = (26 + imp * 7) * scale;
     const hasBadge = isHighZone && imp >= 4;
-    const effectiveR = hasBadge ? r + 12 : r;
+    const effectiveR = hasBadge ? r + 10 * scale : r;
+    // Golden angle spiral + per-contact jitter for organic initial placement
+    const golden = 2.399963; // radians
+    const angle = i * golden + seeded(c.id + 'a') * 0.8;
+    const dist = 0.25 + (i / Math.max(1, n - 1)) * 0.45 + seeded(c.id + 'd') * 0.15;
     return {
       id: c.id, r, effectiveR,
-      x: w / 2 + (seeded(c.id + 'x') - 0.5) * (w - effectiveR * 4),
-      y: h / 2 + (seeded(c.id + 'y') - 0.5) * (h - effectiveR * 4),
+      x: w / 2 + Math.cos(angle) * dist * (w / 2 - effectiveR - pad),
+      y: h / 2 + Math.sin(angle) * dist * (h / 2 - effectiveR - pad),
     };
   });
 
-  for (let iter = 0; iter < 150; iter++) {
-    const a = 1 - iter / 150;
-    // center gravity
-    nodes.forEach(n => {
-      n.x += (w / 2 - n.x) * 0.008 * a;
-      n.y += (h / 2 - n.y) * 0.008 * a;
+  // Simulation: resolve overlaps organically
+  const iters = n > 15 ? 400 : 250;
+  for (let iter = 0; iter < iters; iter++) {
+    const t = iter / iters;
+    // Gentle center gravity that fades out
+    const gravity = 0.008 * (1 - t);
+    nodes.forEach(nd => {
+      nd.x += (w / 2 - nd.x) * gravity;
+      nd.y += (h / 2 - nd.y) * gravity;
     });
-    // collision avoidance — use effectiveR so badges don't overlap
+    // Collision avoidance with per-pair randomized gap to prevent grid settling
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
         const dx = nodes[j].x - nodes[i].x;
         const dy = nodes[j].y - nodes[i].y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const gap = nodes[i].effectiveR + nodes[j].effectiveR + 18;
-        if (dist < gap) {
-          const f = (gap - dist) / dist * 0.4;
-          nodes[i].x -= dx * f; nodes[i].y -= dy * f;
-          nodes[j].x += dx * f; nodes[j].y += dy * f;
+        // Vary gap per pair so distances aren't uniform
+        const pairJitter = gap * (0.8 + seeded(nodes[i].id + nodes[j].id) * 0.6);
+        const minDist = nodes[i].effectiveR + nodes[j].effectiveR + pairJitter;
+        if (dist < minDist) {
+          const f = (minDist - dist) / dist * 0.4;
+          // Asymmetric push — smaller bubble moves more
+          const ratio = nodes[j].r / (nodes[i].r + nodes[j].r);
+          nodes[i].x -= dx * f * ratio; nodes[i].y -= dy * f * ratio;
+          nodes[j].x += dx * f * (1 - ratio); nodes[j].y += dy * f * (1 - ratio);
         }
       }
     }
-    // boundary — use effectiveR so badge doesn't clip edges
-    nodes.forEach(n => {
-      n.x = Math.max(n.effectiveR + 16, Math.min(w - n.effectiveR - 16, n.x));
-      n.y = Math.max(n.effectiveR + 16, Math.min(h - n.effectiveR - 16, n.y));
+    // Soft boundary
+    nodes.forEach(nd => {
+      const minX = nd.effectiveR + pad, maxX = w - nd.effectiveR - pad;
+      const minY = nd.effectiveR + pad, maxY = h - nd.effectiveR - pad;
+      if (nd.x < minX) nd.x += (minX - nd.x) * 0.5;
+      else if (nd.x > maxX) nd.x += (maxX - nd.x) * 0.5;
+      if (nd.y < minY) nd.y += (minY - nd.y) * 0.5;
+      else if (nd.y > maxY) nd.y += (maxY - nd.y) * 0.5;
     });
   }
 
-  return Object.fromEntries(nodes.map(n => [n.id, { x: n.x, y: n.y, r: n.r }]));
+  // Final hard clamp to ensure nothing is out of bounds
+  nodes.forEach(nd => {
+    nd.x = Math.max(nd.effectiveR + pad, Math.min(w - nd.effectiveR - pad, nd.x));
+    nd.y = Math.max(nd.effectiveR + pad, Math.min(h - nd.effectiveR - pad, nd.y));
+  });
+
+  return Object.fromEntries(nodes.map(nd => [nd.id, { x: nd.x, y: nd.y, r: nd.r }]));
 }
 
-/* ─── urgency filter tabs ─── */
-const URGENCY_TABS = [
+/* ─── outreach type tabs ─── */
+const OUTREACH_TYPES = [
   { key: 'all', label: 'All' },
-  { key: 'low', label: 'Low Urgency', color: '#22c55e' },
-  { key: 'medium', label: 'Medium Urgency', color: '#eab308' },
-  { key: 'high', label: 'High Urgency', color: '#ef4444' },
+  { key: 'mailing_list', label: 'Mailing List', color: '#6366f1' },
+  { key: 'in_person', label: 'In Person Meeting', color: '#f59e0b' },
+  { key: 'send_article', label: 'Email Article / Resource', color: '#10b981' },
+  { key: 'other', label: 'Other', color: '#8b5cf6' },
 ];
 
 
@@ -213,7 +224,7 @@ function InlineField({ value, field, contactId, onSave, placeholder, className, 
 }
 
 export default function RelationshipsPage() {
-  const [contacts, setContacts] = useState(DEMO_CONTACTS);
+  const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [confirm, setConfirm] = useState(null);
@@ -227,7 +238,6 @@ export default function RelationshipsPage() {
   useEffect(() => {
     if (animTimer.current) clearTimeout(animTimer.current);
     if (!selId) {
-      // closing panel — no swap animation needed
       setDisplayId(null);
       setPanelAnim(false);
     } else if (!displayId) {
@@ -235,12 +245,17 @@ export default function RelationshipsPage() {
       setDisplayId(selId);
       setPanelAnim(false);
     } else if (selId !== displayId) {
-      // switching — fade out old, then swap in new
-      setPanelAnim(true);
+      // switching — fade out old content, swap while hidden, then fade in
+      setPanelAnim(true); // triggers fade-out (120ms CSS)
       animTimer.current = setTimeout(() => {
-        setDisplayId(selId);
-        setPanelAnim(false);
-      }, 150);
+        setDisplayId(selId); // swap content while faded out
+        // small delay before fading back in so React renders the new content first
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            setPanelAnim(false); // triggers fade-in
+          });
+        });
+      }, 130);
     }
     return () => { if (animTimer.current) clearTimeout(animTimer.current); };
   }, [selId]); // intentionally only depends on selId
@@ -253,7 +268,7 @@ export default function RelationshipsPage() {
   const [draggingId, setDraggingId] = useState(null);
   const [pendingDrop, setPendingDrop] = useState(null); // { contactId, targetZone, suggestedDate }
 
-  const emptyC = { name: '', company: '', role: '', importance: 3, contact_method: 'email', contact_value: '', city: '', summary: '' };
+  const emptyC = { name: '', company: '', role: '', importance: 3, contact_method: 'email', contact_value: '', city: '', summary: '', outreach_type: 'other' };
   const [cf, setCf] = useState(emptyC);
 
   const sel = contacts.find(c => c.id === displayId); // use displayId so old content stays during fade-out
@@ -277,10 +292,7 @@ export default function RelationshipsPage() {
         const r = await fetch('/api/contacts');
         if (r.ok) {
           const d = await r.json();
-          if (Array.isArray(d) && d.length > 0) {
-            // Merge: keep demo contacts alongside real ones
-            setContacts([...DEMO_CONTACTS, ...d]);
-          }
+          if (Array.isArray(d)) setContacts(d);
         }
       } catch {}
       setLoading(false);
@@ -305,7 +317,7 @@ export default function RelationshipsPage() {
       const q = search.toLowerCase();
       list = list.filter(c => c.name?.toLowerCase().includes(q) || c.company?.toLowerCase().includes(q) || c.role?.toLowerCase().includes(q) || c.city?.toLowerCase().includes(q));
     }
-    if (filter !== 'all') list = list.filter(c => getZone(c) === filter);
+    if (filter !== 'all') list = list.filter(c => (c.outreach_type || 'other') === filter);
     return list;
   }, [contacts, search, filter, getZone]);
 
@@ -317,8 +329,9 @@ export default function RelationshipsPage() {
     return g;
   }, [filtered, getZone]);
 
-  // Compute layout in a normalized space (percentages)
-  const ZONE_W = 400, ZONE_H = 600;
+  // Virtual space matches actual panel aspect ratio (~1:1.5 width:height)
+  const ZONE_W = 400;
+  const ZONE_H = 600;
   // Cache previous positions so non-matching bubbles can pop out from where they were
   const prevPositionsRef = useRef({ low: {}, medium: {}, high: {} });
   const zonePositions = useMemo(() => {
@@ -387,14 +400,12 @@ export default function RelationshipsPage() {
     } catch { setToast({ message: 'Failed', type: 'error' }); }
   };
   const update = async (id, u) => {
-    if (id.startsWith('demo-')) { setContacts(p => p.map(c => c.id === id ? { ...c, ...u } : c)); return; }
     try {
       const r = await fetch('/api/contacts', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...u }) });
       if (r.ok) { const d = await r.json(); setContacts(p => p.map(c => c.id === id ? d : c)); }
     } catch { setToast({ message: 'Failed', type: 'error' }); }
   };
   const del = async (id) => {
-    if (id.startsWith('demo-')) { setContacts(p => p.filter(c => c.id !== id)); if (selId === id) setSelId(null); setToast({ message: 'Deleted', type: 'success' }); return; }
     try {
       const r = await fetch(`/api/contacts?id=${id}`, { method: 'DELETE' });
       if (r.ok) { setContacts(p => p.filter(c => c.id !== id)); if (selId === id) setSelId(null); setToast({ message: 'Deleted', type: 'success' }); }
@@ -421,10 +432,10 @@ export default function RelationshipsPage() {
         </div>
       </div>
 
-      {/* Urgency Tabs */}
+      {/* Outreach Type Tabs */}
       <div className="flex items-center gap-1.5 mb-3">
-        {URGENCY_TABS.map(t => {
-          const count = t.key === 'all' ? contacts.length : contacts.filter(c => getZone(c) === t.key).length;
+        {OUTREACH_TYPES.map(t => {
+          const count = t.key === 'all' ? contacts.length : contacts.filter(c => (c.outreach_type || 'other') === t.key).length;
           return (
             <button key={t.key} onClick={() => setFilter(filter === t.key && t.key !== 'all' ? 'all' : t.key)}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
@@ -462,6 +473,20 @@ export default function RelationshipsPage() {
                       cf.importance === n ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
                     }`}>
                     {n} — {IMPORTANCE_LABELS[n]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-3">
+              <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1.5">Outreach Type</label>
+              <div className="flex flex-wrap gap-1.5">
+                {OUTREACH_TYPES.filter(t => t.key !== 'all').map(t => (
+                  <button key={t.key} type="button" onClick={() => setCf({ ...cf, outreach_type: t.key })}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                      cf.outreach_type === t.key ? 'text-white border-transparent' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                    }`}
+                    style={cf.outreach_type === t.key ? { background: t.color, borderColor: t.color } : {}}>
+                    {t.label}
                   </button>
                 ))}
               </div>
@@ -647,7 +672,7 @@ export default function RelationshipsPage() {
               ? new Date(new Date(sel.last_contacted_at).getTime() + 14 * 86400000).toISOString().split('T')[0]
               : ahead(14);
             return (
-              <div className={`h-full bg-white border border-gray-200 rounded-2xl flex flex-col overflow-hidden shadow-lg transition-all duration-150 ease-out ${panelAnim ? 'opacity-0 scale-[0.98]' : 'opacity-100 scale-100'}`} style={{ maxHeight: 'calc(100vh - 200px)' }}>
+              <div className={`h-full bg-white border border-gray-200 rounded-2xl flex flex-col overflow-hidden shadow-lg ${panelAnim ? 'opacity-0 scale-[0.97] transition-all duration-[120ms] ease-in' : 'opacity-100 scale-100 transition-all duration-200 ease-out'}`} style={{ maxHeight: 'calc(100vh - 200px)' }}>
                 {/* Header */}
                 <div className="p-5 border-b border-gray-100">
                   <div className="flex items-start justify-between mb-1">
@@ -698,6 +723,23 @@ export default function RelationshipsPage() {
                           className={`w-5 h-5 rounded-full text-[9px] font-semibold transition-all ${
                             (sel.importance || 3) === n ? 'bg-emerald-500 text-white shadow-sm' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
                           }`}>{n}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Outreach Type */}
+                  <div>
+                    <span className="text-[10px] text-gray-400">Outreach type</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {OUTREACH_TYPES.filter(t => t.key !== 'all').map(t => (
+                        <button key={t.key} onClick={() => update(sel.id, { outreach_type: t.key })}
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all ${
+                            (sel.outreach_type || 'other') === t.key
+                              ? 'text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                          }`}
+                          style={(sel.outreach_type || 'other') === t.key ? { background: t.color } : {}}>
+                          {t.label}
+                        </button>
                       ))}
                     </div>
                   </div>
