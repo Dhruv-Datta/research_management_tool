@@ -102,6 +102,16 @@ export default function AllocationPage() {
   const [simulationChart, setSimulationChart] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const saveTimer = useRef(null);
+  const tableRef = useRef(null);
+
+  const handleColumnTab = (e, colName, rowIdx) => {
+    if (e.key !== 'Tab') return;
+    const nextIdx = e.shiftKey ? rowIdx - 1 : rowIdx + 1;
+    if (nextIdx < 0 || nextIdx >= allocations.length) return;
+    e.preventDefault();
+    const next = tableRef.current?.querySelector(`[data-col="${colName}"][data-row="${nextIdx}"]`);
+    if (next) next.focus();
+  };
 
   // Load saved config on mount
   useEffect(() => {
@@ -546,10 +556,7 @@ export default function AllocationPage() {
   return (
     <div className="max-w-7xl mx-auto px-6 lg:px-12 pb-16">
       <div className="animate-fade-in-up">
-        <div className="flex items-center gap-4 mb-8 pt-8">
-          <div className="w-12 h-12 bg-cyan-50 rounded-xl flex items-center justify-center">
-            <BarChart3 className="w-6 h-6 text-cyan-600" />
-          </div>
+        <div className="mb-8 pt-8">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Project Optimum</h2>
             <p className="text-sm text-gray-500 mt-1">
@@ -660,7 +667,7 @@ export default function AllocationPage() {
         <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 animate-fade-in-up stagger-4">
           <h3 className="text-sm font-semibold text-gray-900 mb-4">Asset Parameters</h3>
           <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
+            <table ref={tableRef} className="min-w-full text-left text-sm">
               <thead className="text-gray-600 border-b border-gray-300">
                 <tr>
                   <th className="px-3 py-2 font-semibold whitespace-nowrap">Ticker</th>
@@ -691,8 +698,11 @@ export default function AllocationPage() {
                         type="number"
                         min="0"
                         step="0.01"
+                        data-col="expectedReturn"
+                        data-row={idx}
                         value={row.expectedReturn}
                         onChange={(e) => updateAllocation(row.id, 'expectedReturn', e.target.value)}
+                        onKeyDown={(e) => handleColumnTab(e, 'expectedReturn', idx)}
                         className="w-24 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                         placeholder="0.00"
                       />
@@ -715,7 +725,10 @@ export default function AllocationPage() {
                         type="number"
                         min="0"
                         step="0.01"
+                        data-col="userWeight"
+                        data-row={idx}
                         value={row.userWeight}
+                        onKeyDown={(e) => handleColumnTab(e, 'userWeight', idx)}
                         onChange={(e) => updateAllocation(row.id, 'userWeight', e.target.value)}
                         className="w-24 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-all"
                         placeholder="0.00"

@@ -12,8 +12,8 @@ import {
 const CONTENT_TYPES = [
   { value: 'tweet',         label: 'Tweet',         icon: MessageSquare, color: 'blue' },
   { value: 'web_article',   label: 'Article',       icon: FileText,      color: 'emerald' },
-  { value: 'transcript',    label: 'Transcript',    icon: Mic,           color: 'teal' },
   { value: 'white_paper',   label: 'White Paper',   icon: BookOpen,      color: 'indigo' },
+  { value: 'transcript',    label: 'Transcript',    icon: Mic,           color: 'teal' },
   { value: 'other',         label: 'Other',         icon: MoreHorizontal,color: 'gray' },
 ];
 
