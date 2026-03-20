@@ -291,6 +291,14 @@ export default function RelationshipsPage() {
   /* ─── filtered + grouped + positioned ─── */
   const getZone = useCallback((c) => getUrgencyGroup(c), []);
 
+  // All contacts grouped by zone (for rendering all bubbles)
+  const allGrouped = useMemo(() => {
+    const g = { low: [], medium: [], high: [] };
+    contacts.forEach(c => { const zone = getZone(c); g[zone].push(c); });
+    return g;
+  }, [contacts, getZone]);
+
+  // Filtered contacts (for layout computation — only matching contacts get positions)
   const filtered = useMemo(() => {
     let list = contacts;
     if (search) {
@@ -301,6 +309,8 @@ export default function RelationshipsPage() {
     return list;
   }, [contacts, search, filter, getZone]);
 
+  const matchIds = useMemo(() => new Set(filtered.map(c => c.id)), [filtered]);
+
   const grouped = useMemo(() => {
     const g = { low: [], medium: [], high: [] };
     filtered.forEach(c => { const zone = getZone(c); g[zone].push(c); });
@@ -309,6 +319,8 @@ export default function RelationshipsPage() {
 
   // Compute layout in a normalized space (percentages)
   const ZONE_W = 400, ZONE_H = 600;
+  // Cache previous positions so non-matching bubbles can pop out from where they were
+  const prevPositionsRef = useRef({ low: {}, medium: {}, high: {} });
   const zonePositions = useMemo(() => {
     const toPercent = (layout) => {
       const result = {};
@@ -317,11 +329,18 @@ export default function RelationshipsPage() {
       }
       return result;
     };
-    return {
+    const fresh = {
       low: toPercent(computeZoneLayout(grouped.low, ZONE_W, ZONE_H, false)),
       medium: toPercent(computeZoneLayout(grouped.medium, ZONE_W, ZONE_H, false)),
       high: toPercent(computeZoneLayout(grouped.high, ZONE_W, ZONE_H, true)),
     };
+    // Merge: keep old positions for contacts that are no longer in layout
+    const merged = {};
+    for (const key of ['low', 'medium', 'high']) {
+      merged[key] = { ...prevPositionsRef.current[key], ...fresh[key] };
+    }
+    prevPositionsRef.current = merged;
+    return merged;
   }, [grouped]);
 
   /* ─── drag and drop ─── */
@@ -498,7 +517,8 @@ export default function RelationshipsPage() {
       <div className="relative" style={{ height: 'calc(100vh - 200px)' }}>
         <div className="flex gap-3 h-full">
           {ZONES.map(zone => {
-            const zContacts = grouped[zone.key] || [];
+            const zContacts = allGrouped[zone.key] || [];
+            const zFilteredCount = (grouped[zone.key] || []).length;
             const zPos = zonePositions[zone.key] || {};
             const isOver = dragOverZone === zone.key;
 
@@ -518,7 +538,7 @@ export default function RelationshipsPage() {
                     <span className={`text-xs font-bold ${zone.headerText}`}>{zone.label}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-semibold text-gray-400 bg-white/60 px-2 py-0.5 rounded-full">{zContacts.length}</span>
+                    <span className="text-[10px] font-semibold text-gray-400 bg-white/60 px-2 py-0.5 rounded-full">{search ? `${zFilteredCount}/${zContacts.length}` : zContacts.length}</span>
                     <button onClick={() => { setCf(emptyC); setAddingToZone(zone.key); setAdding(true); }}
                       className="w-5 h-5 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/60 transition-all duration-150"
                       title={`Add contact to ${zone.label}`}>
@@ -536,22 +556,35 @@ export default function RelationshipsPage() {
                   <div className="relative w-full h-full">
                     {zContacts.map(c => {
                       const pos = zPos[c.id];
+                      const isMatch = matchIds.has(c.id);
+                      const imp = c.importance || 3;
+                      const r = 26 + imp * 7;
+                      // Non-matching bubbles: pop to scale(0); matching without pos: skip
+                      if (!isMatch && !pos) {
+                        // Render a ghost at center so it can pop out
+                        return (
+                          <div key={c.id} className="absolute rounded-full" style={{
+                            left: '50%', top: '50%', width: r * 2, height: r * 2,
+                            transform: 'scale(0)', opacity: 0,
+                            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease',
+                          }} />
+                        );
+                      }
                       if (!pos) return null;
                       const isSelected = c.id === selId;
                       const isDrag = c.id === draggingId;
                       const zColor = zone.color;
-                      const imp = c.importance || 3;
                       const showAlert = zone.key === 'high' && imp >= 4;
 
                       return (
                         <div
                           key={c.id}
-                          draggable
-                          onDragStart={e => onDragStart(e, c.id)}
-                          onDragEnd={onDragEnd}
+                          draggable={isMatch}
+                          onDragStart={isMatch ? (e => onDragStart(e, c.id)) : undefined}
+                          onDragEnd={isMatch ? onDragEnd : undefined}
                           onMouseDown={(e) => e.stopPropagation()}
-                          onClick={() => setSelId(isSelected ? null : c.id)}
-                          className={`absolute rounded-full flex flex-col items-center justify-center cursor-grab select-none group ${isDrag ? 'opacity-40' : ''}`}
+                          onClick={isMatch ? (() => setSelId(isSelected ? null : c.id)) : undefined}
+                          className={`absolute rounded-full flex flex-col items-center justify-center select-none group ${isMatch ? 'cursor-grab' : 'pointer-events-none'} ${isDrag ? 'opacity-40' : ''}`}
                           style={{
                             left: `calc(${pos.xPct}% - ${pos.r}px)`, top: `calc(${pos.yPct}% - ${pos.r}px)`,
                             width: pos.r * 2, height: pos.r * 2,
@@ -561,7 +594,8 @@ export default function RelationshipsPage() {
                               ? `0 0 0 3px ${zColor}35, 0 8px 30px rgba(0,0,0,0.12)`
                               : `0 0 12px ${zColor}18, 0 2px 10px rgba(0,0,0,0.05)`,
                             transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                            transform: isSelected ? 'scale(1.08)' : undefined,
+                            transform: isMatch ? (isSelected ? 'scale(1.08)' : 'scale(1)') : 'scale(0)',
+                            opacity: isMatch ? 1 : 0,
                           }}
                         >
                           <span className="font-bold text-gray-800 leading-tight text-center max-w-[90%]" style={{ fontSize: Math.max(6, Math.min(pos.r > 50 ? 13 : 11, (pos.r * 1.6) / Math.max(1, c.name.length * 0.42))) }}>

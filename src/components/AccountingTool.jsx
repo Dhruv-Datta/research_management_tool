@@ -850,6 +850,13 @@ export default function AccountingTool() {
   const [activeTab, setActiveTab] = useState('accounting'); // 'accounting' | 'investor-performance'
   const [activeQuarter, setActiveQuarter] = useState(0);
 
+  // Default to the most recent quarter (rightmost tab) when data loads
+  useEffect(() => {
+    if (state?.quarters?.length) {
+      setActiveQuarter(state.quarters.length - 1);
+    }
+  }, [state?.quarters?.length]);
+
   // Fetch live AUM from holdings + quotes
   const [liveAUM, setLiveAUM] = useState(null);
   const [aumLoading, setAumLoading] = useState(true);
