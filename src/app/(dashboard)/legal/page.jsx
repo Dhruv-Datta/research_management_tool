@@ -5,7 +5,7 @@ import { Scale } from 'lucide-react';
 export default function LegalPage() {
   return (
     <div className="max-w-7xl mx-auto px-6 lg:px-12 pb-16">
-      <div className="py-24 text-center">
+      <div className="py-24 text-center animate-scale-in">
         <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-5">
           <Scale size={28} className="text-blue-500" />
         </div>

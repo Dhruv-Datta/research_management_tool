@@ -372,7 +372,7 @@ export default function HoldingsPage() {
   return (
     <div className="max-w-7xl mx-auto px-6 lg:px-12 pb-16">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 animate-fade-in-up">
         <h1 className="text-3xl font-bold text-gray-900">Our Holdings</h1>
         <button
           onClick={refreshAll}
@@ -384,7 +384,7 @@ export default function HoldingsPage() {
       </div>
 
       {/* Tab Bar */}
-      <div className="flex items-center gap-1 mb-8 bg-gray-100/80 rounded-xl p-1 w-fit">
+      <div className="flex items-center gap-1 mb-8 bg-gray-100/80 rounded-xl p-1 w-fit animate-fade-in-up stagger-2">
         {[
           { key: 'summary', label: 'Summary' },
           { key: 'risk', label: 'Risk' },
@@ -408,7 +408,7 @@ export default function HoldingsPage() {
       {activeSubTab === 'summary' && (
         <>
           {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8 animate-fade-in-up stagger-3">
             <StatCard label="Total AUM" value={quotesLoaded ? formatMoney(totalAum) : <div className="h-8 w-28 rounded-lg skeleton" />} />
             <StatCard label="Positions" value={holdings.length} />
             <StatCard
@@ -452,7 +452,7 @@ export default function HoldingsPage() {
                 </button>
               </div>
             }
-            className="mb-6"
+            className="mb-6 animate-fade-in-up stagger-5"
           >
             <Treemap positions={treemapPositions} mode={treemapMode} />
           </Card>
@@ -460,6 +460,7 @@ export default function HoldingsPage() {
           {/* Positions Table */}
           <Card
             title="Positions"
+            className="animate-fade-in-up stagger-7"
             actions={
               <input
                 type="text" value={search} onChange={e => setSearch(e.target.value)}

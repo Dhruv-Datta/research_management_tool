@@ -1026,7 +1026,7 @@ export default function AccountingTool() {
   return (
     <div className="max-w-[1600px] mx-auto px-6 lg:px-12 pb-16">
       {/* Header */}
-      <div className="mb-6 flex items-end justify-between">
+      <div className="mb-6 flex items-end justify-between animate-fade-in-up">
         <div>
           <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Fund Accounting</h1>
           <p className="text-sm text-gray-500 mt-1">NAV-based share accounting &middot; {state.investors.join(', ')}</p>
@@ -1034,7 +1034,7 @@ export default function AccountingTool() {
       </div>
 
       {/* Top-level tab switcher */}
-      <div className="flex items-center gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit">
+      <div className="flex items-center gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit animate-fade-in-up stagger-2">
         <button
           onClick={() => setActiveTab('accounting')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
@@ -1067,7 +1067,7 @@ export default function AccountingTool() {
       {/* ── Workbook Tab ─────────────────────────────────────────── */}
       {activeTab === 'accounting' && <>
       {/* Quarter Tabs */}
-      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
+      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1 animate-fade-in-up stagger-3">
         {state.quarters.map((q, qi) => (
           <button
             key={qi}

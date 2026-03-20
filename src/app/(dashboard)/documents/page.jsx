@@ -248,7 +248,7 @@ export default function DocumentsPage() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-8 animate-fade-in-up">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Documents</h1>
           <p className="text-sm text-gray-400 mt-1">
@@ -375,9 +375,9 @@ export default function DocumentsPage() {
       )}
 
       {/* Main layout: sidebar + content */}
-      <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6 animate-fade-in-up stagger-2">
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-6 animate-slide-in-right stagger-3">
           {/* Category nav */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3">
             <button

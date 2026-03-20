@@ -430,7 +430,7 @@ export default function RelationshipsPage() {
   return (
     <div className="px-6 lg:px-12 -mt-3 py-1">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 animate-fade-in-up">
         <div className="flex items-center gap-2.5">
           <Users size={18} className="text-emerald-600" />
           <h1 className="text-lg font-bold text-gray-900">Relationships</h1>
@@ -447,7 +447,7 @@ export default function RelationshipsPage() {
       </div>
 
       {/* Tag Filter Tabs */}
-      <div className="flex items-center gap-1.5 mb-3">
+      <div className="flex items-center gap-1.5 mb-3 animate-fade-in-up stagger-2">
         <button onClick={() => setFilter('all')}
           className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
             filter === 'all' ? 'bg-gray-900 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -563,7 +563,7 @@ export default function RelationshipsPage() {
       {/* Main area — 3 zone columns + detail panel overlay */}
       <div className="relative" style={{ height: 'calc(100vh - 200px)' }}>
         <div className="flex gap-3 h-full">
-          {ZONES.map(zone => {
+          {ZONES.map((zone, zoneIdx) => {
             const zContacts = allGrouped[zone.key] || [];
             const zFilteredCount = (grouped[zone.key] || []).length;
             const zPos = zonePositions[zone.key] || {};
@@ -572,8 +572,8 @@ export default function RelationshipsPage() {
             return (
               <div
                 key={zone.key}
-                className={`flex-1 flex flex-col rounded-2xl border overflow-hidden transition-all duration-200 ${zone.border} ${isOver ? 'scale-[1.01]' : ''}`}
-                style={isOver ? { boxShadow: `0 0 0 3px ${zone.color}40`, transform: 'scale(1.01)' } : {}}
+                className={`flex-1 flex flex-col rounded-2xl border overflow-hidden transition-all duration-200 animate-fade-in-up ${zone.border} ${isOver ? 'scale-[1.01]' : ''}`}
+                style={{ animationDelay: `${0.1 + zoneIdx * 0.08}s`, ...(isOver ? { boxShadow: `0 0 0 3px ${zone.color}40`, transform: 'scale(1.01)' } : {}) }}
                 onDragOver={e => onDragOver(e, zone.key)}
                 onDragLeave={onDragLeave}
                 onDrop={e => onDrop(e, zone.key)}

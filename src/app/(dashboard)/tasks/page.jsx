@@ -605,7 +605,7 @@ export default function TaskBoardPage() {
   return (
     <div className="max-w-7xl mx-auto px-6 lg:px-12 pb-16">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-8 animate-fade-in-up">
         <h1 className="text-3xl font-bold text-gray-900">Task Board</h1>
         <p className="text-sm text-gray-500 mt-1">{totalOpen} open task{totalOpen !== 1 ? 's' : ''}</p>
       </div>
@@ -629,7 +629,7 @@ export default function TaskBoardPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {PRIORITY_SECTIONS.map(({ key, label, color, maxTasks }) => {
+          {PRIORITY_SECTIONS.map(({ key, label, color, maxTasks }, sectionIdx) => {
             const sectionTasks = tasksByPriority(key);
             const openCount = sectionTasks.filter(t => !t.done).length;
             const atCapacity = maxTasks ? sectionTasks.length >= maxTasks : false;
@@ -637,7 +637,7 @@ export default function TaskBoardPage() {
             const taskIds = sectionTasks.map(t => t.id);
 
             return (
-              <div key={key} className="bg-white rounded-3xl border border-gray-200 p-6 shadow-sm">
+              <div key={key} className="bg-white rounded-3xl border border-gray-200 p-6 shadow-sm animate-fade-in-up" style={{ animationDelay: `${0.06 + sectionIdx * 0.08}s` }}>
                 {/* Section Header */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -985,7 +985,7 @@ export default function TaskBoardPage() {
 
           {/* Completed Tasks */}
           {completedTasks.length > 0 && (
-            <div className="bg-white rounded-3xl border border-gray-200 p-6 shadow-sm">
+            <div className="bg-white rounded-3xl border border-gray-200 p-6 shadow-sm animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
               <button
                 onClick={() => setCompletedOpen(o => !o)}
                 className="flex items-center gap-3 w-full"

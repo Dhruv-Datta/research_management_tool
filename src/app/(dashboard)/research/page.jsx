@@ -925,7 +925,7 @@ export default function ResearchPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-6 lg:px-12 pb-16">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-8 animate-fade-in-up">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Research</h1>
         </div>
@@ -941,7 +941,7 @@ export default function ResearchPage() {
         )}
       </div>
 
-      <Card className="mb-8">
+      <Card className="mb-8 animate-fade-in-up stagger-2">
         <div className="flex items-center gap-4">
           <label className="text-xs text-gray-500 uppercase tracking-wider font-bold">Select Company</label>
           <select
@@ -988,7 +988,7 @@ export default function ResearchPage() {
         </Card>
       ) : (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-8 animate-fade-in-up stagger-3">
             <div className="flex gap-1 bg-gray-100/80 rounded-2xl p-1 w-fit">
               {[
                 { key: 'fundamentals', label: 'Fundamentals' },

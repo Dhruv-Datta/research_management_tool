@@ -431,7 +431,7 @@ export default function LinkDatabasePage() {
   return (
     <div className="max-w-7xl mx-auto px-6 lg:px-12 pb-16">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-6 animate-fade-in-up">
         <h1 className="text-3xl font-bold text-gray-900">Link Database</h1>
         <p className="text-sm text-gray-400 mt-1">
           {links.length} link{links.length !== 1 ? 's' : ''} saved{unreadCount > 0 && <span className="text-emerald-500 font-semibold"> &middot; {unreadCount} unread</span>}
@@ -446,7 +446,7 @@ export default function LinkDatabasePage() {
       </div>
 
       {/* Ticker filter dropdown + read filter */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-3 animate-fade-in-up stagger-2">
         <TickerFilterDropdown value={activeTicker} onChange={setActiveTicker} tickers={tickers} />
         <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-0.5">
           {[
@@ -465,7 +465,7 @@ export default function LinkDatabasePage() {
       </div>
 
       {/* Content type filters */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-5 scrollbar-hide">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-5 scrollbar-hide animate-fade-in-up stagger-3">
         {FILTER_TABS.map(tab => {
           const count = tab.value ? (typeCounts[tab.value] || 0) : (activeTicker ? links.filter(l => l.ticker === activeTicker).length : links.length);
           return (
@@ -481,7 +481,7 @@ export default function LinkDatabasePage() {
       </div>
 
       {/* ── Always-on add input ──────────────────────────────────── */}
-      <div className={`rounded-2xl border mb-4 transition-all ${
+      <div className={`rounded-2xl border mb-4 transition-all animate-fade-in-up stagger-4 ${
         justSaved ? 'border-emerald-300 bg-emerald-50/30' : 'border-gray-200 bg-white'
       }`}>
         <div className="flex items-center gap-2 px-4 py-3">
@@ -563,8 +563,10 @@ export default function LinkDatabasePage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map(link => (
-            <LinkCard key={link.id} link={link} onUpdate={handleUpdateLink} onDelete={handleDeleteLink} />
+          {filtered.map((link, i) => (
+            <div key={link.id} className="animate-fade-in-up" style={{ animationDelay: `${0.15 + i * 0.03}s` }}>
+              <LinkCard link={link} onUpdate={handleUpdateLink} onDelete={handleDeleteLink} />
+            </div>
           ))}
         </div>
       )}

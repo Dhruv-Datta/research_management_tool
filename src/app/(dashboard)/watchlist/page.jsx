@@ -1257,7 +1257,7 @@ export default function WatchlistPage() {
     <div className="min-h-screen px-6 lg:px-12 pb-16">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8 animate-fade-in-up">
           <div className="flex items-center gap-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Watchlist</h1>
@@ -1308,12 +1308,14 @@ export default function WatchlistPage() {
 
         {/* Dip Finder */}
         {stocks.length > 0 && Object.keys(quotes).length > 0 && (
-          <DipFinder stocks={stocks} quotes={quotes} />
+          <div className="animate-fade-in-up stagger-2">
+            <DipFinder stocks={stocks} quotes={quotes} />
+          </div>
         )}
 
         {/* Watching Section */}
         {watching.length > 0 && (
-          <section className="mb-12">
+          <section className="mb-12 animate-fade-in-up stagger-4">
             <div className="flex items-center gap-2 mb-4">
               <Eye size={18} className="text-emerald-600" />
               <h2 className="text-lg font-bold text-gray-800">Watching</h2>
@@ -1339,7 +1341,7 @@ export default function WatchlistPage() {
 
         {/* Currently Researching Section */}
         {researching.length > 0 && (
-          <section>
+          <section className="animate-fade-in-up stagger-6">
             <div className="flex items-center gap-2 mb-4">
               <FlaskConical size={18} className="text-amber-600" />
               <h2 className="text-lg font-bold text-gray-800">On Queue for Researching</h2>
@@ -1364,7 +1366,7 @@ export default function WatchlistPage() {
         )}
 
         {research.length > 0 && (
-          <section className="mt-12">
+          <section className="mt-12 animate-fade-in-up stagger-8">
             <div className="flex items-center gap-2 mb-4">
               <ClipboardList size={18} className="text-blue-600" />
               <h2 className="text-lg font-bold text-gray-800">Research</h2>

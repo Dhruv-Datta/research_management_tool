@@ -5,7 +5,7 @@ import { PieChart } from 'lucide-react';
 export default function AllocationPage() {
   return (
     <div className="max-w-7xl mx-auto px-6 lg:px-12 pb-16">
-      <div className="py-24 text-center">
+      <div className="py-24 text-center animate-scale-in">
         <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-5">
           <PieChart size={28} className="text-emerald-500" />
         </div>
