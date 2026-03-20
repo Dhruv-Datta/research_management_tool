@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Link2, Plus, X, ExternalLink, Trash2, Save, Pencil, Check,
   MessageSquare, FileText, Newspaper, Gavel, Mic, MoreHorizontal,
-  AlertCircle, ChevronDown, Send,
+  AlertCircle, ChevronDown, Send, BookOpen, Eye, EyeOff,
 } from 'lucide-react';
 
 /* ── Constants ────────────────────────────────────────────────── */
@@ -12,9 +12,8 @@ import {
 const CONTENT_TYPES = [
   { value: 'tweet',         label: 'Tweet',         icon: MessageSquare, color: 'blue' },
   { value: 'web_article',   label: 'Article',       icon: FileText,      color: 'emerald' },
-  { value: 'press_release', label: 'Press Release', icon: Newspaper,     color: 'violet' },
-  { value: 'filing',        label: 'Filing',        icon: Gavel,         color: 'amber' },
   { value: 'transcript',    label: 'Transcript',    icon: Mic,           color: 'teal' },
+  { value: 'white_paper',   label: 'White Paper',   icon: BookOpen,      color: 'indigo' },
   { value: 'other',         label: 'Other',         icon: MoreHorizontal,color: 'gray' },
 ];
 
@@ -26,6 +25,7 @@ const TYPE_COLORS = {
   violet:  'bg-violet-50 text-violet-700 border-violet-200',
   amber:   'bg-amber-50 text-amber-700 border-amber-200',
   teal:    'bg-teal-50 text-teal-700 border-teal-200',
+  indigo:  'bg-indigo-50 text-indigo-700 border-indigo-200',
   gray:    'bg-gray-100 text-gray-600 border-gray-200',
 };
 
@@ -35,6 +35,7 @@ const TYPE_SELECTED = {
   violet:  'bg-violet-600 text-white border-violet-600',
   amber:   'bg-amber-500 text-white border-amber-500',
   teal:    'bg-teal-600 text-white border-teal-600',
+  indigo:  'bg-indigo-600 text-white border-indigo-600',
   gray:    'bg-gray-600 text-white border-gray-600',
 };
 
@@ -43,9 +44,8 @@ const FILTER_TABS = [
   { value: '', label: 'All' },
   { value: 'tweet', label: 'Tweets' },
   { value: 'web_article', label: 'Articles' },
-  { value: 'press_release', label: 'Press Releases' },
-  { value: 'filing', label: 'Filings' },
   { value: 'transcript', label: 'Transcripts' },
+  { value: 'white_paper', label: 'White Papers' },
 ];
 
 function formatDate(dateStr) {
@@ -130,6 +130,11 @@ function TickerFilterDropdown({ value, onChange, tickers }) {
 
 /* ── Link Card ────────────────────────────────────────────────── */
 
+function parseTickers(ticker) {
+  if (!ticker) return [];
+  return [...new Set(ticker.split(',').map(t => t.trim()).filter(Boolean))];
+}
+
 function LinkCard({ link, onUpdate, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [editFields, setEditFields] = useState({});
@@ -140,6 +145,34 @@ function LinkCard({ link, onUpdate, onDelete }) {
   const ct = CONTENT_TYPE_MAP[link.content_type] || CONTENT_TYPE_MAP.other;
   const TypeIcon = ct.icon;
   const displaySummary = link.manual_summary || link.auto_summary || '';
+  const tickers = parseTickers(link.ticker);
+  const isRead = link.is_read;
+
+  const markRead = async () => {
+    if (isRead) return;
+    try {
+      const res = await fetch('/api/links', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: link.id, is_read: true }),
+      });
+      const data = await res.json();
+      if (data.link) onUpdate(data.link);
+    } catch {}
+  };
+
+  const toggleRead = async (e) => {
+    e.stopPropagation();
+    try {
+      const res = await fetch('/api/links', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: link.id, is_read: !isRead }),
+      });
+      const data = await res.json();
+      if (data.link) onUpdate(data.link);
+    } catch {}
+  };
 
   const startEditing = () => {
     setEditFields({
@@ -199,7 +232,7 @@ function LinkCard({ link, onUpdate, onDelete }) {
         <div className="flex items-center gap-1.5 px-4 py-2.5">
           <input type="text" value={editFields.ticker}
             onChange={e => setEditFields(prev => ({ ...prev, ticker: e.target.value.toUpperCase() }))}
-            placeholder="TICKER" className={`${iCls} w-16 font-bold text-center uppercase`} />
+            placeholder="AAPL,MSFT" className={`${iCls} w-24 font-bold text-center uppercase`} />
           <select value={editFields.contentType} onChange={ef('contentType')}
             className={`${iCls} w-24`}>
             {CONTENT_TYPES.map(ct => <option key={ct.value} value={ct.value}>{ct.label}</option>)}
@@ -225,19 +258,27 @@ function LinkCard({ link, onUpdate, onDelete }) {
   /* ── Display mode ──────────────────────────────────────────── */
 
   return (
-    <div className="group bg-white rounded-2xl border border-gray-100 hover:border-gray-200 shadow-sm hover:shadow-md transition-all">
+    <div className={`group bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all ${
+      isRead ? 'border-gray-100 hover:border-gray-200' : 'border-l-2 border-l-emerald-400 border-gray-100 hover:border-gray-200'
+    }`}>
       <div className="px-5 py-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
+              {!isRead && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />}
               <a href={link.url} target="_blank" rel="noopener noreferrer"
-                className="text-sm font-semibold text-gray-900 hover:text-emerald-600 truncate max-w-md transition-colors">
+                onClick={markRead}
+                className={`text-sm font-semibold truncate max-w-md transition-colors ${
+                  isRead ? 'text-gray-500 hover:text-emerald-600' : 'text-gray-900 hover:text-emerald-600'
+                }`}>
                 {link.title || link.url}
               </a>
               {link.source && <span className="text-xs text-gray-400 flex-shrink-0">{link.source}</span>}
             </div>
             <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-              {link.ticker && <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{link.ticker}</span>}
+              {tickers.map(t => (
+                <span key={t} className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{t}</span>
+              ))}
               <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${TYPE_COLORS[ct.color]}`}>
                 <TypeIcon size={10} />
                 {ct.label}
@@ -247,14 +288,16 @@ function LinkCard({ link, onUpdate, onDelete }) {
             </div>
           </div>
           <div className="flex items-center gap-0.5 flex-shrink-0">
+            <button onClick={toggleRead}
+              className={`p-2 rounded-lg transition-colors opacity-0 group-hover:opacity-100 ${
+                isRead ? 'text-gray-400 hover:text-amber-500 hover:bg-amber-50' : 'text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50'
+              }`} title={isRead ? 'Mark unread' : 'Mark read'}>
+              {isRead ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
             <button onClick={startEditing}
               className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors opacity-0 group-hover:opacity-100" title="Edit">
               <Pencil size={14} />
             </button>
-            <a href={link.url} target="_blank" rel="noopener noreferrer"
-              className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Open link">
-              <ExternalLink size={15} />
-            </a>
             {confirmDelete ? (
               <div className="flex items-center gap-1 ml-1">
                 <button onClick={() => setConfirmDelete(false)} className="text-[11px] font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
@@ -288,6 +331,7 @@ export default function LinkDatabasePage() {
   const [loading, setLoading] = useState(true);
   const [activeTicker, setActiveTicker] = useState('');
   const [activeTypeFilter, setActiveTypeFilter] = useState('');
+  const [readFilter, setReadFilter] = useState(''); // '', 'unread', 'read'
 
   // Add bar state
   const [url, setUrl] = useState('');
@@ -313,18 +357,23 @@ export default function LinkDatabasePage() {
 
   const tickers = useMemo(() => {
     const counts = {};
-    links.forEach(l => { if (l.ticker) counts[l.ticker] = (counts[l.ticker] || 0) + 1; });
+    links.forEach(l => {
+      parseTickers(l.ticker).forEach(t => { counts[t] = (counts[t] || 0) + 1; });
+    });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
   }, [links]);
 
+  const unreadCount = useMemo(() => links.filter(l => !l.is_read).length, [links]);
 
   const filtered = useMemo(() => {
     return links.filter(l => {
-      if (activeTicker && l.ticker !== activeTicker) return false;
+      if (activeTicker && !parseTickers(l.ticker).includes(activeTicker)) return false;
       if (activeTypeFilter && l.content_type !== activeTypeFilter) return false;
+      if (readFilter === 'unread' && l.is_read) return false;
+      if (readFilter === 'read' && !l.is_read) return false;
       return true;
     });
-  }, [links, activeTicker, activeTypeFilter]);
+  }, [links, activeTicker, activeTypeFilter, readFilter]);
 
   const typeCounts = useMemo(() => {
     const pool = activeTicker ? links.filter(l => l.ticker === activeTicker) : links;
@@ -351,6 +400,7 @@ export default function LinkDatabasePage() {
       if (data.link) {
         setLinks(prev => [data.link, ...prev]);
         setUrl('');
+        setAddTicker('');
         setJustSaved(true);
         setTimeout(() => setJustSaved(false), 1200);
         urlRef.current?.focus();
@@ -384,7 +434,7 @@ export default function LinkDatabasePage() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Link Database</h1>
         <p className="text-sm text-gray-400 mt-1">
-          {links.length} link{links.length !== 1 ? 's' : ''} saved
+          {links.length} link{links.length !== 1 ? 's' : ''} saved{unreadCount > 0 && <span className="text-emerald-500 font-semibold"> &middot; {unreadCount} unread</span>}
           {activeTicker && (
             <span>
               <span className="mx-2 text-gray-300">&middot;</span>
@@ -395,9 +445,23 @@ export default function LinkDatabasePage() {
         </p>
       </div>
 
-      {/* Ticker filter dropdown */}
+      {/* Ticker filter dropdown + read filter */}
       <div className="flex items-center gap-2 mb-3">
         <TickerFilterDropdown value={activeTicker} onChange={setActiveTicker} tickers={tickers} />
+        <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-0.5">
+          {[
+            { value: '', label: 'All' },
+            { value: 'unread', label: 'Unread' },
+            { value: 'read', label: 'Read' },
+          ].map(opt => (
+            <button key={opt.value} onClick={() => setReadFilter(readFilter === opt.value ? '' : opt.value)}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                readFilter === opt.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+              }`}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Content type filters */}
@@ -436,8 +500,8 @@ export default function LinkDatabasePage() {
             value={addTicker}
             onChange={e => setAddTicker(e.target.value.toUpperCase())}
             onKeyDown={e => { if (e.key === 'Enter') handleAddLink(); }}
-            placeholder="TICKER"
-            className="w-[72px] bg-gray-50 border border-gray-200 rounded-md px-2 py-1 text-[11px] font-bold text-center outline-none focus:ring-1 focus:ring-emerald-200 focus:border-emerald-300 transition-all uppercase placeholder:text-gray-300 placeholder:font-normal"
+            placeholder="TICK,TICK"
+            className="w-[80px] bg-gray-50 border border-gray-200 rounded-md px-2 py-1 text-[11px] font-bold text-center outline-none focus:ring-1 focus:ring-emerald-200 focus:border-emerald-300 transition-all uppercase placeholder:text-gray-300 placeholder:font-normal"
           />
           <button
             onClick={handleAddLink}
