@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Users, Plus, Phone, Mail, MessageSquare, Video, FileText, StickyNote,
   Search, X, Edit3, Trash2, Link2, ExternalLink,
-  Linkedin, ChevronRight, ZoomIn, ZoomOut, RotateCcw,
+  Linkedin, ChevronRight,
 } from 'lucide-react';
 import Toast from '@/components/Toast';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -52,6 +52,21 @@ const urgencyBg = (u) => {
   if (u < 0.75) return 'bg-orange-100 text-orange-700';
   return 'bg-red-100 text-red-700';
 };
+
+/* Urgency → zone group. Respects manual override from drag-and-drop. */
+const getUrgencyGroup = (c) => {
+  if (c.urgency_override) return c.urgency_override; // 'low', 'medium', 'high'
+  const u = getUrgency(c);
+  if (u < 0.4) return 'low';
+  if (u < 0.65) return 'medium';
+  return 'high';
+};
+
+const ZONES = [
+  { key: 'low', label: 'No Need to Contact', color: '#22c55e', bg: 'from-emerald-50/60 to-green-50/40', border: 'border-emerald-200/60', headerBg: 'bg-emerald-50', headerText: 'text-emerald-700' },
+  { key: 'medium', label: 'Should Contact Soon', color: '#eab308', bg: 'from-yellow-50/60 to-amber-50/40', border: 'border-yellow-200/60', headerBg: 'bg-yellow-50', headerText: 'text-yellow-700' },
+  { key: 'high', label: 'Urgently Contact', color: '#ef4444', bg: 'from-red-50/60 to-orange-50/40', border: 'border-red-200/60', headerBg: 'bg-red-50', headerText: 'text-red-700' },
+];
 
 const IMPORTANCE_LABELS = { 1: 'Low', 2: 'Minor', 3: 'Normal', 4: 'High', 5: 'Critical' };
 
@@ -109,47 +124,26 @@ const DEMO_IX = {
   ],
 };
 
-/* ─── force-directed bubble layout ─── */
-const FIELD_W = 1400, FIELD_H = 900;
-
-function computeLayout(contacts, ixMap) {
+/* ─── force-directed bubble layout (per zone) ─── */
+function computeZoneLayout(contacts, w, h) {
   if (!contacts.length) return {};
 
-  // Cluster by strength: strong near center, developing further out
-  const strengthOrder = ['strong', 'warm', 'developing'];
-  const spread = Math.min(FIELD_W, FIELD_H) * 0.12;
-  const centers = {};
-  strengthOrder.forEach((s, i) => {
-    const a = (2 * Math.PI * i) / strengthOrder.length - Math.PI / 2;
-    centers[s] = { x: FIELD_W / 2 + Math.cos(a) * spread * (i * 0.5 + 0.5), y: FIELD_H / 2 + Math.sin(a) * spread * (i * 0.5 + 0.5) };
-  });
-
   const nodes = contacts.map(c => {
-    const str = STRENGTHS.includes(c.relationship_strength) ? c.relationship_strength : 'developing';
-    const ctr = centers[str];
     const imp = c.importance || 3;
-    const r = 28 + imp * 8;
+    const r = 26 + imp * 7;
     return {
       id: c.id, r,
-      x: ctr.x + (seeded(c.id + 'x') - 0.5) * 280,
-      y: ctr.y + (seeded(c.id + 'y') - 0.5) * 220,
-      strength: str,
+      x: w / 2 + (seeded(c.id + 'x') - 0.5) * (w - r * 4),
+      y: h / 2 + (seeded(c.id + 'y') - 0.5) * (h - r * 4),
     };
   });
 
-  for (let iter = 0; iter < 200; iter++) {
-    const a = 1 - iter / 200;
-    // strength clustering
+  for (let iter = 0; iter < 150; iter++) {
+    const a = 1 - iter / 150;
+    // center gravity
     nodes.forEach(n => {
-      const c = centers[n.strength];
-      n.x += (c.x - n.x) * 0.01 * a;
-      n.y += (c.y - n.y) * 0.01 * a;
-    });
-    // stronger contacts gravitate to center
-    const sPull = { strong: 0.006, warm: 0.003, developing: 0.001 };
-    nodes.forEach(n => {
-      n.x += (FIELD_W / 2 - n.x) * (sPull[n.strength] || 0.001) * a;
-      n.y += (FIELD_H / 2 - n.y) * (sPull[n.strength] || 0.001) * a;
+      n.x += (w / 2 - n.x) * 0.008 * a;
+      n.y += (h / 2 - n.y) * 0.008 * a;
     });
     // collision avoidance
     for (let i = 0; i < nodes.length; i++) {
@@ -157,9 +151,9 @@ function computeLayout(contacts, ixMap) {
         const dx = nodes[j].x - nodes[i].x;
         const dy = nodes[j].y - nodes[i].y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const gap = nodes[i].r + nodes[j].r + 12;
+        const gap = nodes[i].r + nodes[j].r + 18;
         if (dist < gap) {
-          const f = (gap - dist) / dist * 0.35;
+          const f = (gap - dist) / dist * 0.4;
           nodes[i].x -= dx * f; nodes[i].y -= dy * f;
           nodes[j].x += dx * f; nodes[j].y += dy * f;
         }
@@ -167,34 +161,21 @@ function computeLayout(contacts, ixMap) {
     }
     // boundary
     nodes.forEach(n => {
-      n.x = Math.max(n.r + 20, Math.min(FIELD_W - n.r - 20, n.x));
-      n.y = Math.max(n.r + 20, Math.min(FIELD_H - n.r - 20, n.y));
+      n.x = Math.max(n.r + 16, Math.min(w - n.r - 16, n.x));
+      n.y = Math.max(n.r + 16, Math.min(h - n.r - 16, n.y));
     });
   }
 
   return Object.fromEntries(nodes.map(n => [n.id, { x: n.x, y: n.y, r: n.r }]));
 }
 
-/* ─── smart filters ─── */
-const FILTERS = [
-  { key: 'all', label: 'All Contacts' },
-  { key: 'stale', label: '30+ Days Cold' },
-  { key: 'followup', label: 'Needs Follow-up' },
-  { key: 'never', label: 'Never Contacted' },
-  { key: 'urgent', label: 'Urgent' },
-  { key: 'highimp', label: 'High Importance' },
-  { key: 'strong', label: 'Strong Ties' },
+/* ─── urgency filter tabs ─── */
+const URGENCY_TABS = [
+  { key: 'all', label: 'All' },
+  { key: 'low', label: 'Low Urgency', color: '#22c55e' },
+  { key: 'medium', label: 'Medium Urgency', color: '#eab308' },
+  { key: 'high', label: 'High Urgency', color: '#ef4444' },
 ];
-const applyFilter = (list, key) => {
-  if (key === 'all') return list;
-  if (key === 'stale') return list.filter(c => { const d = daysSince(c.last_contacted_at); return d === null || d > 30; });
-  if (key === 'followup') return list.filter(c => c.follow_up_date && new Date(c.follow_up_date) <= new Date());
-  if (key === 'never') return list.filter(c => !c.last_contacted_at);
-  if (key === 'urgent') return list.filter(c => getUrgency(c) >= 0.6);
-  if (key === 'highimp') return list.filter(c => (c.importance || 3) >= 4);
-  if (key === 'strong') return list.filter(c => c.relationship_strength === 'strong');
-  return list;
-};
 
 
 /* ═══════════════════════════════════════════
@@ -216,11 +197,8 @@ export default function RelationshipsPage() {
   const [editing, setEditing] = useState(null);
   const [addingFile, setAddingFile] = useState(false);
 
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const dragRef = useRef(null);
-  const containerRef = useRef(null);
+  const [dragOverZone, setDragOverZone] = useState(null);
+  const [draggingId, setDraggingId] = useState(null);
 
   const emptyC = { name: '', company: '', role: '', importance: 3, contact_method: 'email', contact_value: '', city: '', summary: '' };
   const [cf, setCf] = useState(emptyC);
@@ -256,40 +234,65 @@ export default function RelationshipsPage() {
   };
   useEffect(() => { if (selId) { loadIx(selId); loadFiles(selId); } }, [selId]);
 
-  /* ─── filtered + positioned ─── */
+  /* ─── filtered + grouped + positioned ─── */
   const filtered = useMemo(() => {
     let list = contacts;
     if (search) {
       const q = search.toLowerCase();
       list = list.filter(c => c.name?.toLowerCase().includes(q) || c.company?.toLowerCase().includes(q) || c.role?.toLowerCase().includes(q) || c.city?.toLowerCase().includes(q));
     }
-    return applyFilter(list, filter);
+    if (filter !== 'all') list = list.filter(c => getUrgencyGroup(c) === filter);
+    return list;
   }, [contacts, search, filter]);
 
-  const positions = useMemo(() => computeLayout(filtered, ix), [filtered, ix]);
+  const grouped = useMemo(() => {
+    const g = { low: [], medium: [], high: [] };
+    filtered.forEach(c => { const zone = getUrgencyGroup(c); g[zone].push(c); });
+    return g;
+  }, [filtered]);
 
-  /* ─── zoom / pan ─── */
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const onWheel = (e) => {
-      e.preventDefault();
-      setZoom(z => Math.max(0.3, Math.min(2.5, z + (e.deltaY > 0 ? -0.08 : 0.08))));
+  // Compute layout in a normalized space (percentages)
+  const ZONE_W = 400, ZONE_H = 600;
+  const zonePositions = useMemo(() => {
+    const toPercent = (layout) => {
+      const result = {};
+      for (const [id, { x, y, r }] of Object.entries(layout)) {
+        result[id] = { xPct: (x / ZONE_W) * 100, yPct: (y / ZONE_H) * 100, r };
+      }
+      return result;
     };
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
-  }, []);
+    return {
+      low: toPercent(computeZoneLayout(grouped.low, ZONE_W, ZONE_H)),
+      medium: toPercent(computeZoneLayout(grouped.medium, ZONE_W, ZONE_H)),
+      high: toPercent(computeZoneLayout(grouped.high, ZONE_W, ZONE_H)),
+    };
+  }, [grouped]);
 
-  const onPointerDown = (e) => {
-    if (e.target.closest('[data-bubble]')) return;
-    dragRef.current = { startX: e.clientX, startY: e.clientY, panX: pan.x, panY: pan.y };
-    setIsDragging(true);
-  };
-  const onPointerMove = (e) => {
-    if (!dragRef.current) return;
-    setPan({ x: dragRef.current.panX + (e.clientX - dragRef.current.startX), y: dragRef.current.panY + (e.clientY - dragRef.current.startY) });
-  };
-  const onPointerUp = () => { dragRef.current = null; setIsDragging(false); };
+  /* ─── drag and drop ─── */
+  const onDragStart = useCallback((e, contactId) => {
+    e.dataTransfer.setData('text/plain', contactId);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggingId(contactId);
+  }, []);
+  const onDragOver = useCallback((e, zoneKey) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverZone(zoneKey);
+  }, []);
+  const onDragLeave = useCallback(() => setDragOverZone(null), []);
+  const onDrop = useCallback((e, zoneKey) => {
+    e.preventDefault();
+    setDragOverZone(null);
+    setDraggingId(null);
+    const contactId = e.dataTransfer.getData('text/plain');
+    if (!contactId) return;
+    const contact = contacts.find(c => c.id === contactId);
+    if (!contact) return;
+    const currentGroup = getUrgencyGroup(contact);
+    if (currentGroup === zoneKey) return;
+    update(contactId, { urgency_override: zoneKey });
+  }, [contacts]);
+  const onDragEnd = useCallback(() => { setDraggingId(null); setDragOverZone(null); }, []);
 
   /* ─── CRUD ─── */
   const create = async () => {
@@ -372,17 +375,18 @@ export default function RelationshipsPage() {
         </div>
       </div>
 
-      {/* Smart Filters */}
-      <div className="flex items-center gap-1.5 mb-3 overflow-x-auto pb-1">
-        {FILTERS.map(f => {
-          const count = f.key !== 'all' ? applyFilter(contacts, f.key).length : contacts.length;
+      {/* Urgency Tabs */}
+      <div className="flex items-center gap-1.5 mb-3">
+        {URGENCY_TABS.map(t => {
+          const count = t.key === 'all' ? contacts.length : contacts.filter(c => getUrgencyGroup(c) === t.key).length;
           return (
-            <button key={f.key} onClick={() => setFilter(filter === f.key && f.key !== 'all' ? 'all' : f.key)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
-                filter === f.key ? 'bg-emerald-500 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            <button key={t.key} onClick={() => setFilter(filter === t.key && t.key !== 'all' ? 'all' : t.key)}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+                filter === t.key ? 'bg-gray-900 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}>
-              {f.label}
-              {count > 0 && <span className="ml-1 opacity-70">({count})</span>}
+              {t.color && <div className="w-2 h-2 rounded-full" style={{ background: t.color }} />}
+              {t.label}
+              <span className="opacity-60">({count})</span>
             </button>
           );
         })}
@@ -424,137 +428,117 @@ export default function RelationshipsPage() {
         </div>
       )}
 
-      {/* Main area */}
+      {/* Main area — 3 zone columns + detail panel */}
       <div className="flex gap-0">
-        {/* Bubble Field */}
-        <div
-          ref={containerRef}
-          className={`relative bg-gradient-to-br from-slate-50/80 to-white rounded-2xl border border-gray-200/80 overflow-hidden transition-all duration-300 ${selId ? 'flex-1 min-w-0' : 'w-full'}`}
-          style={{ height: 'calc(100vh - 200px)', cursor: isDragging ? 'grabbing' : 'grab' }}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerLeave={onPointerUp}
-        >
-          {/* Dot grid background */}
-          <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle, #64748b 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
+        <div className={`flex gap-3 transition-all duration-300 ${selId ? 'flex-1 min-w-0' : 'w-full'}`} style={{ height: 'calc(100vh - 200px)' }}>
+          {ZONES.map(zone => {
+            const zContacts = grouped[zone.key] || [];
+            const zPos = zonePositions[zone.key] || {};
+            const isOver = dragOverZone === zone.key;
 
-          {/* Bubble canvas */}
-          <div
-            className="absolute"
-            style={{
-              width: FIELD_W, height: FIELD_H,
-              left: '50%', top: '50%',
-              transform: `translate(calc(-50% + ${pan.x}px), calc(-50% + ${pan.y}px)) scale(${zoom})`,
-              transition: isDragging ? 'none' : 'transform 0.2s ease-out',
-            }}
-          >
-            {filtered.map(c => {
-              const pos = positions[c.id];
-              if (!pos) return null;
-              const isSelected = c.id === selId;
-              const urgency = getUrgency(c);
-              const uColor = urgencyColor(urgency);
-              const needsFollowUp = c.follow_up_date && new Date(c.follow_up_date) <= new Date();
-              const imp = c.importance || 3;
+            return (
+              <div
+                key={zone.key}
+                className={`flex-1 flex flex-col rounded-2xl border overflow-hidden transition-all duration-200 ${zone.border} ${isOver ? 'scale-[1.01]' : ''}`}
+                style={isOver ? { boxShadow: `0 0 0 3px ${zone.color}40`, transform: 'scale(1.01)' } : {}}
+                onDragOver={e => onDragOver(e, zone.key)}
+                onDragLeave={onDragLeave}
+                onDrop={e => onDrop(e, zone.key)}
+              >
+                {/* Zone header */}
+                <div className={`px-4 py-2.5 ${zone.headerBg} border-b ${zone.border} flex items-center justify-between`}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: zone.color }} />
+                    <span className={`text-xs font-bold ${zone.headerText}`}>{zone.label}</span>
+                  </div>
+                  <span className="text-[10px] font-semibold text-gray-400 bg-white/60 px-2 py-0.5 rounded-full">{zContacts.length}</span>
+                </div>
 
-              return (
-                <div
-                  key={c.id}
-                  data-bubble="true"
-                  onClick={() => { setSelId(isSelected ? null : c.id); setLogging(false); setEditing(null); setAddingFile(false); }}
-                  className="absolute rounded-full flex flex-col items-center justify-center cursor-pointer select-none group"
-                  style={{
-                    left: pos.x - pos.r, top: pos.y - pos.r,
-                    width: pos.r * 2, height: pos.r * 2,
-                    background: `${uColor}10`,
-                    border: `3px solid ${uColor}`,
-                    boxShadow: isSelected
-                      ? `0 0 0 3px ${uColor}35, 0 8px 30px rgba(0,0,0,0.12)`
-                      : urgency > 0.6
-                        ? `0 0 16px ${uColor}25, 0 4px 14px rgba(0,0,0,0.06)`
-                        : '0 2px 10px rgba(0,0,0,0.05)',
-                    transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
-                    transform: isSelected ? 'scale(1.08)' : undefined,
-                  }}
-                >
-                  {/* Full name */}
-                  <span className="font-bold text-gray-800 leading-tight text-center truncate max-w-[85%]" style={{ fontSize: pos.r > 56 ? 13 : pos.r > 48 ? 11 : pos.r > 40 ? 9.5 : 8 }}>
-                    {c.name}
-                  </span>
-                  {/* Company */}
-                  {pos.r > 38 && (
-                    <span className="text-gray-400 truncate max-w-[80%] leading-tight text-center mt-0.5" style={{ fontSize: pos.r > 50 ? 8 : 7 }}>
-                      {c.company}
-                    </span>
-                  )}
-                  {/* Importance stars — tiny row */}
-                  {pos.r > 44 && (
-                    <div className="flex gap-px mt-0.5">
-                      {[1,2,3,4,5].map(n => (
-                        <div key={n} className="rounded-full" style={{ width: 3.5, height: 3.5, background: n <= imp ? uColor : '#e5e7eb' }} />
-                      ))}
-                    </div>
-                  )}
+                {/* Bubble area */}
+                <div className={`flex-1 relative bg-gradient-to-br ${zone.bg} overflow-hidden`}>
+                  {/* Subtle dot grid */}
+                  <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, #64748b 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
 
-                  {/* Hover ring */}
-                  <div className="absolute inset-[-4px] rounded-full border-2 border-transparent group-hover:border-current opacity-25 transition-all duration-200" style={{ color: uColor }} />
+                  {/* Render bubbles */}
+                  <div className="relative w-full h-full">
+                    {zContacts.map(c => {
+                      const pos = zPos[c.id];
+                      if (!pos) return null;
+                      const isSelected = c.id === selId;
+                      const isDrag = c.id === draggingId;
+                      const zColor = zone.color;
+                      const imp = c.importance || 3;
+                      const showAlert = zone.key === 'high' && imp >= 4;
 
-                  {/* Follow-up badge */}
-                  {needsFollowUp && (
-                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-white flex items-center justify-center shadow-sm">
-                      <span className="text-white text-[8px] font-bold">!</span>
+                      return (
+                        <div
+                          key={c.id}
+                          draggable
+                          onDragStart={e => onDragStart(e, c.id)}
+                          onDragEnd={onDragEnd}
+                          onClick={() => { setSelId(isSelected ? null : c.id); setLogging(false); setEditing(null); setAddingFile(false); }}
+                          className={`absolute rounded-full flex flex-col items-center justify-center cursor-grab select-none group ${isDrag ? 'opacity-40' : ''}`}
+                          style={{
+                            left: `calc(${pos.xPct}% - ${pos.r}px)`, top: `calc(${pos.yPct}% - ${pos.r}px)`,
+                            width: pos.r * 2, height: pos.r * 2,
+                            background: `${zColor}12`,
+                            border: `3px solid ${zColor}`,
+                            boxShadow: isSelected
+                              ? `0 0 0 3px ${zColor}35, 0 8px 30px rgba(0,0,0,0.12)`
+                              : `0 0 12px ${zColor}18, 0 2px 10px rgba(0,0,0,0.05)`,
+                            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                            transform: isSelected ? 'scale(1.08)' : undefined,
+                          }}
+                        >
+                          <span className="font-bold text-gray-800 leading-tight text-center truncate max-w-[85%]" style={{ fontSize: pos.r > 50 ? 12 : pos.r > 42 ? 10 : pos.r > 36 ? 8.5 : 7.5 }}>
+                            {c.name}
+                          </span>
+                          {pos.r > 36 && (
+                            <span className="text-gray-400 truncate max-w-[80%] leading-tight text-center mt-0.5" style={{ fontSize: pos.r > 46 ? 7.5 : 6.5 }}>
+                              {c.company}
+                            </span>
+                          )}
+                          {pos.r > 40 && (
+                            <div className="flex gap-px mt-0.5">
+                              {[1,2,3,4,5].map(n => (
+                                <div key={n} className="rounded-full" style={{ width: 3, height: 3, background: n <= imp ? zColor : '#e5e7eb' }} />
+                              ))}
+                            </div>
+                          )}
+                          <div className="absolute inset-[-4px] rounded-full border-2 border-transparent group-hover:border-current opacity-25 transition-all duration-200" style={{ color: zColor }} />
+                          {showAlert && (
+                            <div className="absolute -top-1 -right-1 bg-red-600 rounded-full border-2 border-white flex items-center justify-center shadow-md" style={{ width: 20, height: 20 }}>
+                              <span className="text-white text-[9px] font-black">!</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Empty zone state */}
+                  {zContacts.length === 0 && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <p className="text-gray-300 text-xs font-medium">Drop contacts here</p>
                     </div>
                   )}
                 </div>
-              );
-            })}
-          </div>
-
-          {/* Zoom controls */}
-          <div className="absolute bottom-3 right-3 flex flex-col gap-1">
-            <button onClick={() => setZoom(z => Math.min(2.5, z + 0.2))} className="w-8 h-8 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-white shadow-sm transition-colors"><ZoomIn size={14} /></button>
-            <button onClick={() => setZoom(z => Math.max(0.3, z - 0.2))} className="w-8 h-8 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-white shadow-sm transition-colors"><ZoomOut size={14} /></button>
-            <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className="w-8 h-8 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-white shadow-sm transition-colors" title="Reset view"><RotateCcw size={13} /></button>
-          </div>
-
-          {/* Legend */}
-          <div className="absolute bottom-3 left-3 flex items-center gap-3 bg-white/80 backdrop-blur-sm px-3 py-2 rounded-xl border border-gray-100 shadow-sm">
-            <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Urgency</span>
-            {[{ l: 'Chill', c: '#22c55e' }, { l: 'Moderate', c: '#eab308' }, { l: 'Urgent', c: '#ef4444' }].map(u => (
-              <div key={u.l} className="flex items-center gap-1">
-                <div className="w-2.5 h-2.5 rounded-full" style={{ background: u.c }} />
-                <span className="text-[9px] text-gray-500">{u.l}</span>
               </div>
-            ))}
-            <div className="w-px h-3 bg-gray-200" />
-            <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Size</span>
-            <span className="text-[9px] text-gray-500">= Importance</span>
-          </div>
-
-          {/* Match count */}
-          {(search || filter !== 'all') && filtered.length > 0 && (
-            <div className="absolute top-3 left-3 bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-gray-100 text-xs text-gray-500 shadow-sm">
-              Showing <span className="font-semibold text-gray-700">{filtered.length}</span> of {contacts.length}
-            </div>
-          )}
-
-          {/* Empty state */}
-          {filtered.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <p className="text-gray-400 text-sm mb-2">{search || filter !== 'all' ? 'No contacts match this filter' : 'Your network starts here'}</p>
-                {filter !== 'all' && <button onClick={() => { setFilter('all'); setSearch(''); }} className="text-emerald-600 text-sm font-semibold hover:text-emerald-500">Clear filters</button>}
-                {!search && filter === 'all' && <button onClick={() => { setCf(emptyC); setAdding(true); }} className="text-emerald-600 text-sm font-semibold hover:text-emerald-500">Add your first contact</button>}
-              </div>
-            </div>
-          )}
+            );
+          })}
         </div>
 
         {/* Detail Panel */}
-        <div className={`transition-all duration-300 ease-in-out overflow-hidden ${selId && sel ? 'w-[400px] ml-4 opacity-100' : 'w-0 ml-0 opacity-0'}`}>
+        <div className={`transition-all duration-300 ease-in-out overflow-hidden ${selId && sel ? 'w-[380px] ml-3 opacity-100' : 'w-0 ml-0 opacity-0'}`}>
           {sel && <DetailPanel />}
         </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center justify-center gap-4 mt-2">
+        <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Bubble size = Importance</span>
+        <div className="w-px h-3 bg-gray-200" />
+        <span className="text-[9px] text-gray-400">Drag bubbles between zones to override urgency</span>
       </div>
 
       {confirm && <ConfirmModal {...confirm} />}
@@ -570,7 +554,8 @@ export default function RelationshipsPage() {
     const cIx = ix[selId] || [];
     const cF = cFiles[selId] || [];
     const urgency = getUrgency(sel);
-    const uColor = urgencyColor(urgency);
+    const zoneKey = getUrgencyGroup(sel);
+    const zColor = (ZONES.find(z => z.key === zoneKey) || ZONES[0]).color;
 
     return (
       <div className="h-full bg-white border border-gray-200 rounded-2xl flex flex-col overflow-hidden shadow-sm" style={{ maxHeight: 'calc(100vh - 200px)' }}>
@@ -578,7 +563,7 @@ export default function RelationshipsPage() {
         <div className="p-5 border-b border-gray-100">
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-start gap-3">
-              <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-base shrink-0 shadow-md" style={{ background: uColor }}>
+              <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-base shrink-0 shadow-md" style={{ background: zColor }}>
                 {sel.name?.charAt(0)}
               </div>
               <div>
@@ -604,7 +589,7 @@ export default function RelationshipsPage() {
           </div>
 
           <div className="grid grid-cols-3 gap-3 text-xs">
-            <div><div className="text-gray-400 mb-0.5">Last contact</div><div className="font-semibold" style={{ color: uColor }}>{d === null ? 'never' : `${d}d ago`}</div></div>
+            <div><div className="text-gray-400 mb-0.5">Last contact</div><div className="font-semibold" style={{ color: zColor }}>{d === null ? 'never' : `${d}d ago`}</div></div>
             <div><div className="text-gray-400 mb-0.5">Next action</div><div className="font-medium text-gray-700 truncate">{sel.next_action || '—'}</div></div>
             <div><div className="text-gray-400 mb-0.5">Follow-up</div><div className={`font-medium ${sel.follow_up_date && new Date(sel.follow_up_date) <= new Date() ? 'text-amber-600' : 'text-gray-700'}`}>{sel.follow_up_date ? fmtShort(sel.follow_up_date) : '—'}</div></div>
           </div>
