@@ -215,11 +215,28 @@ function SortableTaskRow({ task, children }) {
 
 function DroppableSection({ id, isEmpty, children }) {
   const { setNodeRef, isOver } = useDroppable({ id });
-  // Only show the highlight on empty sections where there are no task items to drop onto
   const showHighlight = isOver && isEmpty;
+  const innerRef = useRef(null);
+  const [height, setHeight] = useState('auto');
+
+  useEffect(() => {
+    if (!innerRef.current) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setHeight(entry.contentRect.height);
+    });
+    ro.observe(innerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
   return (
-    <div ref={setNodeRef} className={`min-h-[2rem] rounded-xl ${showHighlight ? 'bg-emerald-50/60 ring-2 ring-emerald-200 ring-inset' : ''}`}>
-      {children}
+    <div
+      ref={setNodeRef}
+      className={`min-h-[2rem] rounded-xl overflow-hidden ${showHighlight ? 'bg-emerald-50/60 ring-2 ring-emerald-200 ring-inset' : ''}`}
+      style={{ height: typeof height === 'number' ? height : 'auto', transition: 'height 300ms cubic-bezier(0.25, 1, 0.5, 1)' }}
+    >
+      <div ref={innerRef}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -831,7 +848,7 @@ export default function TaskBoardPage() {
             const taskIds = sectionTasks.map(t => t.id);
 
             return (
-              <div key={key} className={`rounded-3xl border p-6 shadow-sm animate-fade-in-up transition-all duration-300 ${capacityFlash === key ? 'bg-red-50 border-red-300 ring-2 ring-red-200' : 'bg-white border-gray-200'}`} style={{ animationDelay: `${0.06 + sectionIdx * 0.08}s` }}>
+              <div key={key} className={`rounded-3xl border p-6 shadow-sm animate-fade-in-up ${capacityFlash === key ? 'bg-red-50 border-red-300 ring-2 ring-red-200' : 'bg-white border-gray-200'}`} style={{ animationDelay: `${0.06 + sectionIdx * 0.08}s`, transition: 'all 300ms cubic-bezier(0.25, 1, 0.5, 1)' }}>
                 {/* Section Header */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -857,10 +874,10 @@ export default function TaskBoardPage() {
                 {/* Task List */}
                 <DroppableSection id={`section-${key}`} isEmpty={sectionTasks.length === 0}>
                 {sectionTasks.length === 0 && adding !== key ? (
-                  <p className="text-center text-gray-400 py-8">No tasks yet</p>
+                  <p className="text-center text-gray-400 py-8 transition-all duration-300">No tasks yet</p>
                 ) : (
                   <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2">
+                  <div className="space-y-2" style={{ transition: 'all 300ms cubic-bezier(0.25, 1, 0.5, 1)' }}>
                     {sectionTasks.map(task => {
                       const subtasks = task.subtasks || [];
                       const hasSubtasks = subtasks.length > 0;
