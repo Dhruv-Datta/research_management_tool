@@ -6,7 +6,7 @@ export default function DashboardLayout({ children }) {
   return (
     <AuthGate>
       <CacheProvider>
-        <div className="min-h-screen relative overflow-hidden bg-white">
+        <div className="min-h-screen relative bg-white">
           {/* Ambient background glows — fixed so they stay while scrolling */}
           <div className="fixed inset-0 pointer-events-none overflow-hidden">
             <div className="absolute top-[-5%] left-[-2%] w-[300px] h-[300px] bg-emerald-200/12 rounded-full blur-[100px]" />

@@ -866,7 +866,7 @@ function WatchlistSelector({ watchlists, activeId, onSwitch, onCreate, onRename,
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative z-50" ref={dropdownRef}>
       <button
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 hover:border-gray-400 rounded-lg px-3 py-2 transition-colors shadow-sm"
@@ -1257,14 +1257,12 @@ export default function WatchlistPage() {
     <div className="min-h-screen px-6 lg:px-12 pb-16">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8 animate-fade-in-up">
+        <div className="flex items-center justify-between mb-8 animate-fade-in-up relative z-20">
           <div className="flex items-center gap-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Watchlist</h1>
               <p className="text-sm text-gray-500 mt-1">
                 {stocks.length} stock{stocks.length !== 1 ? 's' : ''} tracked
-                {researching.length > 0 && ` · ${researching.length} currently researching`}
-                {research.length > 0 && ` · ${research.length} in research`}
               </p>
             </div>
             <WatchlistSelector
