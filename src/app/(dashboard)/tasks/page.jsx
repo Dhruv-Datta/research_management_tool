@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, X, Check, ChevronDown, ChevronRight, User, Pencil, GripVertical } from 'lucide-react';
-import { DndContext, closestCenter, pointerWithin, rectIntersection, PointerSensor, useSensor, useSensors, DragOverlay, useDroppable } from '@dnd-kit/core';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -194,10 +194,14 @@ function SortableTaskRow({ task, children }) {
     isDragging,
   } = useSortable({ id: task.id });
 
+  // Only apply Y-axis translation to prevent horizontal jitter
+  const yOnly = transform ? { ...transform, x: 0 } : null;
+  const smoothTransition = transition || 'transform 250ms cubic-bezier(0.25, 1, 0.5, 1), opacity 200ms ease';
+
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
+    transform: CSS.Transform.toString(yOnly),
+    transition: smoothTransition,
+    opacity: isDragging ? 0.3 : 1,
     position: 'relative',
     zIndex: isDragging ? 50 : 'auto',
   };
@@ -246,8 +250,49 @@ export default function TaskBoardPage() {
   const capacityFlashTimer = useRef(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
+
+  const lastOverId = useRef(null);
+  const lastOverTime = useRef(0);
+  const stableCollision = useCallback((args) => {
+    const { droppableRects, droppableContainers, collisionRect } = args;
+    if (!collisionRect) return closestCenter(args);
+
+    const pointerY = collisionRect.top + collisionRect.height / 2;
+
+    // Score by vertical distance only — prevents skipping over adjacent tasks
+    const collisions = [];
+    for (const container of droppableContainers) {
+      const rect = droppableRects.get(container.id);
+      if (!rect) continue;
+      const centerY = rect.top + rect.height / 2;
+      const dist = Math.abs(pointerY - centerY);
+      // Only match if pointer is within the vertical bounds (with some padding)
+      if (pointerY >= rect.top - 10 && pointerY <= rect.bottom + 10) {
+        collisions.push({ id: container.id, data: { droppableContainer: container, value: dist } });
+      }
+    }
+
+    // Sort by distance, closest first
+    collisions.sort((a, b) => a.data.value - b.data.value);
+
+    // If nothing in range, fall back to closestCenter
+    if (!collisions.length) return closestCenter(args);
+
+    const topId = collisions[0].id;
+    const now = Date.now();
+    // Require pointer to hover over new target for 100ms before switching
+    if (topId !== lastOverId.current) {
+      if (now - lastOverTime.current < 100) {
+        const prev = collisions.find(c => c.id === lastOverId.current);
+        return prev ? [prev] : collisions;
+      }
+      lastOverId.current = topId;
+      lastOverTime.current = now;
+    }
+    return collisions;
+  }, []);
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -584,6 +629,8 @@ export default function TaskBoardPage() {
     setActiveId(event.active.id);
     tasksSnapshot.current = tasks;
     setCapacityFlash(null);
+    lastOverId.current = null;
+    lastOverTime.current = 0;
     if (capacityFlashTimer.current) { clearTimeout(capacityFlashTimer.current); capacityFlashTimer.current = null; }
   };
 
@@ -759,7 +806,7 @@ export default function TaskBoardPage() {
 
       <DndContext
         sensors={sensors}
-        collisionDetection={pointerWithin}
+        collisionDetection={stableCollision}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
