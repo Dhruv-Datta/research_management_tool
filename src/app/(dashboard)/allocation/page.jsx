@@ -11,7 +11,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Scatter } from 'react-chartjs-2';
-import { BarChart3, Settings, Target, Zap, X, SlidersHorizontal, PieChart, ArrowRight, RotateCcw } from 'lucide-react';
+import { BarChart3, Settings, Target, Zap, X, SlidersHorizontal, RotateCcw } from 'lucide-react';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
 
@@ -308,6 +308,7 @@ export default function AllocationPage() {
   const [rbTaxInputs, setRbTaxInputs] = useState({});
   const [rbLoadingPortfolio, setRbLoadingPortfolio] = useState(false);
   const rbCostBasisRef = useRef({});
+  const rbSavedTargetsRef = useRef(null);
   const saveTimer = useRef(null);
   const tableRef = useRef(null);
   const rbTableRef = useRef(null);
@@ -345,6 +346,8 @@ export default function AllocationPage() {
           if (config.cashMinWeight !== undefined) setCashMinWeight(config.cashMinWeight);
           if (config.cashMaxWeight !== undefined) setCashMaxWeight(config.cashMaxWeight);
           if (config.numPortfolios !== undefined) setNumPortfolios(config.numPortfolios);
+          if (config.rbTargetWeights) rbSavedTargetsRef.current = config.rbTargetWeights;
+          if (config.rbTargetCashPercent !== undefined) setRbTargetCashPercent(config.rbTargetCashPercent);
         }
       } catch (err) {
         console.error('Failed to load allocation config:', err);
@@ -377,6 +380,7 @@ export default function AllocationPage() {
       const quotes = quotesData.quotes || quotesData;
 
       const costBasisMap = {};
+      const savedTargets = rbSavedTargetsRef.current;
       const rows = holdings.map((h) => {
         const quote = quotes[h.ticker];
         const price = quote?.price || 0;
@@ -385,7 +389,7 @@ export default function AllocationPage() {
         return createRebalanceRow({
           ticker: h.ticker,
           currentValue: value > 0 ? value.toFixed(2) : '',
-          targetWeight: '',
+          targetWeight: savedTargets?.[h.ticker] ?? '',
         });
       });
 
@@ -422,6 +426,15 @@ export default function AllocationPage() {
     }, 800);
   }, []);
 
+  const rbTargetWeightsMap = useMemo(() => {
+    const map = {};
+    rbHoldings.forEach((row) => {
+      const ticker = row.ticker.trim();
+      if (ticker && row.targetWeight !== '') map[ticker] = row.targetWeight;
+    });
+    return map;
+  }, [rbHoldings]);
+
   useEffect(() => {
     if (!loaded) return;
     saveConfig({
@@ -433,8 +446,10 @@ export default function AllocationPage() {
       cashMinWeight,
       cashMaxWeight,
       numPortfolios,
+      rbTargetWeights: rbTargetWeightsMap,
+      rbTargetCashPercent,
     });
-  }, [loaded, allocations, riskFactorWeights, riskFreeRate, minWeight, maxWeight, cashMinWeight, cashMaxWeight, numPortfolios, saveConfig]);
+  }, [loaded, allocations, riskFactorWeights, riskFreeRate, minWeight, maxWeight, cashMinWeight, cashMaxWeight, numPortfolios, rbTargetWeightsMap, rbTargetCashPercent, saveConfig]);
 
   const simulationChartOptions = useMemo(
     () => ({
@@ -1034,36 +1049,38 @@ export default function AllocationPage() {
           <h1 className="text-3xl font-bold text-gray-900">Allocation</h1>
         </div>
 
-        {/* Tab Bar */}
-        <div className="flex items-center gap-1 mb-8 bg-gray-100/80 rounded-xl p-1 w-fit animate-fade-in-up stagger-2">
-          {[
-            { key: 'optimizer', label: 'Optimizer' },
-            { key: 'rebalancer', label: 'Rebalancer' },
-          ].map(tab => (
+        {/* Tab Bar + Settings */}
+        <div className="flex items-center justify-between mb-6 animate-fade-in-up stagger-2">
+          <div className="flex items-center gap-1 bg-gray-100/80 rounded-xl p-1 w-fit">
+            {[
+              { key: 'optimizer', label: 'Optimizer' },
+              { key: 'rebalancer', label: 'Rebalancer' },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveSubTab(tab.key)}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  activeSubTab === tab.key
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          {activeSubTab === 'optimizer' && (
             <button
-              key={tab.key}
-              onClick={() => setActiveSubTab(tab.key)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                activeSubTab === tab.key
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
+              onClick={() => setSettingsOpen(true)}
+              className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-4 py-2 rounded-xl transition-colors"
             >
-              {tab.label}
+              <SlidersHorizontal size={15} />
+              Settings
             </button>
-          ))}
+          )}
         </div>
 
         {activeSubTab === 'optimizer' && (<>
-        <div className="flex items-center justify-end mb-6 animate-fade-in-up">
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-4 py-2 rounded-xl transition-colors"
-          >
-            <SlidersHorizontal size={15} />
-            Settings
-          </button>
-        </div>
 
         {/* Asset cards */}
         <div ref={tableRef} className="space-y-2 animate-fade-in-up stagger-2">
@@ -1301,242 +1318,263 @@ export default function AllocationPage() {
 
         {activeSubTab === 'rebalancer' && (
           <div className="animate-fade-in-up">
-            <div className="bg-gray-50 border border-gray-200 rounded-3xl p-8">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-8">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center">
-                    <PieChart className="w-6 h-6 text-emerald-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900">Portfolio Rebalancer</h3>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={loadPortfolioIntoRebalancer}
-                    disabled={rbLoadingPortfolio}
-                    className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-700 bg-white hover:bg-gray-100 border border-gray-200 px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
-                  >
-                    <RotateCcw size={14} className={rbLoadingPortfolio ? 'animate-spin' : ''} />
-                    Reset
-                  </button>
+            {/* Header row */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Cash</span>
+                  <span className="text-sm text-gray-400">$</span>
+                  <input type="number" min="0" step="0.01" value={rbCash} onChange={(e) => setRbCash(e.target.value)} className="w-28 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-right focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 outline-none transition-all" placeholder="0" />
                 </div>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Cash Balance ($)</label>
-                    <input type="number" min="0" step="0.01" value={rbCash} onChange={(e) => setRbCash(e.target.value)} className="w-48 border border-gray-300 rounded-xl px-4 py-2.5 bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all" placeholder="0.00" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Target Cash (%)</label>
-                    <input type="number" min="0" step="0.01" value={rbTargetCashPercent} onChange={(e) => setRbTargetCashPercent(e.target.value)} className="w-40 border border-gray-300 rounded-xl px-4 py-2.5 bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all" placeholder="0" />
-                  </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Target Cash</span>
+                  <input type="number" min="0" step="0.01" value={rbTargetCashPercent} onChange={(e) => setRbTargetCashPercent(e.target.value)} className="w-16 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-right focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 outline-none transition-all" placeholder="0" />
+                  <span className="text-xs text-gray-400">%</span>
                 </div>
               </div>
-
-              {rbLoadingPortfolio ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="w-5 h-5 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mr-3" />
-                  <span className="text-sm text-gray-500">Loading portfolio...</span>
-                </div>
-              ) : (<>
-              <div ref={rbTableRef} className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
-                <table className="min-w-full text-left text-sm">
-                  <thead className="bg-gray-100 text-gray-600">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold">Ticker</th>
-                      <th className="px-4 py-3 font-semibold">Current Value ($)</th>
-                      <th className="px-4 py-3 font-semibold">Target %</th>
-                      <th className="px-4 py-3 font-semibold"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rbHoldings.map((row, idx) => (
-                      <tr key={row.id} className="border-t border-gray-200">
-                        <td className="px-4 py-3">
-                          <input type="text" value={row.ticker} onChange={(e) => updateRbHolding(row.id, 'ticker', e.target.value)} className="w-32 border border-gray-300 rounded-lg px-3 py-2 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all" placeholder="AAPL" />
-                        </td>
-                        <td className="px-4 py-3">
-                          <input type="number" min="0" step="0.01" value={row.currentValue} onChange={(e) => updateRbHolding(row.id, 'currentValue', e.target.value)} className="w-48 border border-gray-300 rounded-lg px-3 py-2 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all" placeholder="0.00" />
-                        </td>
-                        <td className="px-4 py-3">
-                          <input type="number" min="0" step="0.01" data-col="rbTargetWeight" data-row={idx} value={row.targetWeight} onChange={(e) => updateRbHolding(row.id, 'targetWeight', e.target.value)} onKeyDown={(e) => handleRbColumnTab(e, 'rbTargetWeight', idx)} className="w-32 border border-gray-300 rounded-lg px-3 py-2 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all" placeholder="0" />
-                        </td>
-                        <td className="px-4 py-3">
-                          {rbHoldings.length > 1 && (
-                            <button type="button" onClick={() => removeRbHolding(row.id)} className="text-sm font-semibold text-red-600 hover:text-red-700">Remove</button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-6">
-                <button type="button" onClick={addRbHolding} className="inline-flex items-center justify-center px-5 py-2.5 border-2 border-emerald-600 text-emerald-700 rounded-xl font-semibold hover:bg-emerald-50 transition-colors">
-                  Add Holding
-                </button>
-                <div className="text-sm text-gray-500">
-                  Target total: <span className="font-semibold text-gray-900">{rbTotalTargetPercent.toFixed(2)}%</span>
-                </div>
-                <button type="button" onClick={handleGenerateRbPlan} className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors">
-                  Generate Rebalance Plan
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-
-              {rbError && <p className="mt-4 text-sm text-red-600 font-semibold">{rbError}</p>}
-
-              {rbPlan && (
-                <div className="mt-10 space-y-8">
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-3">Step-by-Step Plan</h3>
-                    <ol className="space-y-2 text-gray-700">
-                      {rbPlan.steps.length > 0 ? (
-                        rbPlan.steps.map((step, index) => {
-                          const toneStyles = {
-                            buy: 'bg-emerald-50 border-emerald-200 text-emerald-900',
-                            sell: 'bg-rose-50 border-rose-200 text-rose-900',
-                            note: 'bg-gray-50 border-gray-200 text-gray-600',
-                          };
-                          const toneClass = toneStyles[step.type] || toneStyles.note;
-                          return (
-                            <li key={`${step.text}-${index}`} className={`border rounded-xl p-4 ${toneClass}`}>{step.text}</li>
-                          );
-                        })
-                      ) : (
-                        <li className="text-gray-500">No trades required. Portfolio is already balanced.</li>
-                      )}
-                    </ol>
-                  </div>
-
-                  <div className="grid gap-6 md:grid-cols-2">
-                    <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                      <h4 className="font-semibold text-gray-900 mb-3">Buy Summary</h4>
-                      {Object.keys(rbPlan.buyDollars).length === 0 ? (
-                        <p className="text-sm text-gray-500">No buys required.</p>
-                      ) : (
-                        <ul className="space-y-2 text-sm text-gray-700">
-                          {Object.entries(rbPlan.buyDollars).map(([ticker, value]) => (
-                            <li key={ticker} className="flex items-center justify-between">
-                              <span>{ticker}</span>
-                              <span className="font-semibold text-emerald-600">{formatCurrency(value)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                    <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                      <h4 className="font-semibold text-gray-900 mb-3">Sell Summary</h4>
-                      {Object.keys(rbPlan.sellDollars).length === 0 ? (
-                        <p className="text-sm text-gray-500">No sells required.</p>
-                      ) : (
-                        <ul className="space-y-2 text-sm text-gray-700">
-                          {Object.entries(rbPlan.sellDollars).map(([ticker, value]) => (
-                            <li key={ticker} className="flex items-center justify-between">
-                              <span>{ticker}</span>
-                              <span className="font-semibold text-rose-600">{formatCurrency(value)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                    <h4 className="font-semibold text-gray-900 mb-3">Projected Allocation</h4>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {Object.entries(rbPlan.finalValues)
-                        .sort(([tickerA], [tickerB]) => rbPlan.finalWeights[tickerB] - rbPlan.finalWeights[tickerA])
-                        .map(([ticker, value]) => (
-                          <div key={ticker} className="flex items-center justify-between text-sm text-gray-700 bg-gray-50 rounded-xl px-4 py-3">
-                            <span className="font-medium">{ticker}</span>
-                            <span className="font-semibold">{formatCurrency(value)} ({(rbPlan.finalWeights[ticker] * 100).toFixed(2)}%)</span>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-
-                  <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                    <h4 className="font-semibold text-gray-900 mb-3">Capital Gains Tax Impact</h4>
-                    <p className="text-sm text-gray-500 mb-4">Enter the cost basis and current value for each sold position to estimate tax owed.</p>
-                    {rbTaxBreakdown.rows.length === 0 ? (
-                      <p className="text-sm text-gray-500">No sells required, so no tax impact.</p>
-                    ) : (
-                      <div className="grid gap-4">
-                        {rbTaxBreakdown.rows.map((row) => (
-                          <div key={row.ticker} className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-                              <h5 className="font-semibold text-gray-900">{row.ticker}</h5>
-                              <span className="text-xs text-gray-500">Planned sell: {formatCurrency(rbPlan.sellDollars[row.ticker])}</span>
-                            </div>
-                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Initial Value ($)</label>
-                                <input type="number" min="0" step="0.01" value={rbTaxInputs[row.ticker]?.initialValue ?? ''} onChange={(e) => updateRbTaxInput(row.ticker, 'initialValue', e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all" placeholder="0.00" />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Final/Current Value ($)</label>
-                                <input type="number" min="0" step="0.01" value={rbTaxInputs[row.ticker]?.finalValue ?? ''} onChange={(e) => updateRbTaxInput(row.ticker, 'finalValue', e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all" placeholder="0.00" />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Amount Sold ($)</label>
-                                <input type="number" min="0" step="0.01" value={rbTaxInputs[row.ticker]?.amountSold ?? ''} onChange={(e) => updateRbTaxInput(row.ticker, 'amountSold', e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all" placeholder="0.00" />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Capital Gains Tax Rate (%)</label>
-                                <input type="number" min="0" step="0.01" value={rbTaxInputs[row.ticker]?.taxRate ?? ''} onChange={(e) => updateRbTaxInput(row.ticker, 'taxRate', e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all" placeholder="0" />
-                              </div>
-                            </div>
-                            <div className="mt-4 grid gap-3 md:grid-cols-2 text-sm text-gray-700">
-                              <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3">
-                                <span>Gain Realized</span>
-                                <span className="font-semibold">{formatCurrency(row.gainRealized)}</span>
-                              </div>
-                              <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3">
-                                <span>Tax Owed</span>
-                                <span className="font-semibold text-rose-600">{formatCurrency(row.taxOwed)}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="mt-5 grid gap-3 md:grid-cols-2 text-sm text-gray-700">
-                      <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                        <span>Total Capital Gains</span>
-                        {rbTaxBreakdown.totalGains < 0 ? (
-                          <span className="font-semibold text-gray-700">No capital gains <span className="text-xs font-normal text-gray-400">({formatCurrency(rbTaxBreakdown.totalGains)} loss)</span></span>
-                        ) : (
-                          <span className="font-semibold">{formatCurrency(rbTaxBreakdown.totalGains)}</span>
-                        )}
-                      </div>
-                      <div className={`flex items-center justify-between rounded-xl border px-4 py-3 ${rbTaxBreakdown.totalTax < 0 ? 'border-gray-200 bg-gray-50' : 'border-rose-200 bg-rose-50'}`}>
-                        <span>Total Estimated Tax Owed</span>
-                        {rbTaxBreakdown.totalTax < 0 ? (
-                          <span className="font-semibold text-gray-700">No taxes owed <span className="text-xs font-normal text-gray-400">({formatCurrency(rbTaxBreakdown.totalTax)} deficit)</span></span>
-                        ) : (
-                          <span className="font-semibold text-rose-600">{formatCurrency(rbTaxBreakdown.totalTax)}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                        <span>AUM (cash + positions)</span>
-                        <span className="font-semibold">{formatCurrency(rbAumValue)}</span>
-                      </div>
-                      <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                        <span>Tax as % of AUM</span>
-                        {rbTaxOwedPctOfAum < 0 ? (
-                          <span className="font-semibold text-gray-700">0.00% <span className="text-xs font-normal text-gray-400">({rbTaxOwedPctOfAum.toFixed(2)}%)</span></span>
-                        ) : (
-                          <span className="font-semibold">{rbTaxOwedPctOfAum.toFixed(2)}%</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              </>)}
+              <button
+                type="button"
+                onClick={loadPortfolioIntoRebalancer}
+                disabled={rbLoadingPortfolio}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                title="Reset from holdings"
+              >
+                <RotateCcw size={15} className={rbLoadingPortfolio ? 'animate-spin' : ''} />
+              </button>
             </div>
+
+            {rbLoadingPortfolio ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="w-4 h-4 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mr-2" />
+                <span className="text-sm text-gray-400">Loading portfolio...</span>
+              </div>
+            ) : (<>
+            {/* Holdings cards */}
+            <div ref={rbTableRef} className="space-y-2 animate-fade-in-up stagger-2">
+              {rbHoldings.map((row, idx) => (
+                <div key={row.id} className="group bg-white border border-gray-100 rounded-2xl px-5 py-3.5 hover:border-gray-200 hover:shadow-sm transition-all">
+                  <div className="flex items-center gap-5">
+                    <input
+                      type="text"
+                      value={row.ticker}
+                      onChange={(e) => updateRbHolding(row.id, 'ticker', e.target.value)}
+                      className="w-20 text-sm font-bold text-gray-900 bg-transparent border-0 outline-none placeholder:text-gray-300 placeholder:font-normal"
+                      placeholder="TICKER"
+                    />
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Value</span>
+                      <span className="text-xs text-gray-400">$</span>
+                      <input
+                        type="number" min="0" step="0.01"
+                        value={row.currentValue}
+                        onChange={(e) => updateRbHolding(row.id, 'currentValue', e.target.value)}
+                        className="w-24 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-right focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 outline-none transition-all"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Target</span>
+                      <input
+                        type="number" min="0" step="0.01"
+                        data-col="rbTargetWeight" data-row={idx}
+                        value={row.targetWeight}
+                        onChange={(e) => updateRbHolding(row.id, 'targetWeight', e.target.value)}
+                        onKeyDown={(e) => handleRbColumnTab(e, 'rbTargetWeight', idx)}
+                        className="w-16 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-right focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 outline-none transition-all"
+                        placeholder="0"
+                      />
+                      <span className="text-xs text-gray-400">%</span>
+                    </div>
+                    {rbHoldings.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeRbHolding(row.id)}
+                        className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-between mt-5 animate-fade-in-up stagger-3">
+              <button type="button" onClick={addRbHolding} className="text-sm font-medium text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 px-4 py-2 rounded-xl transition-colors">
+                + Add Holding
+              </button>
+              <span className="text-xs text-gray-400">
+                Total: <span className={`font-semibold ${Math.abs(rbTotalTargetPercent - 100) < 0.01 ? 'text-emerald-600' : 'text-gray-900'}`}>{rbTotalTargetPercent.toFixed(2)}%</span>
+              </span>
+              <button
+                type="button"
+                onClick={handleGenerateRbPlan}
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-colors shadow-sm"
+              >
+                <Zap className="w-4 h-4" />
+                Rebalance
+              </button>
+            </div>
+
+            {rbError && <p className="mt-4 text-sm text-red-600 font-medium">{rbError}</p>}
+
+            {rbPlan && (
+              <div className="mt-8 space-y-4 animate-fade-in-up">
+                {/* Trading instructions */}
+                {rbPlan.steps.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {rbPlan.steps.map((step, index) => {
+                      const styles = {
+                        buy: 'border-l-emerald-400 bg-emerald-50/60 text-emerald-800',
+                        sell: 'border-l-rose-400 bg-rose-50/60 text-rose-800',
+                        note: 'border-l-gray-300 bg-gray-50 text-gray-600',
+                      };
+                      return (
+                        <div key={`${step.text}-${index}`} className={`border-l-[3px] rounded-r-lg px-4 py-2.5 text-sm ${styles[step.type] || styles.note}`}>{step.text}</div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400 py-2">No trades required. Portfolio is already balanced.</p>
+                )}
+
+                {/* Buy / Sell side by side */}
+                {(Object.keys(rbPlan.buyDollars).length > 0 || Object.keys(rbPlan.sellDollars).length > 0) && (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="bg-white border border-gray-100 rounded-2xl p-4">
+                      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Buys</h4>
+                      {Object.keys(rbPlan.buyDollars).length === 0 ? (
+                        <p className="text-sm text-gray-400">None</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {Object.entries(rbPlan.buyDollars).map(([ticker, value]) => (
+                            <div key={ticker} className="flex items-center justify-between text-sm">
+                              <span className="font-medium text-gray-700">{ticker}</span>
+                              <span className="font-semibold text-emerald-600">{formatCurrency(value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="bg-white border border-gray-100 rounded-2xl p-4">
+                      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Sells</h4>
+                      {Object.keys(rbPlan.sellDollars).length === 0 ? (
+                        <p className="text-sm text-gray-400">None</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {Object.entries(rbPlan.sellDollars).map(([ticker, value]) => (
+                            <div key={ticker} className="flex items-center justify-between text-sm">
+                              <span className="font-medium text-gray-700">{ticker}</span>
+                              <span className="font-semibold text-rose-600">{formatCurrency(value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Projected allocation — compact bar rows */}
+                <div className="bg-white border border-gray-100 rounded-2xl p-4">
+                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Projected Allocation</h4>
+                  <div className="space-y-1.5">
+                    {Object.entries(rbPlan.finalValues)
+                      .sort(([, , ], [, , ]) => 0)
+                      .sort(([a], [b]) => rbPlan.finalWeights[b] - rbPlan.finalWeights[a])
+                      .map(([ticker, value]) => (
+                        <div key={ticker} className="flex items-center justify-between text-sm">
+                          <span className="font-medium text-gray-700 w-16">{ticker}</span>
+                          <div className="flex-1 mx-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${Math.min(rbPlan.finalWeights[ticker] * 100, 100)}%` }} />
+                          </div>
+                          <span className="text-xs text-gray-500 w-20 text-right">{(rbPlan.finalWeights[ticker] * 100).toFixed(1)}%</span>
+                          <span className="text-xs text-gray-400 w-24 text-right">{formatCurrency(value)}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                {/* Tax impact */}
+                <div className="bg-white border border-gray-100 rounded-2xl p-4">
+                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Tax Impact</h4>
+                  {rbTaxBreakdown.rows.length === 0 ? (
+                    <p className="text-sm text-gray-400">No sells — no tax impact.</p>
+                  ) : (<>
+                    {/* Summary at top — large */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                      <div>
+                        <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Capital Gains</p>
+                        {rbTaxBreakdown.totalGains < 0 ? (
+                          <p className="text-xl font-bold text-gray-900">None <span className="text-sm font-normal text-gray-400">({formatCurrency(rbTaxBreakdown.totalGains)})</span></p>
+                        ) : (
+                          <p className="text-xl font-bold text-gray-900">{formatCurrency(rbTaxBreakdown.totalGains)}</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Tax Owed</p>
+                        {rbTaxBreakdown.totalTax < 0 ? (
+                          <p className="text-xl font-bold text-gray-900">None <span className="text-sm font-normal text-gray-400">({formatCurrency(rbTaxBreakdown.totalTax)})</span></p>
+                        ) : (
+                          <p className="text-xl font-bold text-rose-600">{formatCurrency(rbTaxBreakdown.totalTax)}</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">AUM</p>
+                        <p className="text-xl font-bold text-gray-900">{formatCurrency(rbAumValue)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Tax / AUM</p>
+                        {rbTaxOwedPctOfAum < 0 ? (
+                          <p className="text-xl font-bold text-gray-900">0.00% <span className="text-sm font-normal text-gray-400">({rbTaxOwedPctOfAum.toFixed(2)}%)</span></p>
+                        ) : (
+                          <p className="text-xl font-bold text-gray-900">{rbTaxOwedPctOfAum.toFixed(2)}%</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Per-ticker breakdown below */}
+                    <div className="border-t border-gray-100 pt-4 space-y-3">
+                      <h5 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Breakdown</h5>
+                      {rbTaxBreakdown.rows.map((row) => (
+                        <div key={row.ticker} className="border border-gray-100 rounded-xl p-3">
+                          <div className="flex items-center justify-between mb-2.5">
+                            <span className="text-sm font-bold text-gray-900">{row.ticker}</span>
+                            <span className="text-[10px] text-gray-400">sell {formatCurrency(rbPlan.sellDollars[row.ticker])}</span>
+                          </div>
+                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                            <div>
+                              <span className="text-[10px] text-gray-400 uppercase tracking-wide">Cost Basis</span>
+                              <input type="number" min="0" step="0.01" value={rbTaxInputs[row.ticker]?.initialValue ?? ''} onChange={(e) => updateRbTaxInput(row.ticker, 'initialValue', e.target.value)} className="w-full text-sm bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 outline-none transition-all" placeholder="0" />
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-gray-400 uppercase tracking-wide">Mkt Value</span>
+                              <input type="number" min="0" step="0.01" value={rbTaxInputs[row.ticker]?.finalValue ?? ''} onChange={(e) => updateRbTaxInput(row.ticker, 'finalValue', e.target.value)} className="w-full text-sm bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 outline-none transition-all" placeholder="0" />
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-gray-400 uppercase tracking-wide">Amt Sold</span>
+                              <input type="number" min="0" step="0.01" value={rbTaxInputs[row.ticker]?.amountSold ?? ''} onChange={(e) => updateRbTaxInput(row.ticker, 'amountSold', e.target.value)} className="w-full text-sm bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 outline-none transition-all" placeholder="0" />
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-gray-400 uppercase tracking-wide">Tax Rate</span>
+                              <div className="flex items-center gap-1">
+                                <input type="number" min="0" step="0.01" value={rbTaxInputs[row.ticker]?.taxRate ?? ''} onChange={(e) => updateRbTaxInput(row.ticker, 'taxRate', e.target.value)} className="w-full text-sm bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 outline-none transition-all" placeholder="20" />
+                                <span className="text-xs text-gray-400">%</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                            <span>Gain: <span className="font-semibold text-gray-700">{formatCurrency(row.gainRealized)}</span></span>
+                            <span>Tax: <span className="font-semibold text-rose-600">{formatCurrency(row.taxOwed)}</span></span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>)}
+                </div>
+              </div>
+            )}
+            </>)}
           </div>
         )}
       </div>

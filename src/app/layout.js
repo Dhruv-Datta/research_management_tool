@@ -1,6 +1,7 @@
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/AuthContext";
+import DisableScrollOnNumberInputs from "@/components/DisableScrollOnNumberInputs";
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -18,6 +19,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body className={`${plusJakarta.variable} font-[family-name:var(--font-plus-jakarta)] antialiased`}>
         <AuthProvider>
+          <DisableScrollOnNumberInputs />
           {children}
         </AuthProvider>
       </body>
