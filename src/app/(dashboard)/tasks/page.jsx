@@ -243,6 +243,7 @@ export default function TaskBoardPage() {
   const editRef = useRef(null);
   const subEditRef = useRef(null);
   const assigneeAnchorRefs = useRef({});
+  const capacityFlashTimer = useRef(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -324,11 +325,6 @@ export default function TaskBoardPage() {
     }
   }, [editingSubId]);
 
-  useEffect(() => {
-    if (!capacityFlash) return;
-    const t = setTimeout(() => setCapacityFlash(null), 800);
-    return () => clearTimeout(t);
-  }, [capacityFlash]);
 
   const tasksByPriority = (key) => tasks.filter(t => t.priority === key && !t.done);
   const completedTasks = tasks.filter(t => t.done);
@@ -588,6 +584,7 @@ export default function TaskBoardPage() {
     setActiveId(event.active.id);
     tasksSnapshot.current = tasks;
     setCapacityFlash(null);
+    if (capacityFlashTimer.current) { clearTimeout(capacityFlashTimer.current); capacityFlashTimer.current = null; }
   };
 
   // onDragOver: ONLY handle cross-container moves (changing priority).
@@ -612,7 +609,13 @@ export default function TaskBoardPage() {
       const section = PRIORITY_SECTIONS.find(s => s.key === overPriority);
       const targetCount = prev.filter(t => t.priority === overPriority && t.id !== active.id).length;
       if (section?.maxTasks && targetCount >= section.maxTasks) {
-        setCapacityFlash(overPriority);
+        if (!capacityFlashTimer.current) {
+          setCapacityFlash(overPriority);
+          capacityFlashTimer.current = setTimeout(() => {
+            setCapacityFlash(null);
+            capacityFlashTimer.current = null;
+          }, 800);
+        }
         return prev;
       }
 
