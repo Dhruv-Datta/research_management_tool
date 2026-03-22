@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import { Plus, Trash2, RefreshCw, Pencil, Check, X } from 'lucide-react';
 import Card from '@/components/Card';
@@ -48,6 +49,8 @@ export default function HoldingsPage() {
   const [editingSector, setEditingSector] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [colorPickSector, setColorPickSector] = useState(null);
+  const [colorPickPos, setColorPickPos] = useState({ top: 0, left: 0 });
+  const colorPickRef = useRef(null);
   const editInputRef = useRef(null);
 
   // Form state
@@ -140,6 +143,18 @@ export default function HoldingsPage() {
       }
     });
   }, [loadPortfolio, loadQuotes, cache]);
+
+  // Close color picker on click outside
+  useEffect(() => {
+    if (!colorPickSector) return;
+    const handler = (e) => {
+      if (colorPickRef.current && !colorPickRef.current.contains(e.target)) {
+        setColorPickSector(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [colorPickSector]);
 
   // Sync tab from URL when search params change
   useEffect(() => {
@@ -1084,11 +1099,20 @@ export default function HoldingsPage() {
                                     <span
                                       className="w-3 h-3 rounded-full shrink-0 cursor-pointer ring-2 ring-transparent hover:ring-gray-300 transition-all"
                                       style={{ backgroundColor: currentColor }}
-                                      onClick={(e) => { e.stopPropagation(); setColorPickSector(colorPickSector === sector ? null : sector); }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (colorPickSector === sector) {
+                                          setColorPickSector(null);
+                                        } else {
+                                          const rect = e.currentTarget.getBoundingClientRect();
+                                          setColorPickPos({ top: rect.bottom + 4, left: rect.left });
+                                          setColorPickSector(sector);
+                                        }
+                                      }}
                                       title="Click to change color"
                                     />
-                                    {colorPickSector === sector && (
-                                      <div className="absolute top-6 left-0 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-2 flex flex-wrap gap-1.5 w-[160px]">
+                                    {colorPickSector === sector && createPortal(
+                                      <div ref={colorPickRef} className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-lg p-2 flex flex-wrap gap-1.5 w-[160px]" style={{ top: colorPickPos.top, left: colorPickPos.left }}>
                                         {PALETTE.map(c => (
                                           <button
                                             key={c}
@@ -1097,7 +1121,8 @@ export default function HoldingsPage() {
                                             onClick={(e) => { e.stopPropagation(); saveSectorColor(sector, c); }}
                                           />
                                         ))}
-                                      </div>
+                                      </div>,
+                                      document.body
                                     )}
                                     {isEditing ? (
                                       <form
