@@ -10,7 +10,7 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata = {
-  title: "Research Management",
+  title: "Fund Management System",
   description: "Portfolio tracking and research management tool",
 };
 

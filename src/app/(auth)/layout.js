@@ -1,21 +1,21 @@
 export default function AuthLayout({ children }) {
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-white">
-      {/* Ambient glow effects */}
-      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-emerald-400/15 rounded-full blur-[120px]" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] bg-teal-300/10 rounded-full blur-[100px]" />
-      <div className="absolute top-[40%] right-[15%] w-[250px] h-[250px] bg-cyan-300/8 rounded-full blur-[80px]" />
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gray-50/80">
+      {/* Animated gradient orbs */}
+      <div className="absolute top-[-30%] left-[-15%] w-[700px] h-[700px] bg-emerald-200/25 rounded-full blur-[160px] animate-[drift_20s_ease-in-out_infinite]" />
+      <div className="absolute bottom-[-25%] right-[-10%] w-[500px] h-[500px] bg-teal-200/20 rounded-full blur-[140px] animate-[drift_25s_ease-in-out_infinite_reverse]" />
+      <div className="absolute top-[15%] right-[10%] w-[350px] h-[350px] bg-cyan-100/15 rounded-full blur-[120px] animate-[drift_18s_ease-in-out_2s_infinite]" />
 
-      {/* Subtle grid overlay */}
+      {/* Dot grid */}
       <div
-        className="absolute inset-0 opacity-[0.04]"
+        className="absolute inset-0 opacity-[0.3]"
         style={{
-          backgroundImage: 'linear-gradient(rgba(0,0,0,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.08) 1px, transparent 1px)',
-          backgroundSize: '60px 60px',
+          backgroundImage: 'radial-gradient(circle, #d1d5db 0.7px, transparent 0.7px)',
+          backgroundSize: '28px 28px',
         }}
       />
 
-      <div className="relative z-10">
+      <div className="relative z-10 w-full max-w-[960px] mx-auto px-6">
         {children}
       </div>
     </div>

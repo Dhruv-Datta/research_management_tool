@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '@/lib/AuthContext';
+import ShowcaseWidgets from './ShowcaseWidgets';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -12,6 +13,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [focused, setFocused] = useState(null);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -28,33 +30,37 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="w-full max-w-md mx-auto px-4">
-      <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-gray-200 shadow-xl shadow-gray-200/50 p-10">
+    <div className="flex items-center gap-8 animate-fade-in-up">
+      {/* ── Left: Login form ── */}
+      <div className="w-[380px] flex-shrink-0 bg-white rounded-2xl border border-gray-200/80 shadow-xl shadow-gray-200/50 p-10 flex flex-col justify-center relative overflow-hidden">
+        {/* Top accent */}
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 opacity-50" />
+
         {/* Logo */}
-        <div className="flex justify-center mb-8">
+        <div className="flex justify-center mb-10">
           <Image
             src="/images/fms_logo.png"
             alt="B.D. Sterling Capital"
-            width={220}
-            height={60}
-            className="h-13 w-auto object-contain"
+            width={200}
+            height={55}
+            className="h-12 w-auto object-contain"
             priority
           />
         </div>
 
         {/* Heading */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
             Welcome back
           </h1>
-          <p className="text-sm text-gray-500">
-            Sign in to access the Fund Management System
+          <p className="text-sm text-gray-400 mt-1">
+            Sign in to continue
           </p>
         </div>
 
         {/* Error */}
         {error && (
-          <div className="mb-5 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm text-center">
+          <div className="mb-5 p-3 bg-red-50 border border-red-100 rounded-xl text-red-500 text-sm text-center animate-fade-in">
             {error}
           </div>
         )}
@@ -62,40 +68,48 @@ export default function LoginPage() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label htmlFor="username" className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
+            <label htmlFor="username" className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.12em] mb-2">
               Username
             </label>
-            <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              autoFocus
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 focus:bg-white transition-all"
-              placeholder="Enter username"
-            />
+            <div className={`rounded-xl transition-shadow duration-300 ${focused === 'username' ? 'shadow-md shadow-emerald-100' : ''}`}>
+              <input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                onFocus={() => setFocused('username')}
+                onBlur={() => setFocused(null)}
+                required
+                autoFocus
+                className="w-full px-4 py-3 bg-gray-50/80 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 focus:bg-white transition-all duration-300"
+                placeholder="Enter username"
+              />
+            </div>
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
+            <label htmlFor="password" className="block text-[11px] font-semibold text-gray-400 uppercase tracking-[0.12em] mb-2">
               Password
             </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 focus:bg-white transition-all"
-              placeholder="Enter password"
-            />
+            <div className={`rounded-xl transition-shadow duration-300 ${focused === 'password' ? 'shadow-md shadow-emerald-100' : ''}`}>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onFocus={() => setFocused('password')}
+                onBlur={() => setFocused(null)}
+                required
+                className="w-full px-4 py-3 bg-gray-50/80 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 focus:bg-white transition-all duration-300"
+                placeholder="Enter password"
+              />
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 mt-2 bg-gradient-to-r from-emerald-600 to-teal-500 text-white text-sm font-bold rounded-xl hover:from-emerald-500 hover:to-teal-400 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-emerald-200 hover:shadow-emerald-300"
+            className="w-full py-3 mt-2 text-white text-sm font-semibold rounded-xl active:scale-[0.98] transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-emerald-200/50 hover:shadow-emerald-300/60 group btn-gradient-animate"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -105,15 +119,27 @@ export default function LoginPage() {
                 </svg>
                 Signing in...
               </span>
-            ) : 'Sign in'}
+            ) : (
+              <span className="flex items-center justify-center gap-2">
+                Sign in
+                <svg className="w-4 h-4 opacity-60 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </span>
+            )}
           </button>
         </form>
+
+        {/* Footer */}
+        <p className="text-center text-[10px] text-gray-300 mt-8">
+          B.D. Sterling Capital &middot; Fund Management System
+        </p>
       </div>
 
-      {/* Footer */}
-      <p className="text-center text-xs text-gray-500 mt-6">
-        B.D. Sterling Capital &middot; Fund Management System
-      </p>
+      {/* ── Right: Showcase widgets ── */}
+      <div className="hidden lg:flex flex-col w-[460px] h-[480px]">
+        <ShowcaseWidgets />
+      </div>
     </div>
   );
 }
