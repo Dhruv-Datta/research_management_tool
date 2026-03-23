@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { RefreshCw, Download, AlertTriangle, Save, Plus, Trash2, CheckCircle, FileDown, Check, Image as ImageIcon, X, ZoomIn, Star } from 'lucide-react';
+import { RefreshCw, Download, AlertTriangle, Save, Plus, Trash2, CheckCircle, FileDown, Check, Image as ImageIcon, X, ZoomIn, Star, ChevronDown } from 'lucide-react';
 import Card from '@/components/Card';
 import StatCard from '@/components/StatCard';
 import LineChart from '@/components/charts/LineChart';
@@ -470,16 +470,19 @@ export default function ResearchPage() {
       <Card className="mb-8 animate-fade-in-up stagger-2">
         <div className="flex items-center gap-4">
           <label className="text-xs text-gray-500 uppercase tracking-wider font-bold">Select Company</label>
-          <select
-            value={selectedTicker}
-            onChange={e => setSelectedTicker(e.target.value)}
-            className="bg-gray-50/50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 min-w-[200px]"
-          >
-            <option value="">-- Select Ticker --</option>
-            {holdings.map(h => (
-              <option key={h.ticker} value={h.ticker}>{h.ticker}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              value={selectedTicker}
+              onChange={e => setSelectedTicker(e.target.value)}
+              className="appearance-none bg-gray-50/50 border border-gray-200 rounded-xl pl-4 pr-8 py-2.5 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 cursor-pointer"
+            >
+              <option value="">-- Select Ticker --</option>
+              {holdings.map(h => (
+                <option key={h.ticker} value={h.ticker}>{h.ticker}</option>
+              ))}
+            </select>
+            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          </div>
         </div>
       </Card>
 
