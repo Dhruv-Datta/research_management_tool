@@ -196,170 +196,178 @@ function QuestionSection({
     onUpdateSubQuestions(parentId, newSubs);
   };
 
+  const doneCount = items.filter(i => i.done).length;
+
   return (
     <Card>
-      <div className="flex items-center justify-between mb-2">
-        <div>
-          <div className={`flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] ${accentClasses.label}`}>
-            <Icon size={13} />
-            {title}
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${accentClasses.button}`}>
+            <Icon size={15} />
           </div>
-          <p className="text-sm text-gray-500 mt-2">{subtitle}</p>
+          <div>
+            <h3 className="text-sm font-bold text-gray-900">{title}</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              {items.length === 0 ? subtitle : `${doneCount}/${items.length} answered`}
+            </p>
+          </div>
         </div>
         <button
           onClick={onAdd}
-          className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${accentClasses.button}`}
+          className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
         >
           <Plus size={13} />
-          Add Question
+          Add
         </button>
       </div>
 
       {items.length === 0 ? (
-        <div className={`mt-6 rounded-2xl border border-dashed p-8 text-center ${accentClasses.empty}`}>
-          <p className="text-sm font-medium text-gray-500">No questions yet</p>
-          <p className="text-xs text-gray-400 mt-1">Add prompts from the current research workflow, then write the answer directly below each one.</p>
+        <div className="mt-5 rounded-xl border border-dashed border-gray-200 p-6 text-center">
+          <p className="text-sm text-gray-400">No questions yet</p>
         </div>
       ) : (
-        <div className="mt-6 space-y-5">
+        <div className="mt-5 space-y-4">
           {items.map((item, idx) => {
             const subs = item.subQuestions || [];
             const isSubExpanded = expandedSubs[item.id] !== false;
             return (
-              <div key={item.id} className={`rounded-2xl border p-5 ${accentClasses.card}`}>
-                <div className="flex items-start gap-3 mb-4">
+              <div key={item.id} className={`group/q rounded-xl border transition-all duration-200 shadow-sm hover:shadow-md ${item.done ? 'border-gray-100 bg-gray-50/40' : 'border-gray-200/80 bg-white hover:border-gray-300'}`}>
+                {/* Question row */}
+                <div className="flex items-center gap-3 px-4 py-3.5">
                   <button
                     onClick={() => onToggleDone(item.id, !item.done)}
-                    className={`mt-0.5 flex-shrink-0 transition-colors ${accentClasses.icon}`}
+                    className={`flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
+                      item.done
+                        ? `${accentClasses.doneBg} border-transparent text-white`
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
                     title={item.done ? 'Mark incomplete' : 'Mark complete'}
                   >
-                    {item.done ? <CheckSquare size={18} /> : <Square size={18} />}
+                    {item.done && <Check size={12} strokeWidth={3} />}
                   </button>
-                  <div className="flex-1">
-                    <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
-                      Question {idx + 1}
-                    </label>
-                    <input
-                      type="text"
-                      value={item.text}
-                      onChange={(e) => onChangeQuestion(item.id, e.target.value)}
-                      onBlur={(e) => onSaveQuestion(item.id, e.target.value)}
-                      placeholder="Write the research question..."
-                      className="mt-2 w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                    />
+                  <input
+                    type="text"
+                    value={item.text}
+                    onChange={(e) => onChangeQuestion(item.id, e.target.value)}
+                    onBlur={(e) => onSaveQuestion(item.id, e.target.value)}
+                    placeholder="Write the research question..."
+                    className={`flex-1 bg-transparent text-sm font-medium outline-none placeholder-gray-300 ${item.done ? 'text-gray-400' : 'text-gray-900'}`}
+                  />
+                  <div className="flex items-center gap-1.5">
+                    {item.done && (
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${accentClasses.doneBg} text-white`}>
+                        Answered
+                      </span>
+                    )}
+                    {subs.length > 0 && (
+                      <button
+                        onClick={() => toggleSubExpanded(item.id)}
+                        className="text-[10px] font-semibold text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded transition-colors"
+                      >
+                        {subs.filter(s => s.done).length}/{subs.length}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => onRemove(item.id)}
+                      className="opacity-0 group-hover/q:opacity-100 p-1 text-gray-300 hover:text-red-400 transition-all"
+                    >
+                      <Trash2 size={13} />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => onRemove(item.id)}
-                    className="flex-shrink-0 p-2 text-gray-300 hover:text-red-400 transition-colors"
-                    title="Remove question"
-                  >
-                    <Trash2 size={14} />
-                  </button>
                 </div>
 
-                <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
-                    Answer
-                  </label>
-                  <div className="mt-2">
-                    <RichTextArea
-                      value={item.answer || ''}
-                      onChange={(value) => onChangeAnswer(item.id, value)}
-                      onBlur={(value) => onSaveAnswer(item.id, value)}
-                      onCommit={(value) => onSaveAnswer(item.id, value)}
-                      ticker={ticker}
-                      placeholder="Write the full answer here. You can paste images directly into this answer."
-                      rows={8}
-                      className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-sm text-gray-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none overflow-hidden"
-                    />
-                  </div>
+                {/* Answer — collapsible, shows when question has focus or has content */}
+                <div className="px-4 pb-3 pt-0">
+                  <RichTextArea
+                    value={item.answer || ''}
+                    onChange={(value) => onChangeAnswer(item.id, value)}
+                    onBlur={(value) => onSaveAnswer(item.id, value)}
+                    onCommit={(value) => onSaveAnswer(item.id, value)}
+                    ticker={ticker}
+                    placeholder="Write your answer..."
+                    rows={4}
+                    className="w-full bg-gray-50/80 border border-gray-100 rounded-lg px-3 py-2.5 text-sm text-gray-700 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none overflow-hidden"
+                  />
                 </div>
 
                 {/* Sub-questions */}
-                <div className="mt-4 border-t border-gray-100 pt-4">
-                  <div className="flex items-center justify-between mb-3">
+                <div className="px-4 pb-3">
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => toggleSubExpanded(item.id)}
-                      className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 hover:text-gray-600 transition-colors"
+                      className="flex items-center gap-1 text-[11px] font-medium text-gray-400 hover:text-gray-600 transition-colors"
                     >
-                      <ChevronRight size={12} className={`transition-transform ${isSubExpanded ? 'rotate-90' : ''}`} />
-                      Sub-Questions {subs.length > 0 && `(${subs.length})`}
+                      <ChevronRight size={11} className={`transition-transform duration-200 ${isSubExpanded ? 'rotate-90' : ''}`} />
+                      Sub-questions {subs.length > 0 && <span className="text-gray-300">({subs.length})</span>}
                     </button>
                     <button
                       onClick={() => { setExpandedSubs(prev => ({ ...prev, [item.id]: true })); addSubQuestion(item.id); }}
-                      className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md transition-colors ${accentClasses.button}`}
+                      className="opacity-0 group-hover/q:opacity-100 text-gray-300 hover:text-gray-500 transition-all"
                     >
-                      <Plus size={11} />
-                      Add
+                      <Plus size={12} />
                     </button>
                   </div>
 
-                  {isSubExpanded && (
-                    <div className="space-y-3 ml-2">
+                  {isSubExpanded && subs.length > 0 && (
+                    <div className="mt-2 ml-1 space-y-1 border-l-2 border-gray-100 pl-3">
                       {subs.map((sq, si) => (
-                        <div key={sq.id} className={`rounded-xl border p-4 ${accentClasses.card} bg-gray-50/50`}>
-                          <div className="flex items-start gap-2 mb-3">
+                        <div key={sq.id} className="group/sq">
+                          <div className="flex items-center gap-2 py-1.5">
                             <button
                               onClick={() => toggleSubDone(item.id, sq.id)}
-                              className={`mt-0.5 flex-shrink-0 transition-colors ${accentClasses.icon}`}
+                              className={`flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-all duration-200 ${
+                                sq.done
+                                  ? `${accentClasses.doneBg} border-transparent text-white`
+                                  : 'border-gray-300 hover:border-gray-400'
+                              }`}
                             >
-                              {sq.done ? <CheckSquare size={15} /> : <Square size={15} />}
+                              {sq.done && <Check size={10} strokeWidth={3} />}
                             </button>
-                            <div className="flex-1">
-                              <label className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">
-                                Sub-Question {si + 1}
-                              </label>
-                              <input
-                                type="text"
-                                value={sq.text}
-                                onChange={(e) => updateSubText(item.id, sq.id, e.target.value)}
-                                onBlur={(e) => updateSubText(item.id, sq.id, e.target.value, true)}
-                                placeholder="Write the sub-question..."
-                                className="mt-1 w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs font-semibold text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                              />
-                            </div>
+                            <input
+                              type="text"
+                              value={sq.text}
+                              onChange={(e) => updateSubText(item.id, sq.id, e.target.value)}
+                              onBlur={(e) => updateSubText(item.id, sq.id, e.target.value, true)}
+                              placeholder="Sub-question..."
+                              className={`flex-1 bg-transparent text-[13px] outline-none placeholder-gray-300 ${sq.done ? 'text-gray-400' : 'text-gray-700'}`}
+                            />
                             <button
                               onClick={() => removeSubQuestion(item.id, sq.id)}
-                              className="flex-shrink-0 p-1.5 text-gray-300 hover:text-red-400 transition-colors"
+                              className="opacity-0 group-hover/sq:opacity-100 p-0.5 text-gray-300 hover:text-red-400 transition-all"
                             >
-                              <Trash2 size={12} />
+                              <X size={12} />
                             </button>
                           </div>
-                          <div className="ml-6">
-                            <label className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">
-                              Answer
-                            </label>
-                            <div className="mt-1">
-                              <RichTextArea
-                                value={sq.answer || ''}
-                                onChange={(value) => updateSubAnswer(item.id, sq.id, value)}
-                                onBlur={(value) => updateSubAnswer(item.id, sq.id, value, true)}
-                                onCommit={(value) => updateSubAnswer(item.id, sq.id, value, true)}
-                                ticker={ticker}
-                                placeholder="Write the answer to this sub-question..."
-                                rows={4}
-                                className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none overflow-hidden"
-                              />
-                            </div>
+                          <div className="ml-6 pb-1.5">
+                            <RichTextArea
+                              value={sq.answer || ''}
+                              onChange={(value) => updateSubAnswer(item.id, sq.id, value)}
+                              onBlur={(value) => updateSubAnswer(item.id, sq.id, value, true)}
+                              onCommit={(value) => updateSubAnswer(item.id, sq.id, value, true)}
+                              ticker={ticker}
+                              placeholder="Answer..."
+                              rows={2}
+                              className="w-full bg-gray-50/60 border border-gray-100 rounded-lg px-3 py-2 text-xs text-gray-600 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all resize-none overflow-hidden"
+                            />
                           </div>
                         </div>
                       ))}
                       <form
                         onSubmit={(e) => { e.preventDefault(); addSubQuestion(item.id); }}
-                        className="flex items-center gap-2"
+                        className="flex items-center gap-2 pt-1"
                       >
                         <input
                           value={subInputs[item.id] || ''}
                           onChange={(e) => setSubInputs(prev => ({ ...prev, [item.id]: e.target.value }))}
-                          placeholder="Add a sub-question..."
-                          className={`flex-1 text-xs text-gray-600 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all`}
+                          placeholder="Add sub-question..."
+                          className="flex-1 text-xs text-gray-500 bg-transparent outline-none placeholder-gray-300"
                         />
-                        <button
-                          type="submit"
-                          className={`flex items-center gap-1 text-[10px] font-semibold px-2.5 py-2 rounded-lg transition-colors ${accentClasses.button}`}
-                        >
-                          <Plus size={11} />
-                        </button>
+                        {(subInputs[item.id] || '').trim() && (
+                          <button type="submit" className="text-gray-400 hover:text-gray-600 transition-colors">
+                            <Plus size={12} />
+                          </button>
+                        )}
                       </form>
                     </div>
                   )}
@@ -1127,6 +1135,7 @@ export default function ResearchPage() {
                   empty: 'bg-blue-50/40 border-blue-200/70',
                   card: 'bg-white border-blue-100/80',
                   icon: 'text-blue-500 hover:text-blue-600',
+                  doneBg: 'bg-blue-500',
                 }}
                 items={dueDiligenceItems}
                 ticker={selectedTicker}
@@ -1150,6 +1159,7 @@ export default function ResearchPage() {
                   empty: 'bg-amber-50/40 border-amber-200/70',
                   card: 'bg-white border-amber-100/80',
                   icon: 'text-amber-500 hover:text-amber-600',
+                  doneBg: 'bg-amber-500',
                 }}
                 items={dislocationItems}
                 ticker={selectedTicker}
