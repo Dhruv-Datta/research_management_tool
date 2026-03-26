@@ -1,0 +1,16 @@
+[project]
+name = "macro-regime-allocator"
+version = "0.1.0"
+description = "Macro regime allocator — equities vs T-bills"
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=1.5",
+    "numpy>=1.23",
+    "scikit-learn>=1.2",
+    "matplotlib>=3.6",
+    "seaborn>=0.12",
+    "yfinance>=0.2.18",
+    "fredapi>=0.5",
+    "joblib>=1.2",
+    "pyyaml>=6.0",
+]

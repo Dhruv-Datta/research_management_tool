@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Briefcase, Search, Eye, FolderOpen, LogOut, ClipboardList,
-  ChevronDown, Shield, BarChart3, PieChart, FileText, DollarSign, Link2, Users,
+  ChevronDown, Shield, BarChart3, PieChart, FileText, DollarSign, Link2, Users, Activity,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -17,10 +17,11 @@ const NAV_GROUPS = [
     items: [
       { href: '/holdings', label: 'Holdings', icon: Briefcase },
       { href: '/allocation', label: 'Allocation', icon: PieChart },
+      { href: '/macro-regime', label: 'Macro Regime', icon: Activity },
       { href: '/relationships', label: 'Relationships', icon: Users },
     ],
     // Active if any child route is active
-    matchPaths: ['/holdings', '/allocation', '/relationships'],
+    matchPaths: ['/holdings', '/allocation', '/macro-regime', '/relationships'],
   },
   {
     label: 'Equity Research',
