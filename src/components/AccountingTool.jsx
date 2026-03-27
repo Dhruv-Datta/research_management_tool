@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   Plus, Trash2, ChevronLeft, ChevronRight, AlertTriangle,
-  CheckCircle, DollarSign, TrendingUp, BarChart3, Layers, Users, ChevronDown
+  CheckCircle, DollarSign, TrendingUp, BarChart3, Layers, Users, ChevronDown, Calculator, Copy, ClipboardPaste
 } from 'lucide-react';
 import StatCard from '@/components/StatCard';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -821,11 +821,293 @@ function InvestorPerformanceTab({ computedTimeline, state }) {
 }
 
 
+// ─── NAV Converter Tab ──────────────────────────────────────────────────────
+
+function NavConverterTab({ computedTimeline, state }) {
+  const [rawInput, setRawInput] = useState('');
+  const [results, setResults] = useState(null);
+  const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  // Build a flat timeline of periods with their date ranges and share counts
+  const periodTimeline = useMemo(() => {
+    if (!computedTimeline || !state) return [];
+    const periods = [];
+    for (let qi = 0; qi < computedTimeline.length; qi++) {
+      const cq = computedTimeline[qi];
+      for (const ev of cq.computedEvents) {
+        if (ev.type === 'period') {
+          periods.push({
+            quarter: state.quarters[qi].label,
+            startDate: ev.startDate,
+            endDate: ev.endDate,
+            totalShares: ev.startTotalShares,
+            startNAV: ev.startNAV,
+            endNAV: ev.endNAV,
+          });
+        }
+      }
+    }
+    return periods;
+  }, [computedTimeline, state]);
+
+  const handleConvert = () => {
+    setError('');
+    setResults(null);
+    setCopied(false);
+
+    if (!rawInput.trim()) {
+      setError('Please paste date/NAV data.');
+      return;
+    }
+
+    // Parse input — supports formats like:
+    // "03/23/2026","46554.253681603"
+    // 03/23/2026,46554.253681603
+    // 03/23/2026  46554.253681603
+    const lines = rawInput.trim().split('\n').filter(l => l.trim());
+    const parsed = [];
+
+    for (const line of lines) {
+      // Remove quotes, split by comma or whitespace
+      const cleaned = line.replace(/"/g, '').trim();
+      const parts = cleaned.split(/[,\t]+/).map(s => s.trim()).filter(Boolean);
+
+      if (parts.length < 2) {
+        setError(`Could not parse line: "${line.trim()}"`);
+        return;
+      }
+
+      const dateStr = parts[0];
+      const aum = parseFloat(parts[1]);
+
+      if (isNaN(aum)) {
+        setError(`Invalid NAV/AUM value on line: "${line.trim()}"`);
+        return;
+      }
+
+      // Parse MM/DD/YYYY to YYYY-MM-DD
+      const dateParts = dateStr.split('/');
+      if (dateParts.length !== 3) {
+        setError(`Invalid date format on line: "${line.trim()}" — expected MM/DD/YYYY`);
+        return;
+      }
+      const [mm, dd, yyyy] = dateParts;
+      const isoDate = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+
+      parsed.push({ dateStr, isoDate, aum });
+    }
+
+    // Match each date to a period and compute NAV per share
+    const output = [];
+    for (const entry of parsed) {
+      // Find the period this date falls into
+      let matchedPeriod = null;
+      for (const p of periodTimeline) {
+        if (entry.isoDate >= p.startDate && entry.isoDate <= p.endDate) {
+          matchedPeriod = p;
+          break;
+        }
+      }
+
+      if (!matchedPeriod) {
+        // Check if date is after the last period (current/open period)
+        const lastPeriod = periodTimeline[periodTimeline.length - 1];
+        if (lastPeriod && entry.isoDate >= lastPeriod.startDate) {
+          matchedPeriod = lastPeriod;
+        }
+      }
+
+      if (!matchedPeriod) {
+        output.push({
+          date: entry.dateStr,
+          isoDate: entry.isoDate,
+          aum: entry.aum,
+          shares: null,
+          navPerShare: null,
+          quarter: null,
+          period: null,
+          error: 'No matching period found',
+        });
+        continue;
+      }
+
+      const navPerShare = matchedPeriod.totalShares > 0
+        ? entry.aum / matchedPeriod.totalShares
+        : 0;
+
+      output.push({
+        date: entry.dateStr,
+        isoDate: entry.isoDate,
+        aum: entry.aum,
+        shares: matchedPeriod.totalShares,
+        navPerShare,
+        quarter: matchedPeriod.quarter,
+        period: `${matchedPeriod.startDate} → ${matchedPeriod.endDate}`,
+        error: null,
+      });
+    }
+
+    setResults(output);
+  };
+
+  const handleCopy = () => {
+    if (!results) return;
+    const text = results.map(r =>
+      r.error
+        ? `${r.date}\t${r.aum}\tERROR: ${r.error}`
+        : `${r.date}\t${r.aum.toFixed(6)}\t${r.shares.toFixed(6)}\t${r.navPerShare.toFixed(6)}`
+    ).join('\n');
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="animate-fade-in-up stagger-3">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="mb-4">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <Calculator size={18} className="text-emerald-600" />
+            NAV Converter
+          </h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Paste dates and portfolio values (AUM) to automatically calculate NAV per share using the workbook&apos;s share counts.
+          </p>
+        </div>
+
+        {/* Input area */}
+        <div className="mb-4">
+          <label className="block text-sm font-semibold text-gray-700 mb-1">
+            Paste Date &amp; AUM Data
+          </label>
+          <p className="text-xs text-gray-400 mb-2">
+            Format: &quot;MM/DD/YYYY&quot;,&quot;AUM&quot; — one entry per line
+          </p>
+          <textarea
+            value={rawInput}
+            onChange={e => setRawInput(e.target.value)}
+            placeholder={`"03/23/2026","46554.253681603"\n"03/24/2026","45817.583681603"\n"03/25/2026","46113.083681603"`}
+            rows={8}
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all resize-y"
+          />
+        </div>
+
+        {error && (
+          <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 flex items-center gap-2">
+            <AlertTriangle size={14} /> {error}
+          </div>
+        )}
+
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            onClick={handleConvert}
+            className="px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 rounded-xl shadow-sm hover:shadow-md hover:from-emerald-700 hover:to-emerald-600 transition-all duration-200"
+          >
+            Convert
+          </button>
+          {results && (
+            <button
+              onClick={handleCopy}
+              className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+            >
+              <Copy size={14} />
+              {copied ? 'Copied!' : 'Copy Results'}
+            </button>
+          )}
+          {rawInput && (
+            <button
+              onClick={() => { setRawInput(''); setResults(null); setError(''); }}
+              className="px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {/* Results table */}
+        {results && results.length > 0 && (
+          <div className="overflow-x-auto rounded-xl border border-gray-100">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Date</th>
+                  <th className="px-4 py-3 text-right font-semibold text-gray-600">AUM (Input)</th>
+                  <th className="px-4 py-3 text-right font-semibold text-gray-600">Shares</th>
+                  <th className="px-4 py-3 text-right font-semibold text-emerald-700">NAV / Share</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Quarter</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Period</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((r, i) => (
+                  <tr key={i} className={`border-b border-gray-50 ${r.error ? 'bg-red-50/50' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
+                    <td className="px-4 py-2.5 font-mono text-gray-800">{r.date}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-gray-800">{fmt$(r.aum)}</td>
+                    {r.error ? (
+                      <td colSpan={4} className="px-4 py-2.5 text-red-600 text-sm">
+                        <AlertTriangle size={12} className="inline mr-1" />
+                        {r.error}
+                      </td>
+                    ) : (
+                      <>
+                        <td className="px-4 py-2.5 text-right font-mono text-gray-700">{fmtShares(r.shares)}</td>
+                        <td className="px-4 py-2.5 text-right font-mono font-semibold text-emerald-700">{r.navPerShare.toFixed(6)}</td>
+                        <td className="px-4 py-2.5 text-gray-600">{r.quarter}</td>
+                        <td className="px-4 py-2.5 text-gray-500 text-xs font-mono">{r.period}</td>
+                      </>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Period reference */}
+        {periodTimeline.length > 0 && (
+          <div className="mt-6">
+            <details className="group">
+              <summary className="cursor-pointer text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1">
+                <ChevronRight size={14} className="group-open:rotate-90 transition-transform" />
+                Period Reference ({periodTimeline.length} periods)
+              </summary>
+              <div className="mt-2 overflow-x-auto rounded-xl border border-gray-100">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100">
+                      <th className="px-3 py-2 text-left font-semibold text-gray-500">Quarter</th>
+                      <th className="px-3 py-2 text-left font-semibold text-gray-500">Start</th>
+                      <th className="px-3 py-2 text-left font-semibold text-gray-500">End</th>
+                      <th className="px-3 py-2 text-right font-semibold text-gray-500">Shares</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {periodTimeline.map((p, i) => (
+                      <tr key={i} className="border-b border-gray-50">
+                        <td className="px-3 py-1.5 text-gray-700">{p.quarter}</td>
+                        <td className="px-3 py-1.5 font-mono text-gray-600">{fmtDate(p.startDate)}</td>
+                        <td className="px-3 py-1.5 font-mono text-gray-600">{fmtDate(p.endDate)}</td>
+                        <td className="px-3 py-1.5 text-right font-mono text-gray-700">{fmtShares(p.totalShares)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function AccountingTool() {
   const [state, setState] = useState(null);
-  const [activeTab, setActiveTab] = useState('accounting'); // 'accounting' | 'investor-performance'
+  const [activeTab, setActiveTab] = useState('accounting'); // 'accounting' | 'investor-performance' | 'nav-converter'
   const [activeQuarter, setActiveQuarter] = useState(0);
 
   // Default to the most recent quarter (rightmost tab) when data loads
@@ -1025,6 +1307,17 @@ export default function AccountingTool() {
           Workbook
         </button>
         <button
+          onClick={() => setActiveTab('nav-converter')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+            activeTab === 'nav-converter'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Calculator size={15} />
+          NAV Converter
+        </button>
+        <button
           onClick={() => setActiveTab('investor-performance')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
             activeTab === 'investor-performance'
@@ -1036,6 +1329,11 @@ export default function AccountingTool() {
           Investor Performance
         </button>
       </div>
+
+      {/* ── NAV Converter Tab ──────────────────────────────────── */}
+      {activeTab === 'nav-converter' && (
+        <NavConverterTab computedTimeline={computedTimeline} state={state} />
+      )}
 
       {/* ── Investor Performance Tab ────────────────────────────── */}
       {activeTab === 'investor-performance' && (
