@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend,
 } from 'chart.js';
@@ -97,6 +97,27 @@ function rollingSharpe(rows, key, w = 24) {
 }
 
 const C = { m: '#10b981', e: '#8b5cf6', b: '#3b82f6', s: '#f59e0b', r: '#ef4444' };
+
+/* ── Per-stock standalone risk (weighted sum of bad-factor exposures) ── */
+
+function computePerStockRisk(allocations, riskFactorWeights) {
+  if (!allocations?.length || !riskFactorWeights?.length) return {};
+  const result = {};
+  for (const a of allocations) {
+    if (!a.ticker) continue;
+    const exposures = (a.factorExposures || []).map(v => Number(v) || 0);
+    let score = 0;
+    let wSum = 0;
+    for (let i = 0; i < exposures.length; i++) {
+      const w = Number(riskFactorWeights[i]) || 0;
+      score += exposures[i] * w;
+      wSum += w;
+    }
+    // Normalize to 0-1 scale (exposures are 0-1, weights are 0-1)
+    result[a.ticker] = wSum > 0 ? score / wSum : 0;
+  }
+  return result;
+}
 
 function cOpts(yf) {
   return {
@@ -202,6 +223,13 @@ export default function MacroRegimePage() {
   const logRef = useRef(null);
   const pollRef = useRef(null);
 
+  /* ── Allocation state ─────────────────────────────────────────── */
+  const [allocConfig, setAllocConfig] = useState(null);     // full allocation_config
+  const [allocWeights, setAllocWeights] = useState({});      // { ticker: number } editable
+  const [allocLoaded, setAllocLoaded] = useState(false);     // guard for auto-save
+  const [syncingWeights, setSyncingWeights] = useState(false);
+  const allocSaveTimer = useRef(null);
+
   const loadResults = useCallback(async () => {
     try { const d = await fetch('/api/macro-regime/results').then(r => r.json()); if (d.backtest) setResults(d); } catch {}
   }, []);
@@ -217,11 +245,13 @@ export default function MacroRegimePage() {
     let off = false;
     (async () => {
       try {
-        const [cfgD, resD, predD, runD] = await Promise.all([
+        const [cfgD, resD, predD, runD, allocD, wD] = await Promise.all([
           fetch('/api/macro-regime/config').then(r => r.json()),
           fetch('/api/macro-regime/results').then(r => r.json()),
           fetch('/api/macro-regime/predict').then(r => r.json()),
           fetch('/api/macro-regime/run').then(r => r.json()),
+          fetch('/api/allocation').then(r => r.json()),
+          fetch('/api/macro-regime/weights').then(r => r.json()),
         ]);
         if (off) return;
         if (cfgD.config) setConfig({ ...DEFAULT_CONFIG, ...cfgD.config });
@@ -229,6 +259,18 @@ export default function MacroRegimePage() {
         if (!predD.error) setPredict(predD);
         if (runD.history) setRunHistory(runD.history);
         if (runD.running) { setRunStatus(runD); setRunLog(runD.log || ''); setShowLog(true); }
+        if (allocD.config) setAllocConfig(allocD.config);
+        // Load saved macro-regime weights, or fall back to allocation page's userWeights
+        if (wD.weights) {
+          setAllocWeights(wD.weights);
+        } else if (allocD.config?.allocations) {
+          const w = {};
+          for (const a of allocD.config.allocations) {
+            if (a.ticker) w[a.ticker] = Number(a.userWeight) || 0;
+          }
+          setAllocWeights(w);
+        }
+        setAllocLoaded(true);
       } finally { if (!off) setLoading(false); }
     })();
     return () => { off = true; };
@@ -269,6 +311,81 @@ export default function MacroRegimePage() {
     if (historyLog?.id === id) { setHistoryLog(null); return; }
     try { const d = await fetch(`/api/macro-regime/run?history=${id}`).then(r => r.json()); if (d.run) setHistoryLog(d.run); } catch {}
   };
+
+  /* ── Allocation helpers ──────────────────────────────────────── */
+  const stockRisks = useMemo(() => {
+    if (!allocConfig) return {};
+    return computePerStockRisk(allocConfig.allocations || [], allocConfig.riskFactorWeights || []);
+  }, [allocConfig]);
+
+  const allocTickers = useMemo(() => {
+    if (!allocConfig?.allocations) return [];
+    // Stocks first, then CASH at the end
+    const stocks = allocConfig.allocations.filter(a => a.ticker && a.ticker !== 'CASH').map(a => a.ticker);
+    const hasCash = allocConfig.allocations.some(a => a.ticker === 'CASH');
+    return hasCash ? [...stocks, 'CASH'] : stocks;
+  }, [allocConfig]);
+
+  const handleAllocChange = (ticker, val) => {
+    const n = val === '' ? 0 : Number(val);
+    setAllocWeights(p => ({ ...p, [ticker]: n }));
+  };
+
+  // Auto-save weights with debounce
+  useEffect(() => {
+    if (!allocLoaded) return;
+    if (allocSaveTimer.current) clearTimeout(allocSaveTimer.current);
+    allocSaveTimer.current = setTimeout(async () => {
+      try {
+        await fetch('/api/macro-regime/weights', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ weights: allocWeights }),
+        });
+      } catch {}
+    }, 800);
+    return () => { if (allocSaveTimer.current) clearTimeout(allocSaveTimer.current); };
+  }, [allocWeights, allocLoaded]);
+
+  const syncWeightsFromPortfolio = async () => {
+    setSyncingWeights(true);
+    try {
+      const [portfolioRes, allocRes] = await Promise.all([
+        fetch('/api/portfolio').then(r => r.json()),
+        !allocConfig ? fetch('/api/allocation').then(r => r.json()) : null,
+      ]);
+      if (allocRes?.config && !allocConfig) setAllocConfig(allocRes.config);
+      const holdings = portfolioRes.holdings || [];
+      const cashVal = portfolioRes.cash || 0;
+      if (holdings.length === 0) { setSyncingWeights(false); return; }
+
+      const tickers = holdings.map(h => h.ticker).join(',');
+      const quotesData = await fetch(`/api/quotes?tickers=${tickers}`).then(r => r.json());
+      const quotes = quotesData.quotes || quotesData;
+
+      let totalAum = cashVal;
+      const values = {};
+      for (const h of holdings) {
+        const price = quotes[h.ticker]?.price || h.cost_basis || 0;
+        const val = h.shares * price;
+        values[h.ticker] = val;
+        totalAum += val;
+      }
+      if (totalAum <= 0) { setSyncingWeights(false); return; }
+
+      const w = {};
+      for (const [ticker, val] of Object.entries(values)) {
+        w[ticker] = Number(((val / totalAum) * 100).toFixed(2));
+      }
+      w.CASH = Number(((cashVal / totalAum) * 100).toFixed(2));
+
+      setAllocWeights(w);
+    } catch (e) {
+      setToast({ message: e.message, type: 'error' });
+    }
+    setSyncingWeights(false);
+  };
+
+  const allocTotal = useMemo(() => Object.values(allocWeights).reduce((s, v) => s + (Number(v) || 0), 0), [allocWeights]);
 
   /* Dedup backtest rows */
   const btMap = new Map();
@@ -338,6 +455,58 @@ export default function MacroRegimePage() {
           </p>
         )}
       </div>
+
+      {/* ━━ PORTFOLIO ALLOCATION ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {allocTickers.length > 0 && (
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-medium text-gray-400 uppercase tracking-wider">Portfolio Allocation</h2>
+            <button onClick={syncWeightsFromPortfolio} disabled={syncingWeights}
+              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-[11px] text-gray-400 hover:border-gray-300 hover:text-gray-600 disabled:opacity-40"
+              title="Sync weights from current portfolio holdings">
+              <RefreshCw size={10} className={syncingWeights ? 'animate-spin' : ''} /> Sync
+            </button>
+          </div>
+
+          {/* Total bar */}
+          <div className="mb-3 flex items-center gap-2">
+            <div className="h-1.5 flex-1 rounded-full bg-gray-100 overflow-hidden">
+              <div className={`h-full rounded-full transition-all duration-300 ${allocTotal > 100 ? 'bg-red-400' : allocTotal === 100 ? 'bg-emerald-500' : 'bg-amber-400'}`}
+                style={{ width: `${Math.min(allocTotal, 100)}%` }} />
+            </div>
+            <span className={`text-[11px] font-mono tabular-nums ${allocTotal > 100 ? 'text-red-500' : allocTotal === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
+              {allocTotal.toFixed(1)}%
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+            {allocTickers.map(ticker => {
+              const risk = stockRisks[ticker];
+              return (
+                <div key={ticker} className="rounded-xl border border-gray-100 px-3 py-2.5">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-medium text-gray-800">{ticker}</span>
+                    {risk != null && (
+                      <span className="text-[10px] font-mono text-gray-400" title="Composite risk">
+                        {(risk * 100).toFixed(1)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="number" min="0" max="100" step="0.5"
+                      value={allocWeights[ticker] ?? ''}
+                      onChange={e => handleAllocChange(ticker, e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 px-2 py-1.5 pr-6 text-[12px] font-mono text-gray-700 tabular-nums focus:border-gray-400 focus:outline-none"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-300">%</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ━━ ALLOCATION OVER TIME ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       {cr.length > 0 && (
