@@ -594,6 +594,16 @@ export default function DashboardPage() {
                 </button>
               </div>
               <div className="px-5 py-4 space-y-3">
+                {navData && navData.length > 0 && (() => {
+                  const last = navData[navData.length - 1];
+                  const dt = new Date(last.date + 'T00:00:00');
+                  const formatted = dt.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+                  return (
+                    <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-600">
+                      Last saved date: <span className="font-semibold text-gray-900">{formatted}</span>
+                    </div>
+                  );
+                })()}
                 <p className="text-xs text-gray-500">
                   Paste dates and portfolio AUM values. NAV per share and S&P 500 benchmark will be calculated automatically.
                 </p>
