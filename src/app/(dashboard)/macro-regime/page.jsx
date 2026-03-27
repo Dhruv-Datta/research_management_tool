@@ -625,36 +625,45 @@ export default function MacroRegimePage() {
   const rDot = sig?.regime === 'RISK ON' ? 'bg-emerald-500' : sig?.regime === 'RISK OFF' ? 'bg-red-500' : 'bg-amber-500';
 
   /* ── Render ──────────────────────────────────────────────────── */
-  return (
-    <div className="mx-auto max-w-7xl px-6 py-8">
 
-      <h1 className="text-sm font-bold uppercase tracking-wider text-gray-900 mb-6">Macro Regime</h1>
+  const regimeColor = sig?.regime === 'RISK ON' ? '#10b981' : sig?.regime === 'RISK OFF' ? '#ef4444' : '#f59e0b';
+  const regimeBg = sig?.regime === 'RISK ON' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : sig?.regime === 'RISK OFF' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200';
+
+  return (
+    <div className="mx-auto max-w-7xl px-6 py-10">
+
+      {/* Page header */}
+      <div className="mb-8">
+        <h1 className="text-lg font-semibold text-gray-900 tracking-tight">Macro Regime</h1>
+        <p className="text-[12px] text-gray-400 mt-0.5">Equity/bond allocation signal and portfolio overlay</p>
+      </div>
 
       {/* ━━ TOP ROW: Signal + Chart (left) | Portfolio Allocation (right) ━━ */}
-      <div className={`mb-10 grid gap-6 ${allocTickers.length > 0 ? 'lg:grid-cols-[5fr_7fr]' : ''}`}>
+      <div className={`mb-10 grid gap-5 ${allocTickers.length > 0 ? 'lg:grid-cols-[5fr_7fr]' : ''}`}>
 
-        {/* ── LEFT COLUMN: Pie + Allocation Chart ── */}
-        <div className="space-y-6">
-          {/* Equity Allocation Pie */}
+        {/* ── LEFT COLUMN ── */}
+        <div className="space-y-5">
+          {/* Regime Signal Card */}
           {sig ? (
-            <div className="rounded-2xl border border-gray-100 p-5 relative">
-              {/* Date tags - top right */}
-              <div className="absolute top-3 right-3 text-[9px] text-gray-400">
-                <span>{sig.allocationFor || '--'}</span>
-                <span className="mx-1">·</span>
-                <span>thru {sig.dataAsOf || '--'}</span>
+            <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-6 relative overflow-hidden">
+              {/* Subtle accent bar */}
+              <div className="absolute top-0 left-0 right-0 h-0.5" style={{ backgroundColor: regimeColor }} />
+
+              {/* Date tag */}
+              <div className="text-[10px] text-gray-400 mb-5">
+                {sig.allocationFor || '--'} · data thru {sig.dataAsOf || '--'}
               </div>
 
-              {/* Doughnut with regime label centered */}
-              <div className="relative mx-auto w-40 h-40 mb-4 mt-2">
+              {/* Doughnut centered */}
+              <div className="relative mx-auto w-44 h-44 mb-5">
                 <Doughnut
                   data={{
                     labels: ['Equity', 'T-Bills'],
                     datasets: [{
                       data: [eq, 100 - eq],
-                      backgroundColor: ['#10b981', '#e5e7eb'],
+                      backgroundColor: [regimeColor, '#f0f0f0'],
                       borderWidth: 0,
-                      cutout: '75%',
+                      cutout: '78%',
                     }],
                   }}
                   options={{
@@ -663,32 +672,40 @@ export default function MacroRegimePage() {
                       legend: { display: false },
                       tooltip: {
                         backgroundColor: '#fff', titleColor: '#111', bodyColor: '#6b7280',
-                        borderColor: '#e5e7eb', borderWidth: 1, padding: 8,
+                        borderColor: '#e5e7eb', borderWidth: 1, padding: 10,
                         callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed}%` },
                       },
                     },
                   }}
                 />
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-2xl font-bold tabular-nums text-gray-900">{eq}%</span>
-                  <span className={`text-[10px] font-medium ${sig?.regime === 'RISK ON' ? 'text-emerald-600' : sig?.regime === 'RISK OFF' ? 'text-red-500' : 'text-amber-600'}`}>{regime}</span>
+                  <span className="text-3xl font-bold tabular-nums text-gray-900 leading-none">{eq}%</span>
+                  <span className={`mt-1 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${regimeBg}`}>{regime}</span>
                 </div>
               </div>
 
               {/* Legend */}
-              <div className="flex items-center justify-center gap-4">
-                <div className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
-                  <span className="text-[11px] text-gray-600">Equity {eq}%</span>
+              <div className="flex items-center justify-center gap-5">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: regimeColor }} />
+                  <span className="text-[11px] font-medium text-gray-600">Equity <span className="text-gray-900 tabular-nums">{eq}%</span></span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-gray-200" />
-                  <span className="text-[11px] text-gray-600">T-Bills {100 - eq}%</span>
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-gray-200" />
+                  <span className="text-[11px] font-medium text-gray-600">T-Bills <span className="text-gray-900 tabular-nums">{100 - eq}%</span></span>
                 </div>
               </div>
+
+              {sig.overlay && sig.overlay !== 'none' && (
+                <div className="mt-4 flex items-center justify-center">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-100 px-2.5 py-0.5 text-[10px] font-medium text-red-600">
+                    <Shield size={9} /> Overlay: {sig.overlay}
+                  </span>
+                </div>
+              )}
             </div>
           ) : (
-            <div className="rounded-2xl border border-gray-100 p-5">
+            <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-6">
               <p className="text-sm text-gray-400">
                 {predictLoading ? <Loader2 size={14} className="inline animate-spin" /> : 'No signal yet. Run a backtest below.'}
               </p>
@@ -697,12 +714,12 @@ export default function MacroRegimePage() {
 
           {/* Allocation Over Time Chart */}
           {cr.length > 0 && (
-            <div className="rounded-2xl border border-gray-100 p-4">
-              <h3 className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-3">Allocation Over Time</h3>
-              <div className="h-48">
+            <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-5">
+              <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-4">Allocation Over Time</h3>
+              <div className="h-52">
                 <Line
                   data={{ labels: lbl, datasets: [
-                    { label: 'Equity', data: cr.map(r => r.weight_equity), borderColor: '#111', backgroundColor: 'rgba(0,0,0,0.05)', fill: true, stepped: 'before', borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 3 },
+                    { label: 'Equity', data: cr.map(r => r.weight_equity), borderColor: regimeColor || '#111', backgroundColor: `${regimeColor || '#111'}10`, fill: true, stepped: 'before', borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 3 },
                     { label: 'T-Bills', data: cr.map(r => r.weight_equity != null ? 1 : null), borderColor: 'transparent', backgroundColor: 'rgba(0,0,0,0.02)', fill: true, stepped: 'before', borderWidth: 0, pointRadius: 0, pointHoverRadius: 0 },
                   ]}}
                   options={{
@@ -722,23 +739,23 @@ export default function MacroRegimePage() {
 
         {/* ── RIGHT COLUMN: Portfolio Allocation ── */}
         {allocTickers.length > 0 && (
-          <div className="rounded-2xl border border-gray-100 p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">Portfolio Allocation</h2>
+          <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Portfolio Allocation</h2>
               <button onClick={syncWeightsFromPortfolio} disabled={syncingWeights}
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-[11px] text-gray-400 hover:border-gray-300 hover:text-gray-600 disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gray-50 border border-gray-200 px-2.5 py-1 text-[11px] font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40 transition-colors"
                 title="Sync weights from current portfolio holdings">
                 <RefreshCw size={10} className={syncingWeights ? 'animate-spin' : ''} /> Sync
               </button>
             </div>
 
             {/* Total bar */}
-            <div className="mb-3 flex items-center gap-2">
-              <div className="h-1.5 flex-1 rounded-full bg-gray-100 overflow-hidden">
-                <div className={`h-full rounded-full transition-all duration-300 ${allocTotal > 100 ? 'bg-red-400' : allocTotal === 100 ? 'bg-emerald-500' : 'bg-amber-400'}`}
+            <div className="mb-4 flex items-center gap-3">
+              <div className="h-2 flex-1 rounded-full bg-gray-100 overflow-hidden">
+                <div className={`h-full rounded-full transition-all duration-500 ${allocTotal > 100 ? 'bg-red-400' : allocTotal === 100 ? 'bg-emerald-500' : 'bg-amber-400'}`}
                   style={{ width: `${Math.min(allocTotal, 100)}%` }} />
               </div>
-              <span className={`text-[11px] font-mono tabular-nums ${allocTotal > 100 ? 'text-red-500' : allocTotal === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
+              <span className={`text-xs font-semibold font-mono tabular-nums ${allocTotal > 100 ? 'text-red-500' : allocTotal === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
                 {allocTotal.toFixed(1)}%
               </span>
             </div>
@@ -746,24 +763,29 @@ export default function MacroRegimePage() {
             <div className="grid grid-cols-3 gap-2">
               {allocTickers.map(ticker => {
                 const risk = stockRisks[ticker];
+                const w = Number(allocWeights[ticker]) || 0;
                 return (
-                  <div key={ticker} className="rounded-xl border border-gray-50 bg-gray-50/40 px-3 py-2.5">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-medium text-gray-800">{ticker}</span>
+                  <div key={ticker} className="group rounded-xl bg-gray-50/60 ring-1 ring-gray-100 px-3 py-2.5 hover:ring-gray-200 transition-all">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-semibold text-gray-900">{ticker}</span>
                       {risk != null && (
-                        <span className="text-[10px] font-mono text-gray-400" title="Composite risk">
-                          {(risk * 100).toFixed(1)}
+                        <span className="text-[9px] font-mono text-gray-400 opacity-60 group-hover:opacity-100 transition-opacity" title="Composite risk">
+                          {(risk * 100).toFixed(0)}
                         </span>
                       )}
+                    </div>
+                    {/* Mini weight bar */}
+                    <div className="h-1 rounded-full bg-gray-200/60 mb-2 overflow-hidden">
+                      <div className="h-full rounded-full bg-gray-400 transition-all duration-300" style={{ width: `${Math.min(w, 100)}%` }} />
                     </div>
                     <div className="relative">
                       <input
                         type="number" min="0" max="100" step="0.5"
                         value={allocWeights[ticker] ?? ''}
                         onChange={e => handleAllocChange(ticker, e.target.value)}
-                        className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 pr-6 text-[12px] font-mono text-gray-700 tabular-nums focus:border-gray-400 focus:outline-none"
+                        className="w-full rounded-lg bg-white ring-1 ring-gray-200 px-2.5 py-1.5 pr-6 text-[12px] font-mono text-gray-800 tabular-nums focus:ring-gray-400 focus:outline-none transition-shadow"
                       />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-300">%</span>
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">%</span>
                     </div>
                   </div>
                 );
@@ -776,51 +798,51 @@ export default function MacroRegimePage() {
       {/* ━━ MACRO-ADJUSTED WEIGHTS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       {overlay && allocTickers.length > 0 && (
         <div className="mb-10">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xs font-medium text-gray-400 uppercase tracking-wider">Macro-Adjusted Weights</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <h2 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Macro-Adjusted Weights</h2>
               {overlay.trimmed ? (
-                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] text-amber-600">
+                <span className="rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[10px] font-semibold font-mono text-amber-700">
                   D = {overlay.D.toFixed(2)}
                 </span>
               ) : (
-                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-600">
-                  no derisking
+                <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                  No derisking
                 </span>
               )}
             </div>
             <button onClick={() => setShowOverlayCfg(v => !v)}
-              className={`h-6 rounded-lg border px-2 text-[10px] ${showOverlayCfg ? 'border-gray-300 bg-gray-50 text-gray-700' : 'border-gray-200 text-gray-400'}`}>
-              <Settings size={10} />
+              className={`h-7 w-7 flex items-center justify-center rounded-lg transition-colors ${showOverlayCfg ? 'bg-gray-900 text-white' : 'bg-gray-50 ring-1 ring-gray-200 text-gray-400 hover:text-gray-600'}`}>
+              <Settings size={12} />
             </button>
           </div>
 
-          {/* Overlay config - cleaned up */}
+          {/* Overlay config */}
           {showOverlayCfg && (
-            <div className="mb-4 rounded-2xl border border-gray-100 p-4">
-              <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-3">Overlay Parameters</h3>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="mb-5 rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-5">
+              <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-4">Overlay Parameters</h3>
+              <div className="grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-3 lg:grid-cols-6">
                 {[
-                  { key: 'alpha', label: 'Alpha', step: 0.05, desc: 'Vol vs risk blend (0=risk, 1=vol)' },
-                  { key: 'derisk_start', label: 'Derisk Start', step: 0.05, desc: 'M threshold to begin trimming' },
-                  { key: 'max_trim', label: 'Max Trim', step: 0.05, desc: 'Max relative cut per stock' },
-                  { key: 'max_boost', label: 'Max Boost', step: 0.05, desc: 'Max relative boost per stock' },
-                  { key: 'cash_min', label: 'Cash Floor', step: 0.001, desc: 'Min cash in strong regimes' },
-                  { key: 'cash_max', label: 'Cash Ceiling', step: 0.005, desc: 'Max cash in weak regimes' },
+                  { key: 'alpha', label: 'Alpha', step: 0.05, desc: 'Vol vs risk blend' },
+                  { key: 'derisk_start', label: 'Derisk Start', step: 0.05, desc: 'Trim threshold' },
+                  { key: 'max_trim', label: 'Max Trim', step: 0.05, desc: 'Max cut per stock' },
+                  { key: 'max_boost', label: 'Max Boost', step: 0.05, desc: 'Max boost per stock' },
+                  { key: 'cash_min', label: 'Cash Floor', step: 0.001, desc: 'Min cash allocation' },
+                  { key: 'cash_max', label: 'Cash Ceiling', step: 0.005, desc: 'Max cash allocation' },
                 ].map(f => (
                   <div key={f.key}>
-                    <label className="mb-1 block text-[10px] font-medium text-gray-500">{f.label}</label>
+                    <label className="mb-1 block text-[10px] font-semibold text-gray-500">{f.label}</label>
                     <input type="number" step={f.step} value={deriskCfg[f.key] ?? ''}
                       onChange={e => setDeriskCfg(p => ({ ...p, [f.key]: Number(e.target.value) }))}
-                      className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-[11px] font-mono text-gray-700 focus:border-gray-400 focus:outline-none" />
-                    <p className="mt-0.5 text-[9px] text-gray-400">{f.desc}</p>
+                      className="w-full rounded-lg bg-gray-50 ring-1 ring-gray-200 px-2.5 py-1.5 text-[11px] font-mono text-gray-800 focus:ring-gray-400 focus:outline-none" />
+                    <p className="mt-1 text-[9px] text-gray-400">{f.desc}</p>
                   </div>
                 ))}
               </div>
-              <div className="mt-3 flex justify-end border-t border-gray-50 pt-3">
+              <div className="mt-4 flex justify-end border-t border-gray-100 pt-4">
                 <button onClick={saveConfig}
-                  className="inline-flex items-center gap-1 rounded-lg bg-gray-900 px-3 py-1.5 text-[11px] text-white">
-                  <Check size={9} /> Save
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-gray-900 px-4 py-2 text-[11px] font-medium text-white hover:bg-gray-800 transition-colors">
+                  <Check size={10} /> Save Config
                 </button>
               </div>
             </div>
@@ -834,21 +856,21 @@ export default function MacroRegimePage() {
               const delta = adjW - baseW;
               const aggScore = overlay.aggressiveness[ticker];
               return (
-                <div key={ticker} className={`rounded-xl border px-3 py-2.5 ${
-                  Math.abs(delta) < 0.01 ? 'border-gray-100' : delta < 0 ? 'border-red-100 bg-red-50/30' : 'border-emerald-100 bg-emerald-50/30'
+                <div key={ticker} className={`rounded-xl px-3 py-2.5 ring-1 transition-colors ${
+                  Math.abs(delta) < 0.01 ? 'bg-white ring-gray-100' : delta < 0 ? 'bg-red-50/40 ring-red-200/60' : 'bg-emerald-50/40 ring-emerald-200/60'
                 }`}>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-gray-800">{ticker}</span>
+                    <span className="text-[11px] font-semibold text-gray-900">{ticker}</span>
                     {ticker !== 'CASH' && aggScore != null && (
-                      <span className="text-[9px] font-mono text-gray-300" title="Aggressiveness">
-                        agg {(aggScore * 100).toFixed(0)}
+                      <span className="text-[9px] font-mono text-gray-400" title="Aggressiveness">
+                        {(aggScore * 100).toFixed(0)}
                       </span>
                     )}
                   </div>
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-sm font-semibold tabular-nums text-gray-900">{adjW.toFixed(1)}%</span>
+                    <span className="text-sm font-bold tabular-nums text-gray-900">{adjW.toFixed(1)}%</span>
                     {Math.abs(delta) >= 0.01 && (
-                      <span className={`text-[10px] font-mono tabular-nums ${delta < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                      <span className={`text-[10px] font-mono font-semibold tabular-nums ${delta < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
                         {delta > 0 ? '+' : ''}{delta.toFixed(2)}
                       </span>
                     )}
@@ -864,62 +886,62 @@ export default function MacroRegimePage() {
       {allocTickers.length > 0 && (
         <div className="mb-10">
           <button onClick={() => setShowSandbox(v => !v)}
-            className="flex w-full items-center gap-2 py-2 text-xs text-gray-400 hover:text-gray-600">
+            className="flex w-full items-center gap-2 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors">
             <ChevronDown size={12} className={`transition-transform ${showSandbox ? 'rotate-180' : ''}`} />
             Overlay Sandbox
           </button>
 
           {showSandbox && sandboxOverlay && (
-            <div className="mt-3 rounded-2xl border border-dashed border-gray-200 bg-gray-50/30 p-5">
-              {/* Header with badges */}
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Derisk Sandbox</h3>
+            <div className="mt-3 rounded-2xl bg-gray-50/50 ring-1 ring-dashed ring-gray-200 p-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Derisk Sandbox</h3>
                 <div className="flex items-center gap-2">
                   {sandboxOverlay.trimmed ? (
-                    <span className="rounded-full bg-amber-50 border border-amber-100 px-2 py-0.5 text-[10px] font-mono text-amber-600">
+                    <span className="rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[10px] font-mono font-semibold text-amber-700">
                       D = {sandboxOverlay.D.toFixed(3)}
                     </span>
                   ) : (
-                    <span className="rounded-full bg-emerald-50 border border-emerald-100 px-2 py-0.5 text-[10px] text-emerald-600">
-                      no derisking
+                    <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                      No derisking
                     </span>
                   )}
-                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-mono text-gray-500">
+                  <span className="rounded-full bg-white ring-1 ring-gray-200 px-2.5 py-0.5 text-[10px] font-mono font-medium text-gray-600">
                     cash {(sandboxOverlay.cash * 100).toFixed(2)}%
                   </span>
                 </div>
               </div>
 
               {/* M slider */}
-              <div className="mb-5">
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[11px] text-gray-500">Regime Score (M)</label>
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[11px] font-medium text-gray-600">Regime Score (M)</label>
                   <input type="number" min="0" max="1" step="0.01" value={sandboxM}
                     onChange={e => setSandboxM(Math.min(1, Math.max(0, Number(e.target.value) || 0)))}
-                    className="w-16 rounded-lg border border-gray-200 px-2 py-1 text-[11px] font-mono text-gray-700 text-right focus:border-gray-400 focus:outline-none" />
+                    className="w-16 rounded-lg bg-white ring-1 ring-gray-200 px-2 py-1 text-[11px] font-mono text-gray-800 text-right focus:ring-gray-400 focus:outline-none" />
                 </div>
                 <input type="range" min="0" max="1" step="0.01" value={sandboxM}
                   onChange={e => setSandboxM(Number(e.target.value))}
                   className="w-full h-1.5 rounded-full appearance-none bg-gray-200 accent-gray-900 cursor-pointer" />
-                <div className="flex justify-between mt-1 text-[9px] text-gray-300">
+                <div className="flex justify-between mt-1.5 text-[9px] text-gray-400 font-medium">
                   <span>0 — Risk Off</span>
-                  <span className="text-gray-400">start {deriskCfg.derisk_start}</span>
+                  <span>start {deriskCfg.derisk_start}</span>
                   <span>1 — Risk On</span>
                 </div>
               </div>
 
               {/* Per-stock detail table */}
-              <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+              <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-gray-200">
                 <table className="w-full text-[11px]">
                   <thead>
-                    <tr className="border-b border-gray-100 text-[10px] text-gray-400">
-                      <th className="py-2 pl-3 text-left">Ticker</th>
-                      <th className="px-2 py-2 text-right">Base %</th>
-                      <th className="px-2 py-2 text-right">Real Vol</th>
-                      <th className="px-2 py-2 text-right">Comp</th>
-                      <th className="px-2 py-2 text-right">Agg</th>
-                      <th className="px-2 py-2 text-right">Adj %</th>
-                      <th className="px-2 py-2 text-right">Delta</th>
+                    <tr className="border-b border-gray-100">
+                      <th className="py-2.5 pl-4 text-left text-[10px] font-semibold text-gray-500">Ticker</th>
+                      <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-500">Base %</th>
+                      <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-500">Real Vol</th>
+                      <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-500">Comp</th>
+                      <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-500">Agg</th>
+                      <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-500">Adj %</th>
+                      <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-gray-500">Delta</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -931,25 +953,25 @@ export default function MacroRegimePage() {
                       const vol = volScores[ticker] ?? 0;
                       const comp = stockRisks[ticker] ?? 0;
                       return (
-                        <tr key={ticker} className="border-b border-gray-50">
-                          <td className="py-1.5 pl-3 font-medium text-gray-700">{ticker}</td>
-                          <td className="px-2 py-1.5 text-right font-mono text-gray-500">{baseW.toFixed(1)}</td>
-                          <td className="px-2 py-1.5 text-right font-mono text-gray-400">{(vol * 100).toFixed(1)}%</td>
-                          <td className="px-2 py-1.5 text-right font-mono text-gray-400">{(comp * 100).toFixed(0)}</td>
-                          <td className="px-2 py-1.5 text-right font-mono text-gray-400">{aggScore != null ? (aggScore * 100).toFixed(0) : '--'}</td>
-                          <td className="px-2 py-1.5 text-right font-mono font-semibold text-gray-800">{adjW.toFixed(2)}</td>
-                          <td className={`px-2 py-1.5 text-right font-mono ${Math.abs(delta) < 0.01 ? 'text-gray-300' : delta < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                        <tr key={ticker} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                          <td className="py-2 pl-4 font-semibold text-gray-800">{ticker}</td>
+                          <td className="px-3 py-2 text-right font-mono text-gray-500">{baseW.toFixed(1)}</td>
+                          <td className="px-3 py-2 text-right font-mono text-gray-400">{(vol * 100).toFixed(1)}%</td>
+                          <td className="px-3 py-2 text-right font-mono text-gray-400">{(comp * 100).toFixed(0)}</td>
+                          <td className="px-3 py-2 text-right font-mono text-gray-400">{aggScore != null ? (aggScore * 100).toFixed(0) : '--'}</td>
+                          <td className="px-3 py-2 text-right font-mono font-semibold text-gray-900">{adjW.toFixed(2)}</td>
+                          <td className={`px-3 py-2 text-right font-mono font-medium ${Math.abs(delta) < 0.01 ? 'text-gray-300' : delta < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
                             {delta > 0 ? '+' : ''}{delta.toFixed(2)}
                           </td>
                         </tr>
                       );
                     })}
-                    <tr className="border-t border-gray-200 bg-gray-50/50">
-                      <td className="py-1.5 pl-3 font-medium text-gray-500">CASH</td>
-                      <td className="px-2 py-1.5 text-right font-mono text-gray-400">{(Number(allocWeights.CASH) || 0).toFixed(1)}</td>
-                      <td className="px-2 py-1.5" colSpan={3} />
-                      <td className="px-2 py-1.5 text-right font-mono font-semibold text-gray-800">{(sandboxOverlay.weights.CASH ?? 0).toFixed(2)}</td>
-                      <td className={`px-2 py-1.5 text-right font-mono ${
+                    <tr className="border-t border-gray-200 bg-gray-50/60">
+                      <td className="py-2 pl-4 font-semibold text-gray-500">CASH</td>
+                      <td className="px-3 py-2 text-right font-mono text-gray-400">{(Number(allocWeights.CASH) || 0).toFixed(1)}</td>
+                      <td className="px-3 py-2" colSpan={3} />
+                      <td className="px-3 py-2 text-right font-mono font-semibold text-gray-900">{(sandboxOverlay.weights.CASH ?? 0).toFixed(2)}</td>
+                      <td className={`px-3 py-2 text-right font-mono font-medium ${
                         ((sandboxOverlay.weights.CASH ?? 0) - (Number(allocWeights.CASH) || 0)) > 0.01 ? 'text-emerald-600' : 'text-gray-300'
                       }`}>
                         {(((sandboxOverlay.weights.CASH ?? 0) - (Number(allocWeights.CASH) || 0)) > 0 ? '+' : '')}
@@ -961,16 +983,16 @@ export default function MacroRegimePage() {
               </div>
 
               {/* Summary stats */}
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {[
                   { label: 'Regime Score (M)', value: sandboxM.toFixed(2) },
                   { label: 'Derisk Strength (D)', value: sandboxOverlay.D.toFixed(3) },
                   { label: 'Target Cash', value: `${(sandboxOverlay.cash * 100).toFixed(2)}%` },
                   { label: 'Total Adj Weight', value: `${Object.values(sandboxOverlay.weights).reduce((s, v) => s + v, 0).toFixed(1)}%` },
                 ].map(s => (
-                  <div key={s.label} className="rounded-lg bg-white border border-gray-100 px-3 py-2">
-                    <div className="text-[9px] text-gray-400 uppercase tracking-wide">{s.label}</div>
-                    <div className="text-sm font-semibold font-mono text-gray-800 mt-0.5">{s.value}</div>
+                  <div key={s.label} className="rounded-xl bg-white ring-1 ring-gray-100 px-3 py-2.5">
+                    <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{s.label}</div>
+                    <div className="text-sm font-bold font-mono text-gray-900 mt-0.5">{s.value}</div>
                   </div>
                 ))}
               </div>
@@ -980,19 +1002,23 @@ export default function MacroRegimePage() {
       )}
 
       {/* ━━ TOOLS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <div className="border-t border-gray-100 pt-8">
-        <div className="flex items-center gap-2 mb-4">
-          <Wrench size={12} className="text-gray-400" />
-          <h2 className="text-xs font-medium text-gray-400 uppercase tracking-wider">Tools</h2>
-          {runStatus.running && (
-            <span className="inline-flex items-center gap-1 text-[11px] text-amber-600 ml-2">
-              <Loader2 size={11} className="animate-spin" /> {runStatus.command}
-            </span>
-          )}
+      <div className="border-t border-gray-200/60 pt-8">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2.5">
+            <div className="h-7 w-7 flex items-center justify-center rounded-lg bg-gray-900">
+              <Wrench size={12} className="text-white" />
+            </div>
+            <h2 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Tools</h2>
+            {runStatus.running && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700 ml-1">
+                <Loader2 size={10} className="animate-spin" /> {runStatus.command}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Tool tabs */}
-        <div className="flex gap-1 mb-4 border-b border-gray-100 pb-2">
+        <div className="flex gap-1 mb-5">
           {[
             { id: 'run', label: 'Run' },
             { id: 'backtest', label: 'Backtests' },
@@ -1000,43 +1026,43 @@ export default function MacroRegimePage() {
             { id: 'config', label: 'Config' },
           ].map(({ id, label }) => (
             <button key={id} onClick={() => setDetailTab(prev => prev === id ? '' : id)}
-              className={`rounded-lg px-3 py-1.5 text-[11px] transition-colors ${detailTab === id ? 'bg-gray-900 text-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}>
+              className={`rounded-lg px-3.5 py-1.5 text-[11px] font-medium transition-all ${detailTab === id ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}>
               {label}
             </button>
           ))}
         </div>
 
-        {/* ── Run Tab (super functional) ── */}
+        {/* ── Run Tab ── */}
         {detailTab === 'run' && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {/* Action buttons */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
                 { cmd: 'predict', icon: Zap, label: 'Predict', desc: 'Quick signal from latest backtest' },
-                { cmd: 'fast', icon: RefreshCw, label: 'Fast Run', desc: 'Lightweight backtest, fewer iterations' },
-                { cmd: 'run', icon: Play, label: 'Full Run', desc: 'Complete backtest with all parameters' },
-                { cmd: 'validate', icon: Shield, label: 'Validate', desc: 'Run validation checks on model' },
+                { cmd: 'fast', icon: RefreshCw, label: 'Fast Run', desc: 'Lightweight backtest' },
+                { cmd: 'run', icon: Play, label: 'Full Run', desc: 'Complete backtest run' },
+                { cmd: 'validate', icon: Shield, label: 'Validate', desc: 'Model validation checks' },
               ].map(({ cmd, icon: I, label, desc }) => (
                 <button key={cmd} onClick={() => handleRun(cmd)} disabled={runStatus.running}
-                  className="flex flex-col items-start rounded-xl border border-gray-100 p-3 text-left hover:border-gray-300 hover:bg-gray-50 disabled:opacity-30 transition-colors">
-                  <div className="flex items-center gap-2 mb-1">
-                    <I size={12} className="text-gray-500" />
-                    <span className="text-xs font-medium text-gray-800">{label}</span>
+                  className="group flex flex-col items-start rounded-xl bg-white ring-1 ring-gray-100 p-4 text-left hover:ring-gray-300 hover:shadow-sm disabled:opacity-30 transition-all">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className="h-6 w-6 flex items-center justify-center rounded-md bg-gray-50 ring-1 ring-gray-200 group-hover:bg-gray-900 group-hover:text-white group-hover:ring-gray-900 transition-all">
+                      <I size={11} />
+                    </div>
+                    <span className="text-[12px] font-semibold text-gray-900">{label}</span>
                   </div>
-                  <span className="text-[10px] text-gray-400">{desc}</span>
+                  <span className="text-[10px] text-gray-400 leading-relaxed">{desc}</span>
                 </button>
               ))}
             </div>
 
             {/* Log output */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <button onClick={() => setShowLog(v => !v)}
-                  className="inline-flex items-center gap-1.5 text-[11px] text-gray-400 hover:text-gray-600">
-                  <Terminal size={11} /> Output Log
-                  <ChevronDown size={10} className={`transition-transform ${showLog ? 'rotate-180' : ''}`} />
-                </button>
-              </div>
+              <button onClick={() => setShowLog(v => !v)}
+                className="inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-500 hover:text-gray-700 transition-colors mb-2">
+                <Terminal size={11} /> Output Log
+                <ChevronDown size={10} className={`transition-transform ${showLog ? 'rotate-180' : ''}`} />
+              </button>
               {showLog && (
                 <>
                   <div ref={logRef} className="max-h-48 overflow-y-auto rounded-xl bg-gray-950 px-4 py-3 font-mono text-[10px] leading-relaxed whitespace-pre-wrap text-gray-400">
@@ -1044,11 +1070,11 @@ export default function MacroRegimePage() {
                   </div>
                   {runHistory.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
-                      <span className="text-[10px] text-gray-300 mr-1">History:</span>
+                      <span className="text-[10px] text-gray-400 font-medium mr-1">History:</span>
                       {runHistory.map(r => (
                         <button key={r.id} onClick={() => viewLog(r.id)}
-                          className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] transition-colors ${
-                            historyLog?.id === r.id ? 'bg-gray-100 text-gray-700' : 'text-gray-400 hover:text-gray-600'
+                          className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                            historyLog?.id === r.id ? 'bg-gray-100 text-gray-800' : 'text-gray-400 hover:text-gray-600'
                           }`}>
                           <span className={`h-1.5 w-1.5 rounded-full ${r.status === 'completed' ? 'bg-emerald-400' : r.status === 'failed' ? 'bg-red-400' : 'bg-amber-400'}`} />
                           {r.run_type}
@@ -1065,11 +1091,11 @@ export default function MacroRegimePage() {
               )}
             </div>
 
-            {/* Quick signal summary if available */}
+            {/* Signal summary */}
             {sig && (
-              <div className="rounded-xl border border-gray-100 p-4">
-                <h4 className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-2">Current Signal</h4>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-xl bg-white ring-1 ring-gray-100 p-4">
+                <h4 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-3">Current Signal</h4>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   {[
                     { label: 'Equity', value: `${eq}%`, color: 'text-gray-900' },
                     { label: 'T-Bills', value: `${100 - eq}%`, color: 'text-gray-500' },
@@ -1077,8 +1103,8 @@ export default function MacroRegimePage() {
                     { label: 'Regime', value: regime, color: sig?.regime === 'RISK ON' ? 'text-emerald-600' : sig?.regime === 'RISK OFF' ? 'text-red-500' : 'text-amber-600' },
                   ].map(s => (
                     <div key={s.label}>
-                      <div className="text-[9px] text-gray-400 uppercase">{s.label}</div>
-                      <div className={`text-sm font-semibold ${s.color} mt-0.5`}>{s.value}</div>
+                      <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{s.label}</div>
+                      <div className={`text-base font-bold ${s.color} mt-0.5`}>{s.value}</div>
                     </div>
                   ))}
                 </div>
@@ -1091,8 +1117,9 @@ export default function MacroRegimePage() {
         {detailTab === 'backtest' && results && (
           <div className="space-y-5">
             <div className="grid gap-5 lg:grid-cols-2">
-              <Card title="Cumulative Returns">
-                <div className="h-52">
+              <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-5">
+                <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-3">Cumulative Returns</h3>
+                <div className="h-56">
                   <Line data={{ labels: lbl, datasets: [
                     ds('Model', cr.map(r => r.cum_port), C.m),
                     ds('95/5', cr.map(r => r.cum_ew), C.b, false, [4, 2]),
@@ -1100,20 +1127,21 @@ export default function MacroRegimePage() {
                     ds('Equity', cr.map(r => r.cum_equity), C.e, false, [2, 2]),
                   ]}} options={cOpts('$')} />
                 </div>
-              </Card>
-              <Card title="Drawdowns">
-                <div className="h-52">
+              </div>
+              <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-5">
+                <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-3">Drawdowns</h3>
+                <div className="h-56">
                   <Line data={{ labels: lbl, datasets: [
                     { ...ds('Model', drawdowns(cr, 'cum_port'), C.m, true) },
                     { ...ds('Equity', drawdowns(cr, 'cum_equity'), C.e, true), backgroundColor: `${C.e}08` },
                   ]}} options={cOpts('pct')} />
                 </div>
-              </Card>
+              </div>
             </div>
 
             {/* Key metrics */}
             {mm && em && (
-              <div className="grid grid-cols-4 gap-px overflow-hidden rounded-2xl border border-gray-100 bg-gray-100">
+              <div className="grid grid-cols-4 gap-px overflow-hidden rounded-2xl ring-1 ring-gray-100 bg-gray-100">
                 {[
                   { l: 'CAGR', v: fp(mm.cagr), c: fp(em.cagr), g: mm.cagr > em.cagr },
                   { l: 'Sharpe', v: fn(mm.sharpe), c: fn(em.sharpe), g: mm.sharpe > em.sharpe },
@@ -1121,9 +1149,9 @@ export default function MacroRegimePage() {
                   { l: 'Sortino', v: fn(mm.sortino), c: fn(em.sortino), g: mm.sortino > em.sortino },
                 ].map(({ l, v, c, g }) => (
                   <div key={l} className="bg-white p-4">
-                    <div className="text-[10px] text-gray-400">{l}</div>
-                    <div className="text-lg font-semibold text-gray-900 mt-0.5">{v}</div>
-                    <div className={`text-[10px] mt-0.5 ${g ? 'text-emerald-600' : 'text-red-500'}`}>vs {c}</div>
+                    <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{l}</div>
+                    <div className="text-xl font-bold text-gray-900 mt-1 tabular-nums">{v}</div>
+                    <div className={`text-[10px] font-medium mt-0.5 ${g ? 'text-emerald-600' : 'text-red-500'}`}>vs {c}</div>
                   </div>
                 ))}
               </div>
@@ -1131,43 +1159,49 @@ export default function MacroRegimePage() {
 
             {/* Additional charts */}
             <div className="grid gap-5 lg:grid-cols-2">
-              <Card title="Model Probabilities"><div className="h-48">
-                <Line data={{ labels: lbl, datasets: [
-                  ds('P(Eq > TB)', cr.map(r => r.prob_equity), C.m),
-                  ds('P(TB Win)', cr.map(r => r.prob_tbills), C.r, false, [4, 2]),
-                ]}} options={cOpts01(cOpts('pct'))} />
-              </div></Card>
-              <Card title="Rolling 24mo Sharpe"><div className="h-48">
-                <Line data={{ labels: lbl, datasets: [
-                  ds('Model', rollingSharpe(cr, 'port_return'), C.m),
-                  ds('Equity', rollingSharpe(cr, 'ret_equity'), C.e, false, [4, 2]),
-                ]}} options={cOpts('num')} />
-              </div></Card>
+              <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-5">
+                <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-3">Model Probabilities</h3>
+                <div className="h-48">
+                  <Line data={{ labels: lbl, datasets: [
+                    ds('P(Eq > TB)', cr.map(r => r.prob_equity), C.m),
+                    ds('P(TB Win)', cr.map(r => r.prob_tbills), C.r, false, [4, 2]),
+                  ]}} options={cOpts01(cOpts('pct'))} />
+                </div>
+              </div>
+              <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-5">
+                <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-3">Rolling 24mo Sharpe</h3>
+                <div className="h-48">
+                  <Line data={{ labels: lbl, datasets: [
+                    ds('Model', rollingSharpe(cr, 'port_return'), C.m),
+                    ds('Equity', rollingSharpe(cr, 'ret_equity'), C.e, false, [4, 2]),
+                  ]}} options={cOpts('num')} />
+                </div>
+              </div>
             </div>
           </div>
         )}
         {detailTab === 'backtest' && !results && (
-          <p className="py-8 text-center text-sm text-gray-400">No backtest results yet. Run a full backtest first.</p>
+          <p className="py-10 text-center text-sm text-gray-400">No backtest results yet. Run a full backtest first.</p>
         )}
 
         {/* ── Data Tab ── */}
         {detailTab === 'data' && (
-          <div className="space-y-5">
+          <div className="space-y-6">
             {/* Full metrics table */}
             {results && metrics.length > 0 && (
-              <div className="overflow-x-auto rounded-xl border border-gray-100">
+              <div className="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
                 <table className="w-full text-[11px]">
                   <thead><tr className="border-b border-gray-100">
-                    <th className="py-2 pl-3 text-left text-[10px] text-gray-400">Metric</th>
-                    {metrics.map(m => <th key={m.label} className={`px-2 py-2 text-right text-[10px] ${m.label === 'Model Portfolio' ? 'text-emerald-600' : 'text-gray-400'}`}>{m.label.replace(' Portfolio', '').replace(' Only', '')}</th>)}
+                    <th className="py-3 pl-4 text-left text-[10px] font-semibold text-gray-500">Metric</th>
+                    {metrics.map(m => <th key={m.label} className={`px-3 py-3 text-right text-[10px] font-semibold ${m.label === 'Model Portfolio' ? 'text-emerald-600' : 'text-gray-500'}`}>{m.label.replace(' Portfolio', '').replace(' Only', '')}</th>)}
                   </tr></thead>
                   <tbody>{METRICS_KEYS.map(({ k, l, f }) => (
-                    <tr key={k} className="border-b border-gray-50">
-                      <td className="py-1.5 pl-3 text-gray-600">{l}</td>
+                    <tr key={k} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                      <td className="py-2 pl-4 font-medium text-gray-700">{l}</td>
                       {metrics.map((m, j) => {
                         const v = m[k]; let d = '--';
                         if (v != null) { if (f === 'p') d = fp(v); else if (f === 'n') d = fn(v); else d = `${Math.round(v)} mo`; }
-                        return <td key={m.label} className={`px-2 py-1.5 text-right font-mono ${j === 0 ? 'text-gray-800' : 'text-gray-400'}`}>{d}</td>;
+                        return <td key={m.label} className={`px-3 py-2 text-right font-mono ${j === 0 ? 'font-semibold text-gray-900' : 'text-gray-400'}`}>{d}</td>;
                       })}
                     </tr>
                   ))}</tbody>
@@ -1178,12 +1212,12 @@ export default function MacroRegimePage() {
             {/* Plots */}
             {results?.plots?.length > 0 && (
               <div>
-                <h3 className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-3">Generated Plots</h3>
+                <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-3">Generated Plots</h3>
                 <div className="grid gap-4 lg:grid-cols-2">
                   {results.plots.map(p => (
-                    <div key={p}>
-                      <div className="mb-1 text-[10px] text-gray-400">{p.replace(/_/g, ' ').replace('.png', '')}</div>
-                      <Image src={`/api/macro-regime/plots?name=${p}`} alt={p} width={1600} height={900} className="w-full rounded-xl border border-gray-100" unoptimized />
+                    <div key={p} className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-3">
+                      <div className="mb-2 text-[10px] font-medium text-gray-500">{p.replace(/_/g, ' ').replace('.png', '')}</div>
+                      <Image src={`/api/macro-regime/plots?name=${p}`} alt={p} width={1600} height={900} className="w-full rounded-xl" unoptimized />
                     </div>
                   ))}
                 </div>
@@ -1193,21 +1227,21 @@ export default function MacroRegimePage() {
             {/* Validation */}
             {results?.validationReport && (
               <div>
-                <h3 className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-3">Validation Report</h3>
-                <div className="rounded-xl border border-gray-100 p-4">
+                <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-3">Validation Report</h3>
+                <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-5">
                   <MdRender content={results.validationReport} />
                 </div>
                 {Object.entries(results.validationData || {}).map(([name, rows]) => {
                   if (!rows?.length) return null;
                   const cols = Object.keys(rows[0]);
                   return (
-                    <div key={name} className="mt-4 overflow-x-auto rounded-xl border border-gray-100">
-                      <div className="border-b border-gray-100 px-3 py-2 text-[10px] text-gray-400">{name.replace(/_/g, ' ')}</div>
+                    <div key={name} className="mt-4 overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
+                      <div className="border-b border-gray-100 px-4 py-2.5 text-[10px] font-semibold text-gray-500">{name.replace(/_/g, ' ')}</div>
                       <table className="w-full text-[11px]">
-                        <thead><tr className="border-b border-gray-100">{cols.map(c => <th key={c} className="px-3 py-1.5 text-left text-[10px] text-gray-400">{c.replace(/_/g, ' ')}</th>)}</tr></thead>
-                        <tbody>{rows.map((row, i) => <tr key={i} className="border-b border-gray-50">{cols.map(c => {
+                        <thead><tr className="border-b border-gray-100">{cols.map(c => <th key={c} className="px-3 py-2 text-left text-[10px] font-semibold text-gray-500">{c.replace(/_/g, ' ')}</th>)}</tr></thead>
+                        <tbody>{rows.map((row, i) => <tr key={i} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">{cols.map(c => {
                           const v = row[c]; const isN = typeof v === 'number' && isFinite(v);
-                          return <td key={c} className={`px-3 py-1.5 ${isN ? 'font-mono text-gray-500' : 'text-gray-600'}`}>{v == null ? '--' : isN ? fn(v) : String(v)}</td>;
+                          return <td key={c} className={`px-3 py-2 ${isN ? 'font-mono text-gray-500' : 'text-gray-700'}`}>{v == null ? '--' : isN ? fn(v) : String(v)}</td>;
                         })}</tr>)}</tbody>
                       </table>
                     </div>
@@ -1216,31 +1250,31 @@ export default function MacroRegimePage() {
               </div>
             )}
 
-            {!results && <p className="py-8 text-center text-sm text-gray-400">No data yet. Run a backtest to generate results.</p>}
+            {!results && <p className="py-10 text-center text-sm text-gray-400">No data yet. Run a backtest to generate results.</p>}
           </div>
         )}
 
         {/* ── Config Tab ── */}
         {detailTab === 'config' && (
-          <div className="rounded-2xl border border-gray-100 p-4">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+          <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-5">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
               {CFG.map(s => (
                 <div key={s.label}>
-                  <div className="mb-1.5 text-[10px] font-medium text-gray-400">{s.label}</div>
-                  <div className="space-y-1.5">{s.fields.map(fi => <CfgField key={fi.key} f={fi} value={config[fi.key]} onChange={(k, v) => setConfig(p => ({ ...p, [k]: v }))} />)}</div>
+                  <div className="mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{s.label}</div>
+                  <div className="space-y-2">{s.fields.map(fi => <CfgField key={fi.key} f={fi} value={config[fi.key]} onChange={(k, v) => setConfig(p => ({ ...p, [k]: v }))} />)}</div>
                 </div>
               ))}
             </div>
-            <div className="mt-3 flex justify-end gap-2 border-t border-gray-50 pt-3">
-              <button onClick={() => setConfig(DEFAULT_CONFIG)} className="text-[11px] text-gray-400 hover:text-gray-600">Reset</button>
-              <button onClick={saveConfig} className="inline-flex items-center gap-1 rounded-lg bg-gray-900 px-3 py-1.5 text-[11px] text-white"><Check size={9} /> Save</button>
+            <div className="mt-4 flex justify-end gap-3 border-t border-gray-100 pt-4">
+              <button onClick={() => setConfig(DEFAULT_CONFIG)} className="text-[11px] font-medium text-gray-400 hover:text-gray-600 transition-colors">Reset</button>
+              <button onClick={saveConfig} className="inline-flex items-center gap-1.5 rounded-lg bg-gray-900 px-4 py-2 text-[11px] font-medium text-white hover:bg-gray-800 transition-colors"><Check size={10} /> Save</button>
             </div>
           </div>
         )}
 
-        {/* No tab selected prompt */}
+        {/* No tab selected */}
         {!detailTab && !results && !sig && (
-          <p className="py-8 text-center text-sm text-gray-400">Run a full backtest to get started.</p>
+          <p className="py-10 text-center text-sm text-gray-400">Run a full backtest to get started.</p>
         )}
       </div>
 
