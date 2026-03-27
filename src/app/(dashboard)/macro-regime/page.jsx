@@ -702,13 +702,13 @@ export default function MacroRegimePage() {
   }, [committedAllocWeights, volScores, stockRisks, macroM, deriskCfg, allocTickers]);
 
   const sortedOverlayTickers = useMemo(() => {
-    if (!overlay) return [];
-    return Object.keys(overlay.weights).sort((a, b) => {
-      const aWeight = Number(committedOverlay?.weights?.[a] ?? overlay.weights[a]) || 0;
-      const bWeight = Number(committedOverlay?.weights?.[b] ?? overlay.weights[b]) || 0;
+    if (!committedOverlay) return [];
+    return Object.keys(committedOverlay.weights).sort((a, b) => {
+      const aWeight = Number(committedOverlay.weights[a]) || 0;
+      const bWeight = Number(committedOverlay.weights[b]) || 0;
       return bWeight - aWeight;
     });
-  }, [overlay, committedOverlay]);
+  }, [committedOverlay]);
 
   useGridReorderAnimation(allocGridRef, sortedAllocTickers);
   useGridReorderAnimation(overlayGridRef, sortedOverlayTickers);
@@ -742,11 +742,11 @@ export default function MacroRegimePage() {
   const regimeBg = sig?.regime === 'RISK ON' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : sig?.regime === 'RISK OFF' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200';
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-10">
+    <div className="max-w-7xl mx-auto px-6 lg:px-12 pb-16">
 
       {/* Page header */}
-      <div className="mb-8">
-        <h1 className="text-lg font-semibold text-gray-900 tracking-tight">Macro Regime</h1>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Macro Regime</h1>
       </div>
 
       {/* ━━ TOP ROW: Signal + Chart (left) | Portfolio Allocation (right) ━━ */}
@@ -791,7 +791,7 @@ export default function MacroRegimePage() {
                 />
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="text-3xl font-bold tabular-nums text-gray-900 leading-none">{eq}%</span>
-                  <span className={`mt-1 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${regimeBg}`}>{regime}</span>
+                  <span className={`mt-1 inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold ${regimeBg}`}>{regime}</span>
                 </div>
               </div>
 
@@ -914,14 +914,14 @@ export default function MacroRegimePage() {
       </div>
 
       {/* ━━ MACRO-ADJUSTED WEIGHTS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {overlay && allocTickers.length > 0 && (
+      {committedOverlay && allocTickers.length > 0 && (
         <div className="mb-10">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <h2 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Macro-Adjusted Weights</h2>
-              {overlay.trimmed ? (
+              {committedOverlay.trimmed ? (
                 <span className="rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[10px] font-semibold font-mono text-amber-700">
-                  D = {overlay.D.toFixed(2)}
+                  D = {committedOverlay.D.toFixed(2)}
                 </span>
               ) : (
                 <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">
@@ -969,10 +969,10 @@ export default function MacroRegimePage() {
           {/* Adjusted weights grid */}
           <div ref={overlayGridRef} className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
             {sortedOverlayTickers.map(ticker => {
-              const baseW = Number(allocWeights[ticker]) || 0;
-              const adjW = overlay.weights[ticker] ?? baseW;
+              const baseW = Number(committedAllocWeights[ticker]) || 0;
+              const adjW = committedOverlay.weights[ticker] ?? baseW;
               const delta = adjW - baseW;
-              const aggScore = overlay.aggressiveness[ticker];
+              const aggScore = committedOverlay.aggressiveness[ticker];
               return (
                 <div
                   key={ticker}
