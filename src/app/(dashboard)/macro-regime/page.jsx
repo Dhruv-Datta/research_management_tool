@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Filler, Tooltip, Legend,
 } from 'chart.js';
@@ -293,6 +293,75 @@ function ds(label, data, color, fill, dash) {
 
 const cOpts01 = o => ({ ...o, scales: { ...o.scales, y: { ...o.scales.y, min: 0, max: 1 } } });
 
+function useGridReorderAnimation(containerRef, itemIds, duration = 380) {
+  const positionsRef = useRef(new Map());
+  const orderRef = useRef([]);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const items = Array.from(container.querySelectorAll('[data-reorder-id]'));
+    const nextPositions = new Map(
+      items.map(el => [el.dataset.reorderId, el.getBoundingClientRect()]),
+    );
+
+    const prevOrder = orderRef.current;
+    const orderChanged =
+      prevOrder.length === itemIds.length && prevOrder.some((id, idx) => id !== itemIds[idx]);
+
+    let cleanupTimer = null;
+    let frame1 = null;
+    let frame2 = null;
+
+    if (positionsRef.current.size > 0 && orderChanged) {
+      const moved = [];
+
+      for (const el of items) {
+        const id = el.dataset.reorderId;
+        const prev = positionsRef.current.get(id);
+        const next = nextPositions.get(id);
+        if (!prev || !next) continue;
+
+        const dx = prev.left - next.left;
+        const dy = prev.top - next.top;
+        if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+
+        el.style.transition = 'none';
+        el.style.transform = `translate(${dx}px, ${dy}px)`;
+        moved.push(el);
+      }
+
+      if (moved.length > 0) {
+        frame1 = requestAnimationFrame(() => {
+          frame2 = requestAnimationFrame(() => {
+            for (const el of moved) {
+              el.style.transition = `transform ${duration}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+              el.style.transform = 'translate(0px, 0px)';
+            }
+          });
+        });
+
+        cleanupTimer = window.setTimeout(() => {
+          for (const el of moved) {
+            el.style.transition = '';
+            el.style.transform = '';
+          }
+        }, duration + 40);
+      }
+    }
+
+    positionsRef.current = nextPositions;
+    orderRef.current = [...itemIds];
+
+    return () => {
+      if (frame1 != null) cancelAnimationFrame(frame1);
+      if (frame2 != null) cancelAnimationFrame(frame2);
+      if (cleanupTimer != null) clearTimeout(cleanupTimer);
+    };
+  }, [containerRef, itemIds, duration]);
+}
+
 /* ── Tiny components ─────────────────────────────────────────────── */
 
 function CfgField({ f, value, onChange }) {
@@ -370,9 +439,10 @@ export default function MacroRegimePage() {
   /* ── Allocation state ─────────────────────────────────────────── */
   const [allocConfig, setAllocConfig] = useState(null);     // full allocation_config
   const [allocWeights, setAllocWeights] = useState({});      // { ticker: number } editable
+  const [committedAllocWeights, setCommittedAllocWeights] = useState({}); // weights used for reorder/save
   const [allocLoaded, setAllocLoaded] = useState(false);     // guard for auto-save
   const [syncingWeights, setSyncingWeights] = useState(false);
-  const allocSaveTimer = useRef(null);
+  const allocBlurTimer = useRef(null);
 
   /* ── Derisk overlay config ─────────────────────────────────── */
   const [deriskCfg, setDeriskCfg] = useState(DERISK_DEFAULTS);
@@ -384,6 +454,8 @@ export default function MacroRegimePage() {
   /* ── Sandbox / dev mode ─────────────────────────────────────── */
   const [showSandbox, setShowSandbox] = useState(false);
   const [sandboxM, setSandboxM] = useState(0.5);
+  const allocGridRef = useRef(null);
+  const overlayGridRef = useRef(null);
 
   const loadResults = useCallback(async () => {
     try { const d = await fetch('/api/macro-regime/results').then(r => r.json()); if (d.backtest) setResults(d); } catch {}
@@ -421,12 +493,14 @@ export default function MacroRegimePage() {
         // Load saved macro-regime weights, or fall back to allocation page's userWeights
         if (wD.weights) {
           setAllocWeights(wD.weights);
+          setCommittedAllocWeights(wD.weights);
         } else if (allocD.config?.allocations) {
           const w = {};
           for (const a of allocD.config.allocations) {
             if (a.ticker) w[a.ticker] = Number(a.userWeight) || 0;
           }
           setAllocWeights(w);
+          setCommittedAllocWeights(w);
         }
         setAllocLoaded(true);
       } finally { if (!off) setLoading(false); }
@@ -545,20 +619,29 @@ export default function MacroRegimePage() {
     setAllocWeights(p => ({ ...p, [ticker]: n }));
   };
 
-  // Auto-save weights with debounce
-  useEffect(() => {
+  const saveAllocWeights = useCallback(async (weights) => {
     if (!allocLoaded) return;
-    if (allocSaveTimer.current) clearTimeout(allocSaveTimer.current);
-    allocSaveTimer.current = setTimeout(async () => {
-      try {
-        await fetch('/api/macro-regime/weights', {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ weights: allocWeights }),
-        });
-      } catch {}
-    }, 800);
-    return () => { if (allocSaveTimer.current) clearTimeout(allocSaveTimer.current); };
-  }, [allocWeights, allocLoaded]);
+    try {
+      await fetch('/api/macro-regime/weights', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weights }),
+      });
+    } catch {}
+  }, [allocLoaded]);
+
+  const commitAllocWeights = useCallback((weights) => {
+    setCommittedAllocWeights(weights);
+    saveAllocWeights(weights);
+  }, [saveAllocWeights]);
+
+  const handleAllocBlur = useCallback(() => {
+    if (allocBlurTimer.current) clearTimeout(allocBlurTimer.current);
+    allocBlurTimer.current = setTimeout(() => {
+      const active = document.activeElement;
+      const stillInsideAllocGrid = allocGridRef.current?.contains(active);
+      if (!stillInsideAllocGrid) commitAllocWeights(allocWeights);
+    }, 0);
+  }, [allocWeights, commitAllocWeights]);
 
   const syncWeightsFromPortfolio = async () => {
     setSyncingWeights(true);
@@ -593,6 +676,7 @@ export default function MacroRegimePage() {
       w.CASH = Number(((cashVal / totalAum) * 100).toFixed(2));
 
       setAllocWeights(w);
+      commitAllocWeights(w);
     } catch (e) {
       setToast({ message: e.message, type: 'error' });
     }
@@ -600,6 +684,34 @@ export default function MacroRegimePage() {
   };
 
   const allocTotal = useMemo(() => Object.values(allocWeights).reduce((s, v) => s + (Number(v) || 0), 0), [allocWeights]);
+
+  const sortedAllocTickers = useMemo(
+    () => [...allocTickers].sort((a, b) => (Number(committedAllocWeights[b]) || 0) - (Number(committedAllocWeights[a]) || 0)),
+    [allocTickers, committedAllocWeights],
+  );
+
+  const committedOverlay = useMemo(() => {
+    if (macroM == null || allocTickers.length === 0) return null;
+    return computeDeriskOverlay({
+      baseWeights: committedAllocWeights,
+      volScores,
+      compRisks: stockRisks,
+      M: macroM,
+      cfg: deriskCfg,
+    });
+  }, [committedAllocWeights, volScores, stockRisks, macroM, deriskCfg, allocTickers]);
+
+  const sortedOverlayTickers = useMemo(() => {
+    if (!overlay) return [];
+    return Object.keys(overlay.weights).sort((a, b) => {
+      const aWeight = Number(committedOverlay?.weights?.[a] ?? overlay.weights[a]) || 0;
+      const bWeight = Number(committedOverlay?.weights?.[b] ?? overlay.weights[b]) || 0;
+      return bWeight - aWeight;
+    });
+  }, [overlay, committedOverlay]);
+
+  useGridReorderAnimation(allocGridRef, sortedAllocTickers);
+  useGridReorderAnimation(overlayGridRef, sortedOverlayTickers);
 
   /* Dedup backtest rows */
   const btMap = new Map();
@@ -759,14 +871,18 @@ export default function MacroRegimePage() {
               </span>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 flex-1 auto-rows-fr">
-              {allocTickers.map(ticker => {
+            <div ref={allocGridRef} className="grid grid-cols-3 gap-2 flex-1 auto-rows-fr">
+              {sortedAllocTickers.map((ticker) => {
                 const risk = stockRisks[ticker];
                 const w = Number(allocWeights[ticker]) || 0;
                 const maxW = Number(allocConfig?.maxWeight) || 100;
                 const barPct = Math.min((w / maxW) * 100, 100);
                 return (
-                  <div key={ticker} className="group flex flex-col rounded-xl bg-gray-50/60 ring-1 ring-gray-100 px-3 py-2.5 hover:ring-gray-200 transition-all">
+                  <div
+                    key={ticker}
+                    data-reorder-id={ticker}
+                    className="group flex flex-col rounded-xl bg-gray-50/60 ring-1 ring-gray-100 px-3 py-2.5 hover:ring-gray-200 transition-[box-shadow,background-color] duration-300 will-change-transform"
+                  >
                     <div className="flex items-center justify-between mb-auto">
                       <span className="text-sm font-semibold text-gray-900">{ticker}</span>
                       {risk != null && (
@@ -784,6 +900,7 @@ export default function MacroRegimePage() {
                         type="number" min="0" max="100" step="0.5"
                         value={allocWeights[ticker] ?? ''}
                         onChange={e => handleAllocChange(ticker, e.target.value)}
+                        onBlur={handleAllocBlur}
                         className="w-full rounded-lg bg-white ring-1 ring-gray-200 px-2.5 py-2.5 pr-6 text-[12px] font-mono text-gray-800 tabular-nums focus:ring-gray-400 focus:outline-none transition-shadow"
                       />
                       <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">%</span>
@@ -850,16 +967,20 @@ export default function MacroRegimePage() {
           )}
 
           {/* Adjusted weights grid */}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-            {allocTickers.map(ticker => {
+          <div ref={overlayGridRef} className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+            {sortedOverlayTickers.map(ticker => {
               const baseW = Number(allocWeights[ticker]) || 0;
               const adjW = overlay.weights[ticker] ?? baseW;
               const delta = adjW - baseW;
               const aggScore = overlay.aggressiveness[ticker];
               return (
-                <div key={ticker} className={`rounded-xl px-3 py-2.5 ring-1 transition-colors ${
+                <div
+                  key={ticker}
+                  data-reorder-id={ticker}
+                  className={`rounded-xl px-3 py-2.5 ring-1 transition-[background-color,border-color] duration-300 will-change-transform ${
                   Math.abs(delta) < 0.01 ? 'bg-white ring-gray-100' : delta < 0 ? 'bg-red-50/40 ring-red-200/60' : 'bg-emerald-50/40 ring-emerald-200/60'
-                }`}>
+                }`}
+                >
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[11px] font-semibold text-gray-900">{ticker}</span>
                     {ticker !== 'CASH' && aggScore != null && (
