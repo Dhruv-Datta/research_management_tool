@@ -11,7 +11,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Scatter } from 'react-chartjs-2';
-import { BarChart3, Settings, Target, Zap, X, SlidersHorizontal, RotateCcw } from 'lucide-react';
+import { BarChart3, Settings, Target, Zap, X, SlidersHorizontal, RotateCcw, RefreshCw } from 'lucide-react';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
 
@@ -292,6 +292,7 @@ export default function AllocationPage() {
   const [cashMinWeight, setCashMinWeight] = useState('1');
   const [cashMaxWeight, setCashMaxWeight] = useState('5');
   const [numPortfolios, setNumPortfolios] = useState('100000');
+  const [covLambda, setCovLambda] = useState('0.3');
   const [simulationError, setSimulationError] = useState('');
   const [simulationResult, setSimulationResult] = useState(null);
   const [simulationChart, setSimulationChart] = useState(null);
@@ -307,6 +308,7 @@ export default function AllocationPage() {
   const [rbError, setRbError] = useState('');
   const [rbTaxInputs, setRbTaxInputs] = useState({});
   const [rbLoadingPortfolio, setRbLoadingPortfolio] = useState(false);
+  const [syncingWeights, setSyncingWeights] = useState(false);
   const rbCostBasisRef = useRef({});
   const rbSavedTargetsRef = useRef(null);
   const saveTimer = useRef(null);
@@ -346,6 +348,7 @@ export default function AllocationPage() {
           if (config.cashMinWeight !== undefined) setCashMinWeight(config.cashMinWeight);
           if (config.cashMaxWeight !== undefined) setCashMaxWeight(config.cashMaxWeight);
           if (config.numPortfolios !== undefined) setNumPortfolios(config.numPortfolios);
+          if (config.covLambda !== undefined) setCovLambda(config.covLambda);
           if (config.rbTargetWeights) rbSavedTargetsRef.current = config.rbTargetWeights;
           if (config.rbTargetCashPercent !== undefined) setRbTargetCashPercent(config.rbTargetCashPercent);
         }
@@ -446,10 +449,11 @@ export default function AllocationPage() {
       cashMinWeight,
       cashMaxWeight,
       numPortfolios,
+      covLambda,
       rbTargetWeights: rbTargetWeightsMap,
       rbTargetCashPercent,
     });
-  }, [loaded, allocations, riskFactorWeights, riskFreeRate, minWeight, maxWeight, cashMinWeight, cashMaxWeight, numPortfolios, rbTargetWeightsMap, rbTargetCashPercent, saveConfig]);
+  }, [loaded, allocations, riskFactorWeights, riskFreeRate, minWeight, maxWeight, cashMinWeight, cashMaxWeight, numPortfolios, covLambda, rbTargetWeightsMap, rbTargetCashPercent, saveConfig]);
 
   const simulationChartOptions = useMemo(
     () => ({
@@ -510,6 +514,54 @@ export default function AllocationPage() {
 
   const removeAllocation = (id) => {
     setAllocations((prev) => prev.filter((row) => row.id !== id));
+  };
+
+  const syncWeightsFromPortfolio = async () => {
+    setSyncingWeights(true);
+    try {
+      const portfolioRes = await fetch('/api/portfolio');
+      const portfolio = await portfolioRes.json();
+      const holdings = portfolio.holdings || [];
+      const cashVal = portfolio.cash || 0;
+
+      if (holdings.length === 0) { setSyncingWeights(false); return; }
+
+      const tickers = holdings.map(h => h.ticker).join(',');
+      const quotesRes = await fetch(`/api/quotes?tickers=${tickers}`);
+      const quotesData = await quotesRes.json();
+      const quotes = quotesData.quotes || quotesData;
+
+      // Compute current value per holding
+      const values = {};
+      let totalAum = cashVal;
+      for (const h of holdings) {
+        const price = quotes[h.ticker]?.price || h.cost_basis || 0;
+        const val = h.shares * price;
+        values[h.ticker] = val;
+        totalAum += val;
+      }
+
+      if (totalAum <= 0) { setSyncingWeights(false); return; }
+
+      // Compute weights and set on matching allocation rows
+      const weightMap = {};
+      for (const [ticker, val] of Object.entries(values)) {
+        weightMap[ticker] = ((val / totalAum) * 100).toFixed(2);
+      }
+      // CASH weight from actual cash balance
+      weightMap.CASH = ((cashVal / totalAum) * 100).toFixed(2);
+
+      setAllocations(prev => prev.map(row => {
+        const ticker = row.ticker.trim().toUpperCase();
+        if (ticker && weightMap[ticker] !== undefined) {
+          return { ...row, userWeight: weightMap[ticker] };
+        }
+        return row;
+      }));
+    } catch (err) {
+      console.error('Failed to sync weights from portfolio:', err);
+    }
+    setSyncingWeights(false);
   };
 
   // --- Rebalancer functions ---
@@ -745,10 +797,26 @@ export default function AllocationPage() {
       row.map((value, j) => value * factorWeights[i] * factorWeights[j])
     );
 
-    const compositeMatrix = Array.from({ length: assets.length }, () =>
+    // Market covariance: uses raw (unweighted) factor covariance
+    const marketMatrix = Array.from({ length: assets.length }, () =>
       Array.from({ length: assets.length }, () => 0)
     );
+    for (let i = 0; i < assets.length; i += 1) {
+      for (let j = 0; j < assets.length; j += 1) {
+        let sum = 0;
+        for (let k = 0; k < factorCount; k += 1) {
+          for (let l = 0; l < factorCount; l += 1) {
+            sum += normalizedFactors[i][k] * covarianceFactors[k][l] * normalizedFactors[j][l];
+          }
+        }
+        marketMatrix[i][j] = sum;
+      }
+    }
 
+    // Composite covariance: uses risk-factor-weighted covariance
+    const compositeOnlyMatrix = Array.from({ length: assets.length }, () =>
+      Array.from({ length: assets.length }, () => 0)
+    );
     for (let i = 0; i < assets.length; i += 1) {
       for (let j = 0; j < assets.length; j += 1) {
         let sum = 0;
@@ -757,9 +825,32 @@ export default function AllocationPage() {
             sum += normalizedFactors[i][k] * weightedFactors[k][l] * normalizedFactors[j][l];
           }
         }
-        compositeMatrix[i][j] = sum;
+        compositeOnlyMatrix[i][j] = sum;
       }
     }
+
+    // Blended covariance: lambda * market + (1 - lambda) * composite
+    const lam = Math.min(1, Math.max(0, parseNumber(covLambda)));
+    const compositeMatrix = Array.from({ length: assets.length }, () =>
+      Array.from({ length: assets.length }, () => 0)
+    );
+    for (let i = 0; i < assets.length; i += 1) {
+      for (let j = 0; j < assets.length; j += 1) {
+        compositeMatrix[i][j] = lam * marketMatrix[i][j] + (1 - lam) * compositeOnlyMatrix[i][j];
+      }
+    }
+
+    // Per-stock standalone risk: weighted average of factor exposures
+    const standaloneRisk = {};
+    const fwSum = factorWeights.reduce((s, w) => s + w, 0);
+    assets.forEach((ticker, idx) => {
+      const exposures = factorMatrix[idx];
+      let score = 0;
+      for (let k = 0; k < factorCount; k += 1) {
+        score += exposures[k] * factorWeights[k];
+      }
+      standaloneRisk[ticker] = fwSum > 0 ? score / fwSum : 0;
+    });
 
     const simulations = [];
     let samplesGenerated = 0;
@@ -959,6 +1050,8 @@ export default function AllocationPage() {
         compositeRatio: getCompositeRatio(minVol.sharpe),
       },
       userDefined: userMetrics,
+      standaloneRisk,
+      lambda: lam,
     });
     setSimulating(false);
   };
@@ -1021,6 +1114,11 @@ export default function AllocationPage() {
                     <label className="block text-xs font-medium text-gray-500 mb-1">Cash Max Weight (%)</label>
                     <input type="number" min="0" step="0.01" value={cashMaxWeight} onChange={(e) => setCashMaxWeight(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all" />
                   </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Cov Blend Lambda</label>
+                    <input type="number" min="0" max="1" step="0.05" value={covLambda} onChange={(e) => setCovLambda(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all" />
+                    <p className="text-[10px] text-gray-400 mt-1">0 = composite only, 1 = market only</p>
+                  </div>
                 </div>
               </div>
 
@@ -1070,13 +1168,24 @@ export default function AllocationPage() {
             ))}
           </div>
           {activeSubTab === 'optimizer' && (
-            <button
-              onClick={() => setSettingsOpen(true)}
-              className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-4 py-2 rounded-xl transition-colors"
-            >
-              <SlidersHorizontal size={15} />
-              Settings
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={syncWeightsFromPortfolio}
+                disabled={syncingWeights}
+                className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
+                title="Sync weights from current portfolio holdings"
+              >
+                <RefreshCw size={15} className={syncingWeights ? 'animate-spin' : ''} />
+                Sync Weights
+              </button>
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-4 py-2 rounded-xl transition-colors"
+              >
+                <SlidersHorizontal size={15} />
+                Settings
+              </button>
+            </div>
           )}
         </div>
 
@@ -1311,6 +1420,36 @@ export default function AllocationPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Per-stock standalone composite risk */}
+        {simulationResult?.standaloneRisk && (
+          <div className="mt-6 bg-white border border-gray-200 rounded-2xl p-5 animate-fade-in-up">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-gray-900">Standalone Composite Risk</h3>
+              <span className="text-[10px] text-gray-400">Weighted avg of factor exposures &middot; lambda {simulationResult.lambda?.toFixed(2)}</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+              {Object.entries(simulationResult.standaloneRisk)
+                .filter(([ticker]) => ticker !== 'CASH')
+                .sort(([, a], [, b]) => b - a)
+                .map(([ticker, risk]) => {
+                  const pct = Math.min(risk * 100, 100);
+                  const color = risk > 0.5 ? 'bg-red-400' : risk > 0.3 ? 'bg-amber-400' : 'bg-emerald-400';
+                  return (
+                    <div key={ticker} className="border border-gray-100 rounded-xl px-3 py-2.5">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-bold text-gray-800">{ticker}</span>
+                        <span className="text-[11px] font-mono text-gray-500">{(risk * 100).toFixed(1)}</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           </div>
         )}

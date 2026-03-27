@@ -1,0 +1,47 @@
+# ======================================================================
+#              MACRO REGIME ALLOCATOR -- Configuration
+# ======================================================================
+
+start_date: "2000-01-01"
+# end_date: set to the 1st of the month you want the allocation for.
+end_date: "2026-03-01"
+
+equity_ticker: "SPY"
+forecast_horizon_months: 1
+
+# -- Feature Engineering -----------------------------------------------
+macro_lag_months: 1
+momentum_window: 3
+volatility_window: 3
+
+# -- Model -------------------------------------------------------------
+regularization_C: 0.5
+class_weight: null
+max_iter: 1000
+
+# -- Training ----------------------------------------------------------
+recency_halflife_months: 12
+window_type: "expanding"
+rolling_window_months: 120
+min_train_months: 48
+
+# -- Holdout -----------------------------------------------------------
+holdout_start: "2020-01-01"
+
+# -- Allocation --------------------------------------------------------
+baseline_equity: 0.95
+baseline_tbills: 0.05
+
+min_weight: 0.1
+max_weight: 0.97
+
+allocation_steepness: 13
+
+weight_smoothing_up: 0.98
+weight_smoothing_down: 0.97
+
+# -- Crash Overlay -----------------------------------------------------
+crash_overlay: true
+vix_spike_threshold: 7
+drawdown_defense_threshold: -10
+credit_spike_threshold: 1.5
