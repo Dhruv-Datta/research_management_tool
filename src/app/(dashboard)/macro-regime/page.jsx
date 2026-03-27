@@ -6,7 +6,7 @@ import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Filler, Tooltip, Legend,
 } from 'chart.js';
 import { Line, Doughnut } from 'react-chartjs-2';
-import { Play, Zap, RefreshCw, Shield, Settings, Check, Loader2, Terminal, ChevronDown, Wrench } from 'lucide-react';
+import { Play, Zap, RefreshCw, Shield, Settings, Check, Loader2, Terminal, ChevronDown, SlidersHorizontal, FlaskConical } from 'lucide-react';
 import Card from '@/components/Card';
 import Toast from '@/components/Toast';
 
@@ -429,7 +429,7 @@ export default function MacroRegimePage() {
   const [loading, setLoading] = useState(true);
   const [showConfig, setShowConfig] = useState(false);
   const [showLog, setShowLog] = useState(false);
-  const [detailTab, setDetailTab] = useState('');
+  const [detailTab, setDetailTab] = useState('run');
   const [toast, setToast] = useState(null);
   const [runHistory, setRunHistory] = useState([]);
   const [historyLog, setHistoryLog] = useState(null);
@@ -452,7 +452,6 @@ export default function MacroRegimePage() {
   const [realizedVol, setRealizedVol] = useState(null);       // { ticker: annualized vol }
 
   /* ── Sandbox / dev mode ─────────────────────────────────────── */
-  const [showSandbox, setShowSandbox] = useState(false);
   const [sandboxM, setSandboxM] = useState(0.5);
   const allocGridRef = useRef(null);
   const overlayGridRef = useRef(null);
@@ -604,7 +603,7 @@ export default function MacroRegimePage() {
 
   // Sandbox overlay — uses sandboxM instead of live M
   const sandboxOverlay = useMemo(() => {
-    if (!showSandbox || allocTickers.length === 0) return null;
+    if (allocTickers.length === 0) return null;
     return computeDeriskOverlay({
       baseWeights: allocWeights,
       volScores,
@@ -612,7 +611,7 @@ export default function MacroRegimePage() {
       M: sandboxM,
       cfg: deriskCfg,
     });
-  }, [showSandbox, allocWeights, volScores, stockRisks, sandboxM, deriskCfg, allocTickers]);
+  }, [allocWeights, volScores, stockRisks, sandboxM, deriskCfg, allocTickers]);
 
   const handleAllocChange = (ticker, val) => {
     const n = val === '' ? 0 : Number(val);
@@ -1004,56 +1003,72 @@ export default function MacroRegimePage() {
         </div>
       )}
 
-      {/* ━━ SANDBOX OVERLAY ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      {allocTickers.length > 0 && (
-        <div className="mb-10">
-          <button onClick={() => setShowSandbox(v => !v)}
-            className="flex w-full items-center gap-2 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors">
-            <ChevronDown size={12} className={`transition-transform ${showSandbox ? 'rotate-180' : ''}`} />
-            Overlay Sandbox
-          </button>
+      {/* ━━ STRESS TEST ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {allocTickers.length > 0 && sandboxOverlay && (
+        <div className="mb-10 rounded-[28px] border border-gray-200 bg-[linear-gradient(180deg,rgba(249,250,251,0.92),rgba(255,255,255,1))] p-6 shadow-sm">
+          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-2xl">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 ring-1 ring-gray-200">
+                <FlaskConical size={12} className="text-gray-700" />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Stress Test</span>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Stress-test the derisking overlay before you commit changes.</h3>
+              <p className="mt-1 text-sm text-gray-500">Move the regime score and inspect how the overlay shifts cash, trims aggressive names, and redistributes weight across the book.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[
+                { label: 'Regime Score', value: sandboxM.toFixed(2) },
+                { label: 'Derisk Strength', value: sandboxOverlay.D.toFixed(3) },
+                { label: 'Target Cash', value: `${(sandboxOverlay.cash * 100).toFixed(2)}%` },
+                { label: 'Total Weight', value: `${Object.values(sandboxOverlay.weights).reduce((s, v) => s + v, 0).toFixed(1)}%` },
+              ].map(s => (
+                <div key={s.label} className="rounded-2xl bg-white px-4 py-3 ring-1 ring-gray-200">
+                  <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-gray-400">{s.label}</div>
+                  <div className="mt-1 text-sm font-bold font-mono text-gray-900">{s.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
 
-          {showSandbox && sandboxOverlay && (
-            <div className="mt-3 rounded-2xl bg-gray-50/50 ring-1 ring-dashed ring-gray-200 p-6">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Derisk Sandbox</h3>
-                <div className="flex items-center gap-2">
-                  {sandboxOverlay.trimmed ? (
-                    <span className="rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[10px] font-mono font-semibold text-amber-700">
-                      D = {sandboxOverlay.D.toFixed(3)}
-                    </span>
-                  ) : (
-                    <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">
-                      No derisking
-                    </span>
-                  )}
-                  <span className="rounded-full bg-white ring-1 ring-gray-200 px-2.5 py-0.5 text-[10px] font-mono font-medium text-gray-600">
-                    cash {(sandboxOverlay.cash * 100).toFixed(2)}%
+          <div className="mb-5 rounded-2xl bg-white p-5 ring-1 ring-gray-200">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-400">Scenario Input</div>
+                <div className="mt-1 text-sm font-semibold text-gray-900">Macro regime score</div>
+              </div>
+              <div className="flex items-center gap-2">
+                {sandboxOverlay.trimmed ? (
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
+                    Derisking active
                   </span>
-                </div>
+                ) : (
+                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">
+                    No derisking
+                  </span>
+                )}
+                <input type="number" min="0" max="1" step="0.01" value={sandboxM}
+                  onChange={e => setSandboxM(Math.min(1, Math.max(0, Number(e.target.value) || 0)))}
+                  className="w-20 rounded-xl bg-gray-50 px-3 py-2 text-[12px] font-mono text-right text-gray-900 ring-1 ring-gray-200 focus:outline-none focus:ring-gray-400" />
               </div>
+            </div>
+            <input type="range" min="0" max="1" step="0.01" value={sandboxM}
+              onChange={e => setSandboxM(Number(e.target.value))}
+              className="h-2 w-full cursor-pointer rounded-full bg-gray-200 accent-gray-900" />
+            <div className="mt-2 flex justify-between text-[10px] font-medium text-gray-400">
+              <span>0 Risk Off</span>
+              <span>start {deriskCfg.derisk_start}</span>
+              <span>1 Risk On</span>
+            </div>
+          </div>
 
-              {/* M slider */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-[11px] font-medium text-gray-600">Regime Score (M)</label>
-                  <input type="number" min="0" max="1" step="0.01" value={sandboxM}
-                    onChange={e => setSandboxM(Math.min(1, Math.max(0, Number(e.target.value) || 0)))}
-                    className="w-16 rounded-lg bg-white ring-1 ring-gray-200 px-2 py-1 text-[11px] font-mono text-gray-800 text-right focus:ring-gray-400 focus:outline-none" />
-                </div>
-                <input type="range" min="0" max="1" step="0.01" value={sandboxM}
-                  onChange={e => setSandboxM(Number(e.target.value))}
-                  className="w-full h-1.5 rounded-full appearance-none bg-gray-200 accent-gray-900 cursor-pointer" />
-                <div className="flex justify-between mt-1.5 text-[9px] text-gray-400 font-medium">
-                  <span>0 — Risk Off</span>
-                  <span>start {deriskCfg.derisk_start}</span>
-                  <span>1 — Risk On</span>
-                </div>
+          <div className="rounded-2xl bg-white p-5 ring-1 ring-gray-200">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-400">Preview</div>
+                <div className="mt-1 text-sm font-semibold text-gray-900">Adjusted weights by ticker</div>
               </div>
-
-              {/* Per-stock detail table */}
-              <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-gray-200">
+            </div>
+              <div className="overflow-x-auto">
                 <table className="w-full text-[11px]">
                   <thead>
                     <tr className="border-b border-gray-100">
@@ -1075,25 +1090,25 @@ export default function MacroRegimePage() {
                       const vol = volScores[ticker] ?? 0;
                       const comp = stockRisks[ticker] ?? 0;
                       return (
-                        <tr key={ticker} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                          <td className="py-2 pl-4 font-semibold text-gray-800">{ticker}</td>
-                          <td className="px-3 py-2 text-right font-mono text-gray-500">{baseW.toFixed(1)}</td>
-                          <td className="px-3 py-2 text-right font-mono text-gray-400">{(vol * 100).toFixed(1)}%</td>
-                          <td className="px-3 py-2 text-right font-mono text-gray-400">{(comp * 100).toFixed(0)}</td>
-                          <td className="px-3 py-2 text-right font-mono text-gray-400">{aggScore != null ? (aggScore * 100).toFixed(0) : '--'}</td>
-                          <td className="px-3 py-2 text-right font-mono font-semibold text-gray-900">{adjW.toFixed(2)}</td>
-                          <td className={`px-3 py-2 text-right font-mono font-medium ${Math.abs(delta) < 0.01 ? 'text-gray-300' : delta < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                        <tr key={ticker} className="border-b border-gray-50 transition-colors hover:bg-gray-50/70">
+                          <td className="py-2.5 pl-4 font-semibold text-gray-800">{ticker}</td>
+                          <td className="px-3 py-2.5 text-right font-mono text-gray-500">{baseW.toFixed(1)}</td>
+                          <td className="px-3 py-2.5 text-right font-mono text-gray-400">{(vol * 100).toFixed(1)}%</td>
+                          <td className="px-3 py-2.5 text-right font-mono text-gray-400">{(comp * 100).toFixed(0)}</td>
+                          <td className="px-3 py-2.5 text-right font-mono text-gray-400">{aggScore != null ? (aggScore * 100).toFixed(0) : '--'}</td>
+                          <td className="px-3 py-2.5 text-right font-mono font-semibold text-gray-900">{adjW.toFixed(2)}</td>
+                          <td className={`px-3 py-2.5 text-right font-mono font-medium ${Math.abs(delta) < 0.01 ? 'text-gray-300' : delta < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
                             {delta > 0 ? '+' : ''}{delta.toFixed(2)}
                           </td>
                         </tr>
                       );
                     })}
-                    <tr className="border-t border-gray-200 bg-gray-50/60">
-                      <td className="py-2 pl-4 font-semibold text-gray-500">CASH</td>
-                      <td className="px-3 py-2 text-right font-mono text-gray-400">{(Number(allocWeights.CASH) || 0).toFixed(1)}</td>
-                      <td className="px-3 py-2" colSpan={3} />
-                      <td className="px-3 py-2 text-right font-mono font-semibold text-gray-900">{(sandboxOverlay.weights.CASH ?? 0).toFixed(2)}</td>
-                      <td className={`px-3 py-2 text-right font-mono font-medium ${
+                    <tr className="bg-gray-50/80">
+                      <td className="py-2.5 pl-4 font-semibold text-gray-500">CASH</td>
+                      <td className="px-3 py-2.5 text-right font-mono text-gray-400">{(Number(allocWeights.CASH) || 0).toFixed(1)}</td>
+                      <td className="px-3 py-2.5" colSpan={3} />
+                      <td className="px-3 py-2.5 text-right font-mono font-semibold text-gray-900">{(sandboxOverlay.weights.CASH ?? 0).toFixed(2)}</td>
+                      <td className={`px-3 py-2.5 text-right font-mono font-medium ${
                         ((sandboxOverlay.weights.CASH ?? 0) - (Number(allocWeights.CASH) || 0)) > 0.01 ? 'text-emerald-600' : 'text-gray-300'
                       }`}>
                         {(((sandboxOverlay.weights.CASH ?? 0) - (Number(allocWeights.CASH) || 0)) > 0 ? '+' : '')}
@@ -1103,34 +1118,21 @@ export default function MacroRegimePage() {
                   </tbody>
                 </table>
               </div>
-
-              {/* Summary stats */}
-              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {[
-                  { label: 'Regime Score (M)', value: sandboxM.toFixed(2) },
-                  { label: 'Derisk Strength (D)', value: sandboxOverlay.D.toFixed(3) },
-                  { label: 'Target Cash', value: `${(sandboxOverlay.cash * 100).toFixed(2)}%` },
-                  { label: 'Total Adj Weight', value: `${Object.values(sandboxOverlay.weights).reduce((s, v) => s + v, 0).toFixed(1)}%` },
-                ].map(s => (
-                  <div key={s.label} className="rounded-xl bg-white ring-1 ring-gray-100 px-3 py-2.5">
-                    <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wide">{s.label}</div>
-                    <div className="text-sm font-bold font-mono text-gray-900 mt-0.5">{s.value}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       )}
 
       {/* ━━ TOOLS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <div className="border-t border-gray-200/60 pt-8">
-        <div className="flex items-center justify-between mb-5">
+        <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="h-7 w-7 flex items-center justify-center rounded-lg bg-gray-900">
-              <Wrench size={12} className="text-white" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-gray-100 shadow-sm">
+              <SlidersHorizontal size={15} className="text-gray-700" />
             </div>
-            <h2 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Tools</h2>
+            <div>
+              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Tools</h2>
+              <p className="mt-0.5 text-sm text-gray-500">Run jobs, inspect results, and tune the model from one place.</p>
+            </div>
             {runStatus.running && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700 ml-1">
                 <Loader2 size={10} className="animate-spin" /> {runStatus.command}
@@ -1140,15 +1142,15 @@ export default function MacroRegimePage() {
         </div>
 
         {/* Tool tabs */}
-        <div className="flex gap-1 mb-5">
+        <div className="mb-5 inline-flex rounded-2xl border border-gray-200 bg-gray-50 p-1">
           {[
             { id: 'run', label: 'Run' },
             { id: 'backtest', label: 'Backtests' },
             { id: 'data', label: 'Data' },
             { id: 'config', label: 'Config' },
           ].map(({ id, label }) => (
-            <button key={id} onClick={() => setDetailTab(prev => prev === id ? '' : id)}
-              className={`rounded-lg px-3.5 py-1.5 text-[11px] font-medium transition-all ${detailTab === id ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}>
+            <button key={id} onClick={() => setDetailTab(id)}
+              className={`rounded-xl px-4 py-2 text-[11px] font-medium transition-all ${detailTab === id ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200' : 'text-gray-500 hover:text-gray-700'}`}>
               {label}
             </button>
           ))}
@@ -1392,11 +1394,6 @@ export default function MacroRegimePage() {
               <button onClick={saveConfig} className="inline-flex items-center gap-1.5 rounded-lg bg-gray-900 px-4 py-2 text-[11px] font-medium text-white hover:bg-gray-800 transition-colors"><Check size={10} /> Save</button>
             </div>
           </div>
-        )}
-
-        {/* No tab selected */}
-        {!detailTab && !results && !sig && (
-          <p className="py-10 text-center text-sm text-gray-400">Run a full backtest to get started.</p>
         )}
       </div>
 
