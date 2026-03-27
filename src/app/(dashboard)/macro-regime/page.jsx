@@ -135,13 +135,13 @@ const DERISK_DEFAULTS = {
  *
  * @param {Object} params
  * @param {Object} params.baseWeights   { ticker: percent } — base portfolio weights (sum ~100)
- * @param {Object} params.volExposures  { ticker: 0-1 }    — Volatility factor exposure per stock
+ * @param {Object} params.volScores  { ticker: number }  — Realized annualized vol per stock (e.g. 0.32 = 32%)
  * @param {Object} params.compRisks     { ticker: 0-1 }    — Standalone composite risk per stock
  * @param {number} params.M             Macro regime score 0-1 (higher = stronger / risk-on)
  * @param {Object} params.cfg           Override config fields from DERISK_DEFAULTS
  * @returns {{ weights: Object, cash: number, D: number, aggressiveness: Object, trimmed: boolean }}
  */
-function computeDeriskOverlay({ baseWeights, volExposures, compRisks, M, cfg = {} }) {
+function computeDeriskOverlay({ baseWeights, volScores, compRisks, M, cfg = {} }) {
   const c = { ...DERISK_DEFAULTS, ...cfg };
   const tickers = Object.keys(baseWeights).filter(t => t !== 'CASH');
 
@@ -161,7 +161,7 @@ function computeDeriskOverlay({ baseWeights, volExposures, compRisks, M, cfg = {
 
   // Step 2: Stock aggressiveness score
   // Collect raw vol and composite for normalization
-  const rawVol = tickers.map(t => Number(volExposures[t]) || 0);
+  const rawVol = tickers.map(t => Number(volScores[t]) || 0);
   const rawComp = tickers.map(t => Number(compRisks[t]) || 0);
 
   const minMax = (arr) => {
@@ -378,6 +378,9 @@ export default function MacroRegimePage() {
   const [deriskCfg, setDeriskCfg] = useState(DERISK_DEFAULTS);
   const [showOverlayCfg, setShowOverlayCfg] = useState(false);
 
+  /* ── Realized vol ────────────────────────────────────────────── */
+  const [realizedVol, setRealizedVol] = useState(null);       // { ticker: annualized vol }
+
   /* ── Sandbox / dev mode ─────────────────────────────────────── */
   const [showSandbox, setShowSandbox] = useState(false);
   const [sandboxM, setSandboxM] = useState(0.5);
@@ -431,6 +434,19 @@ export default function MacroRegimePage() {
     return () => { off = true; };
   }, []);
 
+  // Fetch realized vol when allocConfig tickers are known
+  useEffect(() => {
+    if (!allocConfig?.allocations) return;
+    const tickers = allocConfig.allocations.filter(a => a.ticker && a.ticker !== 'CASH').map(a => a.ticker);
+    if (tickers.length === 0) return;
+    (async () => {
+      try {
+        const d = await fetch(`/api/realized-vol?tickers=${tickers.join(',')}`).then(r => r.json());
+        if (d.vols) setRealizedVol(d.vols);
+      } catch {}
+    })();
+  }, [allocConfig]);
+
   useEffect(() => {
     if (!runStatus.running) { if (pollRef.current) clearInterval(pollRef.current); return; }
     pollRef.current = setInterval(async () => {
@@ -482,15 +498,20 @@ export default function MacroRegimePage() {
     return hasCash ? [...stocks, 'CASH'] : stocks;
   }, [allocConfig]);
 
-  // Vol exposures from allocation config (factor index 0 = Volatility)
-  const volExposures = useMemo(() => {
+  // Realized vol per stock (annualized), fallback to factor exposure if not yet loaded
+  const volScores = useMemo(() => {
     if (!allocConfig?.allocations) return {};
     const m = {};
     for (const a of allocConfig.allocations) {
-      if (a.ticker) m[a.ticker] = Number((a.factorExposures || [])[0]) || 0;
+      if (!a.ticker) continue;
+      if (realizedVol && realizedVol[a.ticker] != null) {
+        m[a.ticker] = realizedVol[a.ticker]; // raw annualized vol (e.g. 0.32 = 32%)
+      } else {
+        m[a.ticker] = Number((a.factorExposures || [])[0]) || 0; // fallback
+      }
     }
     return m;
-  }, [allocConfig]);
+  }, [allocConfig, realizedVol]);
 
   // Macro regime score M = equityWeight from predict signal (0-1, higher = risk-on)
   const macroM = predict?.equityWeight ?? null;
@@ -500,24 +521,24 @@ export default function MacroRegimePage() {
     if (macroM == null || allocTickers.length === 0) return null;
     return computeDeriskOverlay({
       baseWeights: allocWeights,
-      volExposures,
+      volScores,
       compRisks: stockRisks,
       M: macroM,
       cfg: deriskCfg,
     });
-  }, [allocWeights, volExposures, stockRisks, macroM, deriskCfg, allocTickers]);
+  }, [allocWeights, volScores, stockRisks, macroM, deriskCfg, allocTickers]);
 
   // Sandbox overlay — uses sandboxM instead of live M
   const sandboxOverlay = useMemo(() => {
     if (!showSandbox || allocTickers.length === 0) return null;
     return computeDeriskOverlay({
       baseWeights: allocWeights,
-      volExposures,
+      volScores,
       compRisks: stockRisks,
       M: sandboxM,
       cfg: deriskCfg,
     });
-  }, [showSandbox, allocWeights, volExposures, stockRisks, sandboxM, deriskCfg, allocTickers]);
+  }, [showSandbox, allocWeights, volScores, stockRisks, sandboxM, deriskCfg, allocTickers]);
 
   const handleAllocChange = (ticker, val) => {
     const n = val === '' ? 0 : Number(val);
@@ -1084,7 +1105,7 @@ export default function MacroRegimePage() {
                     <tr className="border-b border-gray-100 text-[10px] text-gray-400">
                       <th className="py-2 pl-3 text-left">Ticker</th>
                       <th className="px-2 py-2 text-right">Base %</th>
-                      <th className="px-2 py-2 text-right">Vol</th>
+                      <th className="px-2 py-2 text-right">Real Vol</th>
                       <th className="px-2 py-2 text-right">Comp</th>
                       <th className="px-2 py-2 text-right">Agg</th>
                       <th className="px-2 py-2 text-right">Adj %</th>
@@ -1097,13 +1118,13 @@ export default function MacroRegimePage() {
                       const adjW = sandboxOverlay.weights[ticker] ?? baseW;
                       const delta = adjW - baseW;
                       const aggScore = sandboxOverlay.aggressiveness[ticker];
-                      const vol = volExposures[ticker] ?? 0;
+                      const vol = volScores[ticker] ?? 0;
                       const comp = stockRisks[ticker] ?? 0;
                       return (
                         <tr key={ticker} className="border-b border-gray-50">
                           <td className="py-1.5 pl-3 font-medium text-gray-700">{ticker}</td>
                           <td className="px-2 py-1.5 text-right font-mono text-gray-500">{baseW.toFixed(1)}</td>
-                          <td className="px-2 py-1.5 text-right font-mono text-gray-400">{(vol * 100).toFixed(0)}</td>
+                          <td className="px-2 py-1.5 text-right font-mono text-gray-400">{(vol * 100).toFixed(1)}%</td>
                           <td className="px-2 py-1.5 text-right font-mono text-gray-400">{(comp * 100).toFixed(0)}</td>
                           <td className="px-2 py-1.5 text-right font-mono text-gray-400">{aggScore != null ? (aggScore * 100).toFixed(0) : '--'}</td>
                           <td className="px-2 py-1.5 text-right font-mono font-semibold text-gray-800">{adjW.toFixed(2)}</td>
