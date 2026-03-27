@@ -4,9 +4,6 @@
 
 start_date: "2000-01-01"
 # end_date: set to the 1st of the month you want the allocation for.
-# Data through the prior month is used, and the live prediction tells
-# you the allocation for this month. e.g., "2026-03-01" means:
-# download data through Feb 2026, predict March allocation.
 end_date: "2026-03-01"
 
 equity_ticker: "SPY"
@@ -18,12 +15,7 @@ momentum_window: 3
 volatility_window: 3
 
 # -- Model -------------------------------------------------------------
-# C=0.5: moderate regularization. Prevents extreme probabilities that
-# cause the model to go fully defensive during recoveries. Keeps
-# predictions closer to baseline so the allocation favors staying invested.
 regularization_C: 0.5
-# Class balancing is handled via sample weights in the backtest loop
-# (recency * class-balanced). Setting class_weight here too would double-count.
 class_weight: null
 max_iter: 1000
 
@@ -34,32 +26,22 @@ rolling_window_months: 120
 min_train_months: 48
 
 # -- Holdout -----------------------------------------------------------
-# Set to a date like "2020-01-01" to create an untouched holdout period.
-# The validation suite will report in-sample vs holdout metrics separately.
-# Leave as null for normal operation (no holdout).
 holdout_start: "2020-01-01"
 
 # -- Allocation --------------------------------------------------------
-# 95% baseline: the equity premium is real and persistent. The model's
-# job is NOT to constantly adjust — it's to DEFEND during the rare
-# months that matter. Stay invested, cut hard when danger appears.
 baseline_equity: 0.95
 baseline_tbills: 0.05
 
-min_weight: 0.10
+min_weight: 0.1
 max_weight: 0.97
 
-# Steepness 13: moderately decisive. Enough to get defensive during
-# genuine crises but avoids hemorrhaging returns in uncertain months.
-allocation_steepness: 13.0
+allocation_steepness: 13
 
-# Near-instant re-entry (0.98). Slightly delayed defense (0.95)
-# requires signal confirmation — prevents whipsaws on single bad months.
 weight_smoothing_up: 0.98
 weight_smoothing_down: 0.97
 
 # -- Crash Overlay -----------------------------------------------------
 crash_overlay: true
-vix_spike_threshold: 7.0
-drawdown_defense_threshold: -10.0
+vix_spike_threshold: 7
+drawdown_defense_threshold: -10
 credit_spike_threshold: 1.5

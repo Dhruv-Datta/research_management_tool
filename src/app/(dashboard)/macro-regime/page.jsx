@@ -119,6 +119,150 @@ function computePerStockRisk(allocations, riskFactorWeights) {
   return result;
 }
 
+/* ── Macro derisk overlay engine ──────────────────────────────── */
+
+const DERISK_DEFAULTS = {
+  alpha: 0.5,           // blend between vol and composite risk for aggressiveness
+  derisk_start: 0.70,   // M threshold below which derisking kicks in
+  max_trim: 0.20,       // max relative cut from base weight
+  max_boost: 0.10,      // max relative boost above base weight
+  cash_min: 0.002,      // 0.2%
+  cash_max: 0.02,       // 2.0%
+};
+
+/**
+ * Compute macro-adjusted portfolio weights.
+ *
+ * @param {Object} params
+ * @param {Object} params.baseWeights   { ticker: percent } — base portfolio weights (sum ~100)
+ * @param {Object} params.volExposures  { ticker: 0-1 }    — Volatility factor exposure per stock
+ * @param {Object} params.compRisks     { ticker: 0-1 }    — Standalone composite risk per stock
+ * @param {number} params.M             Macro regime score 0-1 (higher = stronger / risk-on)
+ * @param {Object} params.cfg           Override config fields from DERISK_DEFAULTS
+ * @returns {{ weights: Object, cash: number, D: number, aggressiveness: Object, trimmed: boolean }}
+ */
+function computeDeriskOverlay({ baseWeights, volExposures, compRisks, M, cfg = {} }) {
+  const c = { ...DERISK_DEFAULTS, ...cfg };
+  const tickers = Object.keys(baseWeights).filter(t => t !== 'CASH');
+
+  // If no stocks or no signal, return base weights unchanged
+  if (tickers.length === 0 || M == null) {
+    return { weights: { ...baseWeights }, cash: Number(baseWeights.CASH || 0) / 100, D: 0, aggressiveness: {}, trimmed: false };
+  }
+
+  // Convert base weights from percent to fractions
+  const wBase = {};
+  let stockSum = 0;
+  for (const t of tickers) {
+    wBase[t] = (Number(baseWeights[t]) || 0) / 100;
+    stockSum += wBase[t];
+  }
+  const cashBase = (Number(baseWeights.CASH) || 0) / 100;
+
+  // Step 2: Stock aggressiveness score
+  // Collect raw vol and composite for normalization
+  const rawVol = tickers.map(t => Number(volExposures[t]) || 0);
+  const rawComp = tickers.map(t => Number(compRisks[t]) || 0);
+
+  const minMax = (arr) => {
+    const mn = Math.min(...arr);
+    const mx = Math.max(...arr);
+    const range = mx - mn;
+    return arr.map(v => range > 1e-9 ? (v - mn) / range : 0.5);
+  };
+
+  const volNorm = minMax(rawVol);
+  const compNorm = minMax(rawComp);
+
+  const agg = {};
+  tickers.forEach((t, i) => {
+    agg[t] = c.alpha * volNorm[i] + (1 - c.alpha) * compNorm[i];
+  });
+
+  // Step 3: Derisk strength
+  const D = Math.max(0, (c.derisk_start - M) / c.derisk_start);
+
+  // If no derisking needed, return base unchanged with min cash
+  if (D === 0) {
+    const result = {};
+    for (const t of tickers) result[t] = Number(baseWeights[t]) || 0;
+    result.CASH = Number(baseWeights.CASH) || 0;
+    return { weights: result, cash: cashBase, D: 0, aggressiveness: agg, trimmed: false };
+  }
+
+  // Step 4: Relative aggressiveness
+  const aggValues = tickers.map(t => agg[t]);
+  const aggMean = aggValues.reduce((s, v) => s + v, 0) / aggValues.length;
+
+  const Z = {};
+  const aggSide = {};
+  const defSide = {};
+  for (const t of tickers) {
+    Z[t] = agg[t] - aggMean;
+    aggSide[t] = Math.max(0, Z[t]);
+    defSide[t] = Math.max(0, -Z[t]);
+  }
+
+  // Scale to [0,1] using cross-sectional max
+  const maxAgg = Math.max(...tickers.map(t => aggSide[t]));
+  const maxDef = Math.max(...tickers.map(t => defSide[t]));
+
+  const aggScaled = {};
+  const defScaled = {};
+  for (const t of tickers) {
+    aggScaled[t] = maxAgg > 1e-9 ? aggSide[t] / maxAgg : 0;
+    defScaled[t] = maxDef > 1e-9 ? defSide[t] / maxDef : 0;
+  }
+
+  // Step 5: Trim aggressive names
+  const wTrim = {};
+  for (const t of tickers) {
+    wTrim[t] = wBase[t] * (1 - c.max_trim * D * aggScaled[t]);
+  }
+
+  // Step 6: Removed weight
+  let removed = 0;
+  for (const t of tickers) {
+    removed += wBase[t] - wTrim[t];
+  }
+
+  // Step 7: Cash target (strictly one-sided — only use what trimming freed)
+  const cashTarget = c.cash_min + D * (c.cash_max - c.cash_min);
+  const cashExtra = Math.max(0, cashTarget - cashBase);
+  const actualCashExtra = Math.min(cashExtra, removed);
+  const actualCash = cashBase + actualCashExtra;
+  const redistribute = Math.max(0, removed - actualCashExtra);
+
+  // Step 8: Redistribute toward defensive names
+  const defSum = tickers.reduce((s, t) => s + defScaled[t], 0);
+  const wNew = {};
+  for (const t of tickers) {
+    const add = defSum > 1e-9 ? redistribute * (defScaled[t] / defSum) : 0;
+    wNew[t] = wTrim[t] + add;
+  }
+
+  // Step 9: Bound all changes relative to base weight
+  const wBounded = {};
+  for (const t of tickers) {
+    const lower = wBase[t] * (1 - c.max_trim);
+    const upper = wBase[t] * (1 + c.max_boost);
+    wBounded[t] = Math.min(upper, Math.max(lower, wNew[t]));
+  }
+
+  // Step 10: Final renormalization — stocks sum to (1 - actualCash)
+  const boundedSum = tickers.reduce((s, t) => s + wBounded[t], 0);
+  const targetStockSum = 1 - actualCash;
+  const scale = boundedSum > 1e-9 ? targetStockSum / boundedSum : 1;
+
+  const finalWeights = {};
+  for (const t of tickers) {
+    finalWeights[t] = Math.round(wBounded[t] * scale * 10000) / 100; // back to percent, 2 decimals
+  }
+  finalWeights.CASH = Math.round(actualCash * 10000) / 100;
+
+  return { weights: finalWeights, cash: actualCash, D, aggressiveness: agg, trimmed: true };
+}
+
 function cOpts(yf) {
   return {
     responsive: true, maintainAspectRatio: false,
@@ -230,6 +374,14 @@ export default function MacroRegimePage() {
   const [syncingWeights, setSyncingWeights] = useState(false);
   const allocSaveTimer = useRef(null);
 
+  /* ── Derisk overlay config ─────────────────────────────────── */
+  const [deriskCfg, setDeriskCfg] = useState(DERISK_DEFAULTS);
+  const [showOverlayCfg, setShowOverlayCfg] = useState(false);
+
+  /* ── Sandbox / dev mode ─────────────────────────────────────── */
+  const [showSandbox, setShowSandbox] = useState(false);
+  const [sandboxM, setSandboxM] = useState(0.5);
+
   const loadResults = useCallback(async () => {
     try { const d = await fetch('/api/macro-regime/results').then(r => r.json()); if (d.backtest) setResults(d); } catch {}
   }, []);
@@ -254,7 +406,10 @@ export default function MacroRegimePage() {
           fetch('/api/macro-regime/weights').then(r => r.json()),
         ]);
         if (off) return;
-        if (cfgD.config) setConfig({ ...DEFAULT_CONFIG, ...cfgD.config });
+        if (cfgD.config) {
+          setConfig({ ...DEFAULT_CONFIG, ...cfgD.config });
+          if (cfgD.config.deriskOverlay) setDeriskCfg({ ...DERISK_DEFAULTS, ...cfgD.config.deriskOverlay });
+        }
         if (resD.backtest) setResults(resD);
         if (!predD.error) setPredict(predD);
         if (runD.history) setRunHistory(runD.history);
@@ -303,7 +458,8 @@ export default function MacroRegimePage() {
   };
   const saveConfig = async () => {
     try {
-      const d = await fetch('/api/macro-regime/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ config }) }).then(r => r.json());
+      const merged = { ...config, deriskOverlay: deriskCfg };
+      const d = await fetch('/api/macro-regime/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ config: merged }) }).then(r => r.json());
       setToast({ message: d.error || 'Saved', type: d.error ? 'error' : 'success' });
     } catch (e) { setToast({ message: e.message, type: 'error' }); }
   };
@@ -325,6 +481,43 @@ export default function MacroRegimePage() {
     const hasCash = allocConfig.allocations.some(a => a.ticker === 'CASH');
     return hasCash ? [...stocks, 'CASH'] : stocks;
   }, [allocConfig]);
+
+  // Vol exposures from allocation config (factor index 0 = Volatility)
+  const volExposures = useMemo(() => {
+    if (!allocConfig?.allocations) return {};
+    const m = {};
+    for (const a of allocConfig.allocations) {
+      if (a.ticker) m[a.ticker] = Number((a.factorExposures || [])[0]) || 0;
+    }
+    return m;
+  }, [allocConfig]);
+
+  // Macro regime score M = equityWeight from predict signal (0-1, higher = risk-on)
+  const macroM = predict?.equityWeight ?? null;
+
+  // Compute overlay
+  const overlay = useMemo(() => {
+    if (macroM == null || allocTickers.length === 0) return null;
+    return computeDeriskOverlay({
+      baseWeights: allocWeights,
+      volExposures,
+      compRisks: stockRisks,
+      M: macroM,
+      cfg: deriskCfg,
+    });
+  }, [allocWeights, volExposures, stockRisks, macroM, deriskCfg, allocTickers]);
+
+  // Sandbox overlay — uses sandboxM instead of live M
+  const sandboxOverlay = useMemo(() => {
+    if (!showSandbox || allocTickers.length === 0) return null;
+    return computeDeriskOverlay({
+      baseWeights: allocWeights,
+      volExposures,
+      compRisks: stockRisks,
+      M: sandboxM,
+      cfg: deriskCfg,
+    });
+  }, [showSandbox, allocWeights, volExposures, stockRisks, sandboxM, deriskCfg, allocTickers]);
 
   const handleAllocChange = (ticker, val) => {
     const n = val === '' ? 0 : Number(val);
@@ -500,6 +693,92 @@ export default function MacroRegimePage() {
                       className="w-full rounded-lg border border-gray-200 px-2 py-1.5 pr-6 text-[12px] font-mono text-gray-700 tabular-nums focus:border-gray-400 focus:outline-none"
                     />
                     <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-300">%</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ━━ MACRO OVERLAY ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {overlay && allocTickers.length > 0 && (
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xs font-medium text-gray-400 uppercase tracking-wider">Macro-Adjusted Weights</h2>
+              {overlay.trimmed ? (
+                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] text-amber-600">
+                  D = {overlay.D.toFixed(2)}
+                </span>
+              ) : (
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-600">
+                  no derisking
+                </span>
+              )}
+            </div>
+            <button onClick={() => setShowOverlayCfg(v => !v)}
+              className={`h-6 rounded-lg border px-2 text-[10px] ${showOverlayCfg ? 'border-gray-300 bg-gray-50 text-gray-700' : 'border-gray-200 text-gray-400'}`}>
+              <Settings size={10} />
+            </button>
+          </div>
+
+          {/* Overlay config */}
+          {showOverlayCfg && (
+            <div className="mb-3 rounded-xl border border-gray-100 p-3">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+                {[
+                  { key: 'alpha', label: 'Alpha', step: 0.05, desc: 'How much to weight volatility vs composite risk when scoring aggressiveness. 0 = composite only, 1 = volatility only.' },
+                  { key: 'derisk_start', label: 'Derisk Start', step: 0.05, desc: 'Regime score (M) below which the overlay begins trimming. Above this, portfolio stays at base weights.' },
+                  { key: 'max_trim', label: 'Max Trim', step: 0.05, desc: 'Largest relative cut to any stock. 0.20 means a 10% position can drop to 8% at most.' },
+                  { key: 'max_boost', label: 'Max Boost', step: 0.05, desc: 'Largest relative boost for defensive names. 0.10 means a 10% position can rise to 11% at most.' },
+                  { key: 'cash_min', label: 'Cash Min', step: 0.001, desc: 'Minimum cash allocation in strong regimes (decimal). 0.002 = 0.2%.' },
+                  { key: 'cash_max', label: 'Cash Max', step: 0.005, desc: 'Maximum cash allocation in worst regime (decimal). 0.02 = 2.0%.' },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label className="mb-0.5 block text-[10px] text-gray-400">{f.label}</label>
+                    <input type="number" step={f.step} value={deriskCfg[f.key] ?? ''}
+                      onChange={e => setDeriskCfg(p => ({ ...p, [f.key]: Number(e.target.value) }))}
+                      className="w-full rounded-lg border border-gray-200 px-2 py-1 text-[11px] text-gray-700 focus:border-gray-400 focus:outline-none" />
+                    <p className="mt-0.5 text-[9px] leading-tight text-gray-300">{f.desc}</p>
+                  </div>
+                ))}
+                <div className="flex items-end">
+                  <button onClick={saveConfig}
+                    className="inline-flex items-center gap-1 rounded-lg bg-gray-900 px-2.5 py-1 text-[11px] text-white">
+                    <Check size={9} /> Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Adjusted weights grid */}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+            {allocTickers.map(ticker => {
+              const baseW = Number(allocWeights[ticker]) || 0;
+              const adjW = overlay.weights[ticker] ?? baseW;
+              const delta = adjW - baseW;
+              const aggScore = overlay.aggressiveness[ticker];
+              return (
+                <div key={ticker} className={`rounded-xl border px-3 py-2.5 ${
+                  Math.abs(delta) < 0.01 ? 'border-gray-100' : delta < 0 ? 'border-red-100 bg-red-50/30' : 'border-emerald-100 bg-emerald-50/30'
+                }`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-gray-800">{ticker}</span>
+                    {ticker !== 'CASH' && aggScore != null && (
+                      <span className="text-[9px] font-mono text-gray-300" title="Aggressiveness">
+                        agg {(aggScore * 100).toFixed(0)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-sm font-semibold tabular-nums text-gray-900">{adjW.toFixed(1)}%</span>
+                    {Math.abs(delta) >= 0.01 && (
+                      <span className={`text-[10px] font-mono tabular-nums ${delta < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                        {delta > 0 ? '+' : ''}{delta.toFixed(2)}
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -748,6 +1027,127 @@ export default function MacroRegimePage() {
 
         {!results && !sig && <p className="py-8 text-center text-sm text-gray-400">Run a full backtest to get started.</p>}
       </div>
+
+      {/* ━━ SANDBOX / DEV MODE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {allocTickers.length > 0 && (
+        <div className="border-t border-gray-100 pt-8 mt-8">
+          <button onClick={() => setShowSandbox(v => !v)}
+            className="flex w-full items-center gap-2 py-2 text-xs text-gray-400 hover:text-gray-600">
+            <ChevronDown size={12} className={`transition-transform ${showSandbox ? 'rotate-180' : ''}`} />
+            Overlay Sandbox
+          </button>
+
+          {showSandbox && sandboxOverlay && (
+            <div className="mt-4 rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Derisk Sandbox</h3>
+                <div className="flex items-center gap-3">
+                  {sandboxOverlay.trimmed ? (
+                    <span className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-mono text-amber-600">
+                      D = {sandboxOverlay.D.toFixed(3)}
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] text-emerald-600">
+                      no derisking
+                    </span>
+                  )}
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-mono text-gray-500">
+                    cash {(sandboxOverlay.cash * 100).toFixed(2)}%
+                  </span>
+                </div>
+              </div>
+
+              {/* M slider */}
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] text-gray-500">Equity Allocation (M)</label>
+                  <div className="flex items-center gap-2">
+                    <input type="number" min="0" max="1" step="0.01" value={sandboxM}
+                      onChange={e => setSandboxM(Math.min(1, Math.max(0, Number(e.target.value) || 0)))}
+                      className="w-16 rounded-lg border border-gray-200 px-2 py-1 text-[11px] font-mono text-gray-700 text-right focus:border-gray-400 focus:outline-none" />
+                  </div>
+                </div>
+                <input type="range" min="0" max="1" step="0.01" value={sandboxM}
+                  onChange={e => setSandboxM(Number(e.target.value))}
+                  className="w-full h-1.5 rounded-full appearance-none bg-gray-200 accent-gray-900 cursor-pointer" />
+                <div className="flex justify-between mt-1 text-[9px] text-gray-300">
+                  <span>0% — Risk Off</span>
+                  <span className="text-gray-400">derisk_start {deriskCfg.derisk_start}</span>
+                  <span>100% — Risk On</span>
+                </div>
+              </div>
+
+              {/* Per-stock detail table */}
+              <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+                <table className="w-full text-[11px]">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-[10px] text-gray-400">
+                      <th className="py-2 pl-3 text-left">Ticker</th>
+                      <th className="px-2 py-2 text-right">Base %</th>
+                      <th className="px-2 py-2 text-right">Vol</th>
+                      <th className="px-2 py-2 text-right">Comp</th>
+                      <th className="px-2 py-2 text-right">Agg</th>
+                      <th className="px-2 py-2 text-right">Adj %</th>
+                      <th className="px-2 py-2 text-right">Delta</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allocTickers.filter(t => t !== 'CASH').map(ticker => {
+                      const baseW = Number(allocWeights[ticker]) || 0;
+                      const adjW = sandboxOverlay.weights[ticker] ?? baseW;
+                      const delta = adjW - baseW;
+                      const aggScore = sandboxOverlay.aggressiveness[ticker];
+                      const vol = volExposures[ticker] ?? 0;
+                      const comp = stockRisks[ticker] ?? 0;
+                      return (
+                        <tr key={ticker} className="border-b border-gray-50">
+                          <td className="py-1.5 pl-3 font-medium text-gray-700">{ticker}</td>
+                          <td className="px-2 py-1.5 text-right font-mono text-gray-500">{baseW.toFixed(1)}</td>
+                          <td className="px-2 py-1.5 text-right font-mono text-gray-400">{(vol * 100).toFixed(0)}</td>
+                          <td className="px-2 py-1.5 text-right font-mono text-gray-400">{(comp * 100).toFixed(0)}</td>
+                          <td className="px-2 py-1.5 text-right font-mono text-gray-400">{aggScore != null ? (aggScore * 100).toFixed(0) : '--'}</td>
+                          <td className="px-2 py-1.5 text-right font-mono font-semibold text-gray-800">{adjW.toFixed(2)}</td>
+                          <td className={`px-2 py-1.5 text-right font-mono ${Math.abs(delta) < 0.01 ? 'text-gray-300' : delta < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                            {delta > 0 ? '+' : ''}{delta.toFixed(2)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {/* CASH row */}
+                    <tr className="border-t border-gray-200 bg-gray-50/50">
+                      <td className="py-1.5 pl-3 font-medium text-gray-500">CASH</td>
+                      <td className="px-2 py-1.5 text-right font-mono text-gray-400">{(Number(allocWeights.CASH) || 0).toFixed(1)}</td>
+                      <td className="px-2 py-1.5" colSpan={3} />
+                      <td className="px-2 py-1.5 text-right font-mono font-semibold text-gray-800">{(sandboxOverlay.weights.CASH ?? 0).toFixed(2)}</td>
+                      <td className={`px-2 py-1.5 text-right font-mono ${
+                        ((sandboxOverlay.weights.CASH ?? 0) - (Number(allocWeights.CASH) || 0)) > 0.01 ? 'text-emerald-600' : 'text-gray-300'
+                      }`}>
+                        {(((sandboxOverlay.weights.CASH ?? 0) - (Number(allocWeights.CASH) || 0)) > 0 ? '+' : '')}
+                        {((sandboxOverlay.weights.CASH ?? 0) - (Number(allocWeights.CASH) || 0)).toFixed(2)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Summary stats */}
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  { label: 'Regime Score (M)', value: sandboxM.toFixed(2) },
+                  { label: 'Derisk Strength (D)', value: sandboxOverlay.D.toFixed(3) },
+                  { label: 'Target Cash', value: `${(sandboxOverlay.cash * 100).toFixed(2)}%` },
+                  { label: 'Total Adj Weight', value: `${Object.values(sandboxOverlay.weights).reduce((s, v) => s + v, 0).toFixed(1)}%` },
+                ].map(s => (
+                  <div key={s.label} className="rounded-lg bg-white border border-gray-100 px-3 py-2">
+                    <div className="text-[9px] text-gray-400 uppercase tracking-wide">{s.label}</div>
+                    <div className="text-sm font-semibold font-mono text-gray-800 mt-0.5">{s.value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {toast && <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
     </div>
