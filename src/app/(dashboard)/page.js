@@ -999,14 +999,14 @@ export default function DashboardPage() {
           { key: 'inflation_impulse', label: 'Inflation Impulse', desc: '3M annualized vs YoY gap', unit: '%' },
           { key: 'unemployment_rate', label: 'Unemployment', desc: 'U.S. unemployment rate', unit: '%' },
           { key: 'credit_spread_level', label: 'Credit Spread', desc: 'High-yield bond spread', unit: '%' },
-          { key: 'credit_spread_3m_change', label: 'Credit Spd 3M', desc: '3-month spread change', unit: '%', signed: true },
+          { key: 'credit_spread_3m_change', label: 'Credit Spd 3M', desc: '3M spread change', unit: '%', signed: true },
           { key: 'real_fed_funds', label: 'Real Fed Funds', desc: 'Fed funds minus inflation', unit: '%', signed: true },
           { key: 'yield_curve_slope', label: 'Yield Curve', desc: '10Y minus 2Y Treasury', unit: '%', signed: true },
           { key: 'vix_1m_change', label: 'VIX 1M Change', desc: 'Monthly volatility shift', unit: 'pts', signed: true },
-          { key: 'vix_term_structure', label: 'VIX Term Struct', desc: 'VIX / VIX3M ratio', unit: 'x' },
-          { key: 'equity_momentum_3m', label: 'Equity Momentum', desc: '3-month price return', unit: '%', signed: true },
-          { key: 'equity_vol_3m', label: 'Equity Volatility', desc: '3-month annualized vol', unit: '%' },
-          { key: 'equity_drawdown_from_high', label: 'Drawdown', desc: 'Drop from peak close in past 12M', unit: '%' },
+          { key: 'vix_term_structure', label: 'VIX Term Structure', desc: 'VIX / VIX3M ratio', unit: 'x' },
+          { key: 'equity_momentum_3m', label: 'Equity Momentum', desc: '3M price return', unit: '%', signed: true },
+          { key: 'equity_vol_3m', label: 'Equity Volatility', desc: '3M annualized vol', unit: '%' },
+          { key: 'equity_drawdown_from_high', label: 'Drawdown', desc: 'Drop from peak in past 1Y', unit: '%' },
         ];
         const fmtFeature = (f, v) => {
           if (v == null) return '—';
@@ -1048,11 +1048,11 @@ export default function DashboardPage() {
 
             <div className="flex items-start gap-6">
               {/* Doughnut — pinned left */}
-              <div className="flex-shrink-0 w-40 relative self-stretch flex items-center">
-                <div className="w-full relative">
-                  <Doughnut data={doughnutData} options={doughnutOpts} />
+              <div className="flex-shrink-0 relative self-stretch flex items-center">
+                <div className="w-44 h-44 relative">
+                  <Doughnut data={doughnutData} options={{ ...doughnutOpts, maintainAspectRatio: false }} />
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-1">
-                    <span className="text-xl font-extrabold text-gray-900">{eqPct}%</span>
+                    <span className="text-2xl font-extrabold text-gray-900">{eqPct}%</span>
                     <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full ${c.badge}`}>
                       {regime}
                     </span>
@@ -1061,19 +1061,19 @@ export default function DashboardPage() {
               </div>
 
               {/* 12-feature grid — fills right */}
-              <div className="flex-1 min-w-0 grid grid-cols-4 gap-2.5">
+              <div className="flex-1 min-w-0 grid grid-cols-4 gap-2.5" style={{ gridAutoRows: '1fr' }}>
                 {allFeatures.map(f => {
                   const v = ms[f.key];
                   const hasValue = v != null && Number.isFinite(v);
                   return (
-                    <div key={f.key} className="px-3 py-2 bg-gray-50 rounded-xl">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[11px] font-semibold text-gray-700">{f.label}</span>
-                        <span className={`text-[12px] font-bold font-mono ${hasValue ? 'text-gray-900' : 'text-gray-300'}`}>
-                          {fmtFeature(f, v)}
-                        </span>
+                    <div key={f.key} className="px-3 py-2.5 bg-gray-50 rounded-xl flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-semibold text-gray-700">{f.label}</div>
+                        <div className="text-[11px] text-gray-400">{f.desc}</div>
                       </div>
-                      <div className="text-[10px] text-gray-400">{f.desc}</div>
+                      <span className={`text-sm font-bold font-mono flex-shrink-0 ml-2 ${hasValue ? 'text-gray-900' : 'text-gray-300'}`}>
+                        {fmtFeature(f, v)}
+                      </span>
                     </div>
                   );
                 })}
