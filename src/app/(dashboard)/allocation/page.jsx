@@ -11,7 +11,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Scatter } from 'react-chartjs-2';
-import { BarChart3, Settings, Target, Zap, X, SlidersHorizontal, RotateCcw, RefreshCw } from 'lucide-react';
+import { BarChart3, Settings, Target, Zap, X, SlidersHorizontal, RotateCcw, RefreshCw, Loader2 } from 'lucide-react';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
 
@@ -283,6 +283,16 @@ const getColorFromScale = (value) => {
   return `rgb(${Math.round(lerp(r1, r2, ratio))}, ${Math.round(lerp(g1, g2, ratio))}, ${Math.round(lerp(b1, b2, ratio))})`;
 };
 
+// Standard normal CDF via Abramowitz & Stegun rational approximation (|error| < 1.5e-7)
+const normalCDF = (x) => {
+  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429;
+  const p = 0.3275911;
+  const sign = x < 0 ? -1 : 1;
+  const t = 1.0 / (1.0 + p * Math.abs(x));
+  const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x / 2);
+  return 0.5 * (1.0 + sign * y);
+};
+
 export default function AllocationPage() {
   const [allocations, setAllocations] = useState(createDefaultAllocations);
   const [riskFactorWeights, setRiskFactorWeights] = useState(defaultRiskFactorWeights);
@@ -314,6 +324,96 @@ export default function AllocationPage() {
   const saveTimer = useRef(null);
   const tableRef = useRef(null);
   const rbTableRef = useRef(null);
+
+  // --- Auto-computed Vol Scores from realized volatility ---
+  const [volScoresLoading, setVolScoresLoading] = useState({});  // { ticker: true }
+  const volFetchTimer = useRef(null);
+  const lastVolTickers = useRef('');
+
+  // Derive a stable ticker-list string to avoid re-triggering on unrelated allocation changes
+  const allocTickerKey = useMemo(() => {
+    return allocations
+      .map(r => r.ticker.trim().toUpperCase())
+      .filter(t => t && t !== 'CASH')
+      .sort()
+      .join(',');
+  }, [allocations]);
+
+  useEffect(() => {
+    if (!loaded || !allocTickerKey || allocTickerKey === lastVolTickers.current) return;
+
+    if (volFetchTimer.current) clearTimeout(volFetchTimer.current);
+    volFetchTimer.current = setTimeout(async () => {
+      const tickers = allocTickerKey.split(',');
+      lastVolTickers.current = allocTickerKey;
+      // Mark all tickers as loading
+      const loadingMap = {};
+      tickers.forEach(t => { loadingMap[t] = true; });
+      setVolScoresLoading(loadingMap);
+
+      try {
+        const res = await fetch(`/api/realized-vol?tickers=${tickers.join(',')}&days=252`);
+        const { vols } = await res.json();
+        if (!vols || Object.keys(vols).length === 0) {
+          setVolScoresLoading({});
+          return;
+        }
+
+        // Compute cross-sectional statistics of realized vols
+        const volValues = Object.values(vols);
+        const n = volValues.length;
+        if (n < 2) {
+          // With < 2 tickers, assign 0.5 to all (no distribution to compare against)
+          setAllocations(prev => prev.map(row => {
+            const t = row.ticker.trim().toUpperCase();
+            if (t === 'CASH' || !vols[t]) return row;
+            const exposures = [...row.factorExposures];
+            exposures[0] = '0.50';
+            return { ...row, factorExposures: exposures };
+          }));
+          setVolScoresLoading({});
+          return;
+        }
+
+        const mean = volValues.reduce((s, v) => s + v, 0) / n;
+        const variance = volValues.reduce((s, v) => s + (v - mean) ** 2, 0) / (n - 1); // sample variance (Bessel-corrected)
+        const rawStd = Math.sqrt(variance);
+
+        // Floor the std at 5% (annualized) so that when all tickers have similar
+        // vol, trivial differences don't get amplified into extreme scores.
+        // 5% is roughly the boundary where vol differences start being meaningful.
+        const STD_FLOOR = 0.05;
+        const std = Math.max(rawStd, STD_FLOOR);
+
+        // For each ticker, compute z-score and map through standard normal CDF
+        // with a compression factor κ = 0.5 applied to the z-score:
+        //   score = Φ(κ · (vol_i − μ) / max(σ, 5%))
+        //
+        // The std floor ensures tightly-clustered vols all score near 0.5.
+        // The compression prevents extreme scores for outlier tickers.
+        const VOL_COMPRESSION = 0.5;
+        const scores = {};
+        for (const [ticker, vol] of Object.entries(vols)) {
+          const z = std > 0 ? (vol - mean) / std : 0;
+          scores[ticker] = normalCDF(z * VOL_COMPRESSION);
+        }
+
+        setAllocations(prev => prev.map(row => {
+          const t = row.ticker.trim().toUpperCase();
+          if (t === 'CASH' || scores[t] === undefined) return row;
+          const exposures = [...row.factorExposures];
+          exposures[0] = scores[t].toFixed(2);
+          return { ...row, factorExposures: exposures };
+        }));
+      } catch (err) {
+        console.error('Failed to compute vol scores:', err);
+      } finally {
+        setVolScoresLoading({});
+      }
+    }, 1000); // debounce 1s
+
+    return () => { if (volFetchTimer.current) clearTimeout(volFetchTimer.current); };
+  }, [loaded, allocTickerKey]);
 
   const handleColumnTab = (e, colName, rowIdx) => {
     if (e.key !== 'Tab') return;
@@ -1248,18 +1348,29 @@ export default function AllocationPage() {
               <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-50">
                 <span className="text-[10px] font-medium text-gray-300 uppercase tracking-wide shrink-0">Risk Factors</span>
                 <div className="flex items-center gap-3 flex-wrap">
-                  {row.factorExposures.map((value, index) => (
+                  {row.factorExposures.map((value, index) => {
+                    const ticker = row.ticker.trim().toUpperCase();
+                    const isVolLoading = index === 0 && ticker !== 'CASH' && volScoresLoading[ticker];
+                    return (
                     <div key={`${row.id}-${riskFactors[index]}`} className="flex items-center gap-1.5">
                       <span className="text-[11px] text-gray-400">{riskFactors[index]}</span>
+                      {isVolLoading ? (
+                        <div className="w-14 h-[22px] flex items-center justify-center">
+                          <Loader2 size={12} className="animate-spin text-emerald-500" />
+                        </div>
+                      ) : (
                       <input
                         type="number" min="0" step="0.01"
                         value={value}
                         onChange={(e) => updateAllocationExposure(row.id, index, e.target.value)}
-                        className="w-14 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-md px-1.5 py-0.5 text-right focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 outline-none transition-all"
+                        className={`w-14 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-md px-1.5 py-0.5 text-right focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 outline-none transition-all ${index === 0 && ticker !== 'CASH' ? 'border-emerald-200 bg-emerald-50/30' : ''}`}
                         placeholder="0"
+                        title={index === 0 && ticker !== 'CASH' ? 'Auto-computed from realized vol (CDF of cross-sectional distribution)' : ''}
                       />
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
