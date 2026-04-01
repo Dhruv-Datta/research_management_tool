@@ -788,7 +788,7 @@ export default function AllocationPage() {
     setTimeout(() => _runSimulation(), 50);
   };
 
-  const _runSimulation = () => {
+  const _runSimulation = async () => {
 
     const filtered = allocations.filter(
       (row) =>
@@ -897,23 +897,7 @@ export default function AllocationPage() {
       row.map((value, j) => value * factorWeights[i] * factorWeights[j])
     );
 
-    // Market covariance: uses raw (unweighted) factor covariance
-    const marketMatrix = Array.from({ length: assets.length }, () =>
-      Array.from({ length: assets.length }, () => 0)
-    );
-    for (let i = 0; i < assets.length; i += 1) {
-      for (let j = 0; j < assets.length; j += 1) {
-        let sum = 0;
-        for (let k = 0; k < factorCount; k += 1) {
-          for (let l = 0; l < factorCount; l += 1) {
-            sum += normalizedFactors[i][k] * covarianceFactors[k][l] * normalizedFactors[j][l];
-          }
-        }
-        marketMatrix[i][j] = sum;
-      }
-    }
-
-    // Composite covariance: uses risk-factor-weighted covariance
+    // Composite covariance: uses risk-factor-weighted covariance (all m factors)
     const compositeOnlyMatrix = Array.from({ length: assets.length }, () =>
       Array.from({ length: assets.length }, () => 0)
     );
@@ -926,6 +910,73 @@ export default function AllocationPage() {
           }
         }
         compositeOnlyMatrix[i][j] = sum;
+      }
+    }
+
+    // Market covariance: real return covariance matrix from historical data (Markowitz-style).
+    // Fetched from /api/return-covariance, then scale-matched to the composite matrix so
+    // lambda blending is meaningful (otherwise market side dominates by ~10-100x).
+    //
+    // Scale-matching: compute avg diagonal (variance) of both matrices for non-CASH
+    // assets, then rescale the market matrix so its avg variance equals the composite's.
+    // This preserves the correlation structure from market data while keeping magnitudes
+    // compatible with the synthetic composite side.
+    const nonCashIndices = assets.map((t, i) => ({ t, i })).filter(x => x.t !== 'CASH');
+    const nonCashTickers = nonCashIndices.map(x => x.t);
+
+    let marketMatrix = Array.from({ length: assets.length }, () =>
+      Array.from({ length: assets.length }, () => 0)
+    );
+
+    if (nonCashTickers.length >= 2) {
+      try {
+        const covRes = await fetch(`/api/return-covariance?tickers=${nonCashTickers.join(',')}&days=252`);
+        const covData = await covRes.json();
+        if (covData.matrix && covData.tickers) {
+          // Build a lookup from ticker -> index in the returned matrix
+          const retTickers = covData.tickers;
+          const retMatrix = covData.matrix;
+          const retIdx = {};
+          retTickers.forEach((t, i) => { retIdx[t] = i; });
+
+          // Map the return covariance into our asset-order matrix
+          const rawMarket = Array.from({ length: assets.length }, () =>
+            Array.from({ length: assets.length }, () => 0)
+          );
+          for (let i = 0; i < assets.length; i++) {
+            for (let j = 0; j < assets.length; j++) {
+              const ri = retIdx[assets[i]];
+              const rj = retIdx[assets[j]];
+              if (ri !== undefined && rj !== undefined) {
+                rawMarket[i][j] = retMatrix[ri][rj];
+              }
+            }
+          }
+
+          // Scale-match: avg variance of non-CASH diagonals
+          let marketAvgVar = 0, compositeAvgVar = 0, count = 0;
+          for (const { i } of nonCashIndices) {
+            if (retIdx[assets[i]] !== undefined) {
+              marketAvgVar += rawMarket[i][i];
+              compositeAvgVar += compositeOnlyMatrix[i][i];
+              count++;
+            }
+          }
+          marketAvgVar /= Math.max(count, 1);
+          compositeAvgVar /= Math.max(count, 1);
+
+          const scaleFactor = (marketAvgVar > 1e-12 && compositeAvgVar > 1e-12)
+            ? compositeAvgVar / marketAvgVar
+            : 1;
+
+          for (let i = 0; i < assets.length; i++) {
+            for (let j = 0; j < assets.length; j++) {
+              marketMatrix[i][j] = rawMarket[i][j] * scaleFactor;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch return covariance, market side will be zero:', err);
       }
     }
 
