@@ -1266,7 +1266,7 @@ export default function AllocationPage() {
                     <input type="number" min="0" step="0.01" value={cashMaxWeight} onChange={(e) => setCashMaxWeight(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all" />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Cov Blend Lambda</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Cov Blend Lambda <span className="text-gray-400 font-normal">(0=composite, 1=market)</span></label>
                     <input type="number" min="0" max="1" step="0.05" value={covLambda} onChange={(e) => setCovLambda(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all" />
                     <p className="text-[10px] text-gray-400 mt-1">0 = composite only, 1 = market only</p>
                   </div>

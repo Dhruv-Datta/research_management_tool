@@ -6,7 +6,12 @@ It is intentionally math-heavy and doubles as an audit. The goal is not just to 
 
 ## High-level verdict
 
-The portfolio allocation optimizer is mathematically coherent as a synthetic factor-risk scoring engine, but it is not a classical mean-variance optimizer in the Markowitz sense because its "covariance" is not estimated from time-series asset returns. Its risk number is better interpreted as a custom exposure-based risk score.
+The portfolio allocation optimizer is a hybrid risk engine. It blends two covariance views:
+
+1. A **market covariance** estimated from historical daily returns (traditional Markowitz), scale-matched so it can be meaningfully combined with the synthetic side.
+2. A **composite covariance** built from user-supplied factor exposures and importance weights (synthetic factor-risk scoring).
+
+The `lambda` parameter (configurable in Settings as "Cov Blend Lambda") controls the mix. At `lambda = 1`, the optimizer is a traditional mean-variance engine. At `lambda = 0`, it is a pure synthetic factor-scoring engine. At intermediate values, the optimizer uses both empirical market data and subjective factor judgments to define risk.
 
 ## Code map
 
@@ -44,15 +49,13 @@ Volatility_like(w) = sqrt(max(w^T Sigma w, 0))
 Sharpe_like(w) = (ExpectedReturn(w) - r_f) / Volatility_like(w)
 ```
 
-where `r_f` is the user-entered risk-free rate and `Sigma` is a synthetic matrix built from factor exposures, not return data.
+where `r_f` is the user-entered risk-free rate and `Sigma` is the blended covariance matrix (see section 4).
 
-This is the single most important interpretive point:
+Key interpretive points:
 
 - `ExpectedReturn(w)` is a user belief input
-- `Volatility_like(w)` is a custom exposure-risk score
-- `Sharpe_like(w)` is therefore not a literal empirical Sharpe ratio
-
-It is still a valid optimization score, but it is not "expected excess return divided by estimated return volatility" in the usual finance sense.
+- `Volatility_like(w)` is a blended risk score: part empirical return volatility (market side), part synthetic factor-exposure risk (composite side), controlled by `lambda`
+- `Sharpe_like(w)` is therefore a hybrid metric — at `lambda = 1` it approaches a true Sharpe ratio, at `lambda = 0` it is a synthetic factor-scoring ratio
 
 ## 3. How the synthetic covariance matrix is built
 
@@ -150,13 +153,21 @@ Interpretation:
 
 ## 5. Why this matrix is mathematically valid
 
-Even though `Sigma` is not a return covariance matrix, it is mathematically well-formed.
+Both sides of the blend are positive semidefinite, and so is the result.
 
-Reason:
+For the composite side:
 
 - `C` is a sample covariance matrix, so it is positive semidefinite
 - `C_weighted = D C D` is also positive semidefinite when `D` is diagonal with nonnegative entries
-- For any matrix `B`, both `B C B^T` and `B C_weighted B^T` are positive semidefinite
+- For any matrix `B`, `B C_weighted B^T` is positive semidefinite
+
+For the market side:
+
+- `Sigma_market` is a sample covariance matrix of returns, which is positive semidefinite by construction
+- Multiplying by a positive scalar (the scale factor) preserves positive semidefiniteness
+
+For the blend:
+
 - A convex combination of positive semidefinite matrices is positive semidefinite
 
 Therefore:
@@ -168,9 +179,7 @@ x^T Sigma x >= 0
 
 So the optimizer's risk score cannot become negative except for floating-point noise.
 
-That is the good news.
-
-The important caveat is that positive semidefinite does not imply financially calibrated. It only implies internal mathematical consistency.
+At `lambda = 1`, `Sigma` is a scaled version of a real return covariance matrix, so the optimizer is financially calibrated (modulo the scale factor). At intermediate lambda values, the blend mixes empirical and synthetic risk views. At `lambda = 0`, the risk score is purely synthetic and should not be interpreted as return volatility in the usual sense.
 
 ## 6. Standalone per-stock risk
 
@@ -324,50 +333,56 @@ Likewise, the code's displayed "Composite Ratio" is just min-max normalized Shar
 
 ## 10. What this optimizer is really doing
 
-Mathematically, the allocation page is closer to:
+The optimizer is a blend of two approaches, controlled by `lambda`:
 
-"Find feasible weights that maximize user-expected return per unit of synthetic factor-exposure dispersion"
+- At `lambda = 1`: "Find feasible weights that maximize expected return per unit of empirical return volatility" — this is classical Markowitz mean-variance optimization (via Monte Carlo search rather than analytical solution).
+- At `lambda = 0`: "Find feasible weights that maximize expected return per unit of synthetic factor-exposure dispersion" — this is a custom factor-scoring optimizer.
+- At intermediate values: the optimizer interpolates between these two views of risk.
 
-than to:
-
-"Estimate a return covariance matrix and solve a Markowitz efficient frontier"
-
-That does not make it wrong. It just changes how results should be interpreted.
+The default `lambda = 0.3` means the optimizer is 30% market-driven and 70% factor-model-driven.
 
 ## 11. Audit
 
 ### 11.1 What is mathematically coherent
 
-- The optimizer's synthetic covariance matrix is positive semidefinite, so the risk score is mathematically valid.
+- Both the market and composite covariance matrices are positive semidefinite, and the blend preserves this property.
+- The scale-matching ensures the lambda blend is meaningful rather than one side dominating.
 - The auto-computed vol score is statistically well-founded: CDF of a fitted normal with compression and a std floor.
 - The Monte Carlo search correctly identifies the argmax of the Sharpe-like score over the feasible set.
+- At `lambda = 1`, the optimizer is a legitimate (if approximate) Markowitz mean-variance optimizer.
 
 ### 11.2 Findings
 
 | Severity | Area | Finding | Why it matters |
 | :--- | :--- | :--- | :--- |
-| High | Optimizer semantics | The optimizer's `volatility` and `sharpe` are synthetic, not empirical return volatility and Sharpe. | This is fine if intentional, but the UI and names make it easy to interpret the frontier as a classical efficient frontier when it is really a factor-exposure scoring surface. |
-| Medium | Covariance construction | The optimizer normalizes factor columns by cross-sectional sums before computing covariance. | Uniformly scaling a whole factor column leaves the covariance unchanged, so common factor level is ignored. Only relative exposure shares matter. |
+| Medium | Scale-matching | The market matrix is rescaled by avg-variance ratio to match the composite side. | This is a reasonable heuristic but not the only valid approach. It preserves correlations exactly but distorts the absolute risk level. At `lambda = 1`, the optimizer's "volatility" is not in real return units — it is in composite-scale units. |
+| Medium | Composite covariance | The optimizer normalizes factor columns by cross-sectional sums before computing covariance. | Uniformly scaling a whole factor column leaves the covariance unchanged, so common factor level is ignored. Only relative exposure shares matter. |
 | Medium | Cash handling | `CASH` defaults to expected return `0`, while the score subtracts a positive risk-free rate. | Cash is treated as zero-risk but not as earning the risk-free rate unless the user manually enters that expected return. That biases the optimizer against cash. |
 | Low | Sampling | The Monte Carlo optimizer samples normalized `Uniform(0,1)` draws. | That does not induce a uniform distribution on the simplex. Frontier coverage is therefore approximate and biased by the sampler. |
 | Low | UI naming | "Composite Risk" and "Composite Ratio" in the chart are min-max normalized display scores, not fundamental quantities. | The display is directionally useful, but the names overstate the mathematical meaning of those numbers. |
-| Low | UI text | The standalone risk card displays `lambda`, but standalone risk itself does not use `lambda`. | This is a wording mismatch, not a core logic bug. |
+| Low | Graceful degradation | If the return covariance fetch fails, the market matrix is zero and the blend falls back to pure composite regardless of lambda. | This is silent — the user may not notice. |
 
 ### 11.3 Does the optimizer do what it says it is trying to do?
 
-Yes, but only if you interpret it correctly.
+Yes. The optimizer now genuinely blends empirical market risk with subjective factor-model risk, controlled by lambda. At `lambda = 1` it is a real (scale-adjusted) Markowitz optimizer. At `lambda = 0` it is a pure factor-scoring optimizer. At intermediate values it interpolates between the two.
 
-It is not estimating a true covariance of asset returns. It is building a user-guided synthetic risk geometry from factor exposures (with the volatility factor now grounded in realized market data), then searching for feasible portfolios with strong expected return per unit of that synthetic risk.
+## 12. Settings reference
 
-## 12. Recommended interpretation and next fixes
+The following parameters are configurable in the Settings panel:
 
-If the current design is intentional, the safest interpretation is:
+| Parameter | Default | Description |
+| :--- | :--- | :--- |
+| Risk-Free Rate | 4% | Subtracted from expected return in the Sharpe-like score |
+| Number of Portfolios | 100,000 | Monte Carlo samples to generate |
+| Stock Min Weight | 3% | Minimum allocation per non-cash asset |
+| Stock Max Weight | 15% | Maximum allocation per non-cash asset |
+| Cash Min Weight | 1% | Minimum cash allocation |
+| Cash Max Weight | 5% | Maximum cash allocation |
+| Cov Blend Lambda | 0.3 | Blend between market (`1`) and composite (`0`) covariance. At `0` the optimizer uses only the synthetic factor model. At `1` it uses only the empirical return covariance from historical data. |
+| Risk Factor Weights | Vol: 0.9, Reg: 0.3, Disr: 0.7, Val: 0.6, EQ: 0.8 | Importance weights applied to the composite covariance side |
 
-- The allocation page is a custom factor-scoring optimizer where the volatility factor is empirically calibrated and the remaining factors are user-supplied judgments.
+## 13. Recommended next fixes
 
-If the goal is to make the system more mathematically faithful to standard portfolio theory, the highest-value fixes would be:
-
-1. Decide whether the allocation page should be a true return-covariance optimizer or an explicit synthetic factor optimizer, then name it accordingly.
-2. If keeping the synthetic optimizer, relabel `volatility` and `sharpe` to something like `composite_risk` and `excess_return_per_risk`.
-3. Treat `CASH` expected return explicitly as the risk-free rate when that is the intended semantics.
-4. If frontier sampling quality matters, replace normalized uniform draws with a proper simplex sampler such as Dirichlet draws.
+1. Treat `CASH` expected return explicitly as the risk-free rate when that is the intended semantics.
+2. If frontier sampling quality matters, replace normalized uniform draws with a proper simplex sampler such as Dirichlet draws.
+3. Consider surfacing a warning in the UI when the return covariance fetch fails and the market side silently falls back to zero.
