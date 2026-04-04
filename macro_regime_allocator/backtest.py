@@ -244,7 +244,9 @@ def run_backtest(features: pd.DataFrame, labels: pd.DataFrame, cfg: Config) -> d
         rebalance_date = all_dates[i]
 
         # Only train on labels whose forward window is fully realized
-        train_end = i - horizon
+        # Label at i-horizon has forward window ending at i, which is realized
+        # at prediction time i (we observe month i's close before predicting)
+        train_end = i - horizon + 1
         if train_end < 1:
             continue
 

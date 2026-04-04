@@ -88,11 +88,12 @@ def main():
                               cfg.min_weight, cfg.max_weight)
         weights = np.array([smoothed_eq, 1.0 - smoothed_eq])
 
-        allocation_month = latest_date + pd.DateOffset(months=1)
+        data_as_of = latest_date - pd.DateOffset(months=cfg.macro_lag_months)
+        allocation_month = latest_date
         print(f"\n╔══════════════════════════════════════════════════════════════╗")
         print(f"║               CURRENT ALLOCATION SIGNAL                     ║")
         print(f"╚══════════════════════════════════════════════════════════════╝")
-        print(f"  Data as of:              {latest_date.strftime('%Y-%m')}")
+        print(f"  Data as of:              {data_as_of.strftime('%Y-%m')}")
         print(f"  Allocation for:          {allocation_month.strftime('%Y-%m')}")
         print(f"  P(equity beats T-bills): {proba[0]:.3f}")
         print(f"  P(T-bills win):          {proba[1]:.3f}")
@@ -113,7 +114,7 @@ def main():
         # Save live prediction so the web UI can serve it
         import json
         live_pred = {
-            "rebalance_date": latest_date.strftime("%Y-%m-%d"),
+            "rebalance_date": data_as_of.strftime("%Y-%m-%d"),
             "allocation_month": allocation_month.strftime("%Y-%m-%d"),
             "prob_equity": float(proba[0]),
             "prob_tbills": float(proba[1]),
@@ -190,8 +191,9 @@ def main():
                               cfg.min_weight, cfg.max_weight)
         weights = np.array([smoothed_eq, 1.0 - smoothed_eq])
 
-        allocation_month = latest_date + pd.DateOffset(months=1)
-        print(f"  Data as of:              {latest_date.strftime('%Y-%m')}")
+        data_as_of = latest_date - pd.DateOffset(months=cfg.macro_lag_months)
+        allocation_month = latest_date
+        print(f"  Data as of:              {data_as_of.strftime('%Y-%m')}")
         print(f"  Allocation for:          {allocation_month.strftime('%Y-%m')}")
         print(f"  P(equity beats T-bills): {proba[0]:.3f}")
         print(f"  P(T-bills win):          {proba[1]:.3f}")
@@ -212,7 +214,7 @@ def main():
         # Save live prediction so the web UI can serve it
         import json
         live_pred = {
-            "rebalance_date": latest_date.strftime("%Y-%m-%d"),
+            "rebalance_date": data_as_of.strftime("%Y-%m-%d"),
             "allocation_month": allocation_month.strftime("%Y-%m-%d"),
             "prob_equity": float(proba[0]),
             "prob_tbills": float(proba[1]),
