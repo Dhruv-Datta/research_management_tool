@@ -10,7 +10,37 @@ const OUTPUT_DIR = path.join(MACRO_DIR, 'outputs');
 const STATUS_FILE = '/tmp/macro-regime-run-status.json';
 const LOG_FILE = '/tmp/macro-regime-run-output.log';
 
+const CONFIG_YAML = path.join(MACRO_DIR, 'config.yaml');
 const VALID_COMMANDS = ['run', 'predict', 'fast', 'validate', 'clean'];
+
+/** Sync Supabase config → config.yaml so the Python process uses the UI values. */
+async function syncConfigToYaml() {
+  try {
+    const { data } = await supabase
+      .from('macro_regime_config')
+      .select('config')
+      .eq('id', 1)
+      .single();
+    if (!data?.config) return;
+    const cfg = data.config;
+    // Build YAML manually to keep it readable (no js-yaml dependency)
+    const lines = [
+      '# Auto-synced from UI config before run',
+      '',
+    ];
+    for (const [k, v] of Object.entries(cfg)) {
+      if (k === 'deriskOverlay') continue; // frontend-only field
+      if (v === null) lines.push(`${k}: null`);
+      else if (typeof v === 'boolean') lines.push(`${k}: ${v}`);
+      else if (typeof v === 'number') lines.push(`${k}: ${v}`);
+      else lines.push(`${k}: "${v}"`);
+    }
+    lines.push('');
+    fs.writeFileSync(CONFIG_YAML, lines.join('\n'));
+  } catch (err) {
+    console.error('syncConfigToYaml:', err.message);
+  }
+}
 
 function loadEnvFile() {
   try {
@@ -256,6 +286,9 @@ export async function POST(req) {
 
       return NextResponse.json({ status: 'started', command, pid: null });
     }
+
+    // Sync UI config to config.yaml before running
+    await syncConfigToYaml();
 
     const proc = spawn('make', [command], {
       cwd: MACRO_DIR,
