@@ -12,8 +12,24 @@ import {
 } from 'chart.js';
 import { Scatter } from 'react-chartjs-2';
 import { BarChart3, Settings, Target, Zap, X, SlidersHorizontal, RotateCcw, RefreshCw, Loader2 } from 'lucide-react';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
+
+// KaTeX rendering helpers
+const Tex = ({ children, display = false }) => (
+  <span
+    dangerouslySetInnerHTML={{
+      __html: katex.renderToString(children, { displayMode: display, throwOnError: false }),
+    }}
+  />
+);
+const D = ({ children }) => (
+  <div className="my-2 overflow-x-auto">
+    <Tex display>{children}</Tex>
+  </div>
+);
 
 const riskFactors = ['Volatility', 'Regulatory', 'Disruption', 'Valuation', 'Earnings Quality'];
 const riskFactorShortLabels = ['Vol', 'Reg', 'Disr', 'Val', 'EQ'];
@@ -897,7 +913,13 @@ export default function AllocationPage() {
       row.map((value, j) => value * factorWeights[i] * factorWeights[j])
     );
 
-    // Composite covariance: uses risk-factor-weighted covariance (all m factors)
+    // Sigma_composite: synthetic factor-based covariance matrix.
+    // Computed as B * (D * C * D) * B^T where:
+    //   B = normalizedFactors (n_assets x m_factors), column-L1-normalized exposure matrix
+    //   C = covarianceFactors (m_factors x m_factors), cross-sectional factor covariance
+    //   D = diag(factorWeights), user-specified factor importance weights
+    // This encodes structural risk relationships without requiring return history.
+    // It will later be trace-normalized and blended with empirical return covariance.
     const compositeOnlyMatrix = Array.from({ length: assets.length }, () =>
       Array.from({ length: assets.length }, () => 0)
     );
@@ -913,18 +935,41 @@ export default function AllocationPage() {
       }
     }
 
-    // Market covariance: real return covariance matrix from historical data (Markowitz-style).
-    // Fetched from /api/return-covariance, then scale-matched to the composite matrix so
-    // lambda blending is meaningful (otherwise market side dominates by ~10-100x).
+    // ==================================================================================
+    // HYBRID COVARIANCE MATRIX CONSTRUCTION
+    // ==================================================================================
     //
-    // Scale-matching: compute avg diagonal (variance) of both matrices for non-CASH
-    // assets, then rescale the market matrix so its avg variance equals the composite's.
-    // This preserves the correlation structure from market data while keeping magnitudes
-    // compatible with the synthetic composite side.
+    // This allocator uses a hybrid covariance matrix composed of two components:
+    //
+    //   Sigma_hybrid = lambda * Sigma_return_tilde + (1 - lambda) * Sigma_composite_tilde
+    //
+    // where:
+    //   Sigma_return   = classical Markowitz empirical return covariance (from historical
+    //                    asset price co-movement). This is the standard sample covariance
+    //                    of realized asset returns, annualized.
+    //   Sigma_composite = synthetic factor-based covariance (B * D*C*D * B^T). This
+    //                     encodes structural risk relationships via user-defined factor
+    //                     exposures and importance weights, without requiring return history.
+    //   _tilde suffix  = trace-normalized version. Each matrix is divided by its trace
+    //                    (sum of diagonal variances) before blending, so lambda controls
+    //                    structural weighting rather than being dominated by whichever
+    //                    matrix has larger raw magnitude.
+    //
+    // The resulting Sigma_hybrid is NOT a pure empirical return covariance matrix.
+    // Portfolio risk computed from it should be called "hybrid risk" or
+    // "hybrid covariance risk", not "historical volatility".
+    // ==================================================================================
+
+    // --- A. Empirical return covariance (Sigma_return) ---
+    // Fetched from /api/return-covariance which computes the annualized sample covariance
+    // of daily simple returns from Yahoo Finance data. This is the classical Markowitz
+    // covariance: Sigma_return = (1/(T-1)) * (R - R_bar)^T (R - R_bar) * 252,
+    // where R is the (T x n) return matrix and R_bar is the column-mean matrix.
+    // CASH rows/cols are zero (no return co-movement with risky assets).
     const nonCashIndices = assets.map((t, i) => ({ t, i })).filter(x => x.t !== 'CASH');
     const nonCashTickers = nonCashIndices.map(x => x.t);
 
-    let marketMatrix = Array.from({ length: assets.length }, () =>
+    let sigmaReturn = Array.from({ length: assets.length }, () =>
       Array.from({ length: assets.length }, () => 0)
     );
 
@@ -933,61 +978,101 @@ export default function AllocationPage() {
         const covRes = await fetch(`/api/return-covariance?tickers=${nonCashTickers.join(',')}&days=252`);
         const covData = await covRes.json();
         if (covData.matrix && covData.tickers) {
-          // Build a lookup from ticker -> index in the returned matrix
           const retTickers = covData.tickers;
           const retMatrix = covData.matrix;
           const retIdx = {};
           retTickers.forEach((t, i) => { retIdx[t] = i; });
 
-          // Map the return covariance into our asset-order matrix
-          const rawMarket = Array.from({ length: assets.length }, () =>
-            Array.from({ length: assets.length }, () => 0)
-          );
+          // Log which tickers Yahoo actually returned vs what we requested
+          const missing = nonCashTickers.filter(t => retIdx[t] === undefined);
+          if (missing.length > 0) {
+            console.warn('Return covariance: Yahoo did not return data for:', missing.join(', '));
+          }
+          console.log('Return covariance: received data for', retTickers.length, 'of', nonCashTickers.length, 'tickers:', retTickers.join(', '));
+
+          // Map the API's return covariance into our asset-order matrix.
+          // Assets not found in the API response (including CASH) remain zero.
           for (let i = 0; i < assets.length; i++) {
             for (let j = 0; j < assets.length; j++) {
               const ri = retIdx[assets[i]];
               const rj = retIdx[assets[j]];
               if (ri !== undefined && rj !== undefined) {
-                rawMarket[i][j] = retMatrix[ri][rj];
+                sigmaReturn[i][j] = retMatrix[ri][rj];
               }
             }
           }
 
-          // Scale-match: avg variance of non-CASH diagonals
-          let marketAvgVar = 0, compositeAvgVar = 0, count = 0;
-          for (const { i } of nonCashIndices) {
-            if (retIdx[assets[i]] !== undefined) {
-              marketAvgVar += rawMarket[i][i];
-              compositeAvgVar += compositeOnlyMatrix[i][i];
-              count++;
-            }
-          }
-          marketAvgVar /= Math.max(count, 1);
-          compositeAvgVar /= Math.max(count, 1);
-
-          const scaleFactor = (marketAvgVar > 1e-12 && compositeAvgVar > 1e-12)
-            ? compositeAvgVar / marketAvgVar
-            : 1;
-
+          // Symmetrize to guard against floating-point asymmetry
           for (let i = 0; i < assets.length; i++) {
-            for (let j = 0; j < assets.length; j++) {
-              marketMatrix[i][j] = rawMarket[i][j] * scaleFactor;
+            for (let j = i + 1; j < assets.length; j++) {
+              const avg = 0.5 * (sigmaReturn[i][j] + sigmaReturn[j][i]);
+              sigmaReturn[i][j] = avg;
+              sigmaReturn[j][i] = avg;
             }
           }
         }
       } catch (err) {
-        console.error('Failed to fetch return covariance, market side will be zero:', err);
+        console.error('Failed to fetch return covariance; Sigma_return will be zero:', err);
       }
     }
 
-    // Blended covariance: lambda * market + (1 - lambda) * composite
+    // --- B. Sigma_composite is compositeOnlyMatrix computed above (B * D*C*D * B^T) ---
+    // It encodes synthetic risk structure from factor exposures and importance weights.
+
+    // --- C. Trace normalization ---
+    // Before blending, divide each covariance matrix by its trace (sum of diagonal
+    // entries = total standalone variance mass). This removes arbitrary scale differences
+    // so that lambda reflects true structural weighting.
+    //
+    // For a covariance matrix, trace = sum of asset variances. Normalizing by trace
+    // preserves the internal correlation/covariance structure while making both matrices
+    // unit-trace, so a 50/50 blend truly means equal structural contribution.
+    //
+    // Edge case: if trace <= epsilon, the matrix is near-zero (e.g. all assets have
+    // negligible variance). In that case we skip normalization and leave it as-is,
+    // logging a warning. This prevents division by near-zero.
+    const TRACE_EPSILON = 1e-12;
+
+    const traceOf = (mat) => {
+      let tr = 0;
+      for (let i = 0; i < mat.length; i++) tr += mat[i][i];
+      return tr;
+    };
+
+    const traceNormalize = (mat, label) => {
+      const tr = traceOf(mat);
+      if (tr <= TRACE_EPSILON) {
+        console.warn(`Trace of ${label} is near-zero (${tr}); skipping normalization.`);
+        // Return a copy (not mutated) — the matrix is effectively zero anyway
+        return mat.map(row => [...row]);
+      }
+      return mat.map(row => row.map(v => v / tr));
+    };
+
+    const sigmaReturnTilde = traceNormalize(sigmaReturn, 'Sigma_return');
+    const sigmaCompositeTilde = traceNormalize(compositeOnlyMatrix, 'Sigma_composite');
+
+    // --- D. Hybrid covariance blend ---
+    // Sigma_hybrid = lambda * Sigma_return_tilde + (1 - lambda) * Sigma_composite_tilde
+    //
+    // lambda near 1 => more weight on empirical return co-movement (Markowitz-style)
+    // lambda near 0 => more weight on synthetic factor-based risk structure
     const lam = Math.min(1, Math.max(0, parseNumber(covLambda)));
     const compositeMatrix = Array.from({ length: assets.length }, () =>
       Array.from({ length: assets.length }, () => 0)
     );
     for (let i = 0; i < assets.length; i += 1) {
       for (let j = 0; j < assets.length; j += 1) {
-        compositeMatrix[i][j] = lam * marketMatrix[i][j] + (1 - lam) * compositeOnlyMatrix[i][j];
+        compositeMatrix[i][j] = lam * sigmaReturnTilde[i][j] + (1 - lam) * sigmaCompositeTilde[i][j];
+      }
+    }
+
+    // Final symmetrization to ensure numerical symmetry after blending
+    for (let i = 0; i < assets.length; i++) {
+      for (let j = i + 1; j < assets.length; j++) {
+        const avg = 0.5 * (compositeMatrix[i][j] + compositeMatrix[j][i]);
+        compositeMatrix[i][j] = avg;
+        compositeMatrix[j][i] = avg;
       }
     }
 
@@ -1003,6 +1088,16 @@ export default function AllocationPage() {
       standaloneRisk[ticker] = fwSum > 0 ? score / fwSum : 0;
     });
 
+    // --- E. Monte Carlo portfolio search ---
+    // Generate random feasible portfolios and evaluate each using:
+    //   ExpectedReturn(w) = w^T * r_expected
+    //   HybridVariance(w)  = w^T * Sigma_hybrid * w
+    //   HybridRisk(w)      = sqrt(max(HybridVariance, 0))
+    //   Sharpe-like(w)     = (ExpectedReturn - r_f) / HybridRisk
+    //
+    // The denominator is "hybrid risk" — a blend of empirical return volatility and
+    // synthetic factor risk — NOT pure historical volatility. The Sharpe-like score
+    // should be interpreted as expected excess return per unit of hybrid risk.
     const simulations = [];
     let samplesGenerated = 0;
     let attempts = 0;
@@ -1028,12 +1123,14 @@ export default function AllocationPage() {
         (sum, weight, idx) => sum + weight * expectedReturns[idx],
         0
       );
+      // Hybrid variance: w^T * Sigma_hybrid * w
       let variance = 0;
       for (let i = 0; i < weights.length; i += 1) {
         for (let j = 0; j < weights.length; j += 1) {
           variance += weights[i] * compositeMatrix[i][j] * weights[j];
         }
       }
+      // Hybrid risk (not pure historical volatility)
       const volatility = Math.sqrt(Math.max(variance, 0));
       const sharpe = volatility > 0 ? (expectedReturn - riskFree) / volatility : 0;
 
@@ -1059,12 +1156,15 @@ export default function AllocationPage() {
         .map((weight, idx) => ({ ticker: assets[idx], weight }))
         .sort((a, b) => b.weight - a.weight);
 
-    const sharpeValues = simulations.map((item) => item.sharpe);
-    const volValues = simulations.map((item) => item.volatility);
-    const minSharpeValue = Math.min(...sharpeValues);
-    const maxSharpeValue = Math.max(...sharpeValues);
-    const minVolValue = Math.min(...volValues);
-    const maxVolValue = Math.max(...volValues);
+    let minSharpeValue = Infinity, maxSharpeValue = -Infinity;
+    let minVolValue = Infinity, maxVolValue = -Infinity;
+    for (let i = 0; i < simulations.length; i++) {
+      const s = simulations[i].sharpe, v = simulations[i].volatility;
+      if (s < minSharpeValue) minSharpeValue = s;
+      if (s > maxSharpeValue) maxSharpeValue = s;
+      if (v < minVolValue) minVolValue = v;
+      if (v > maxVolValue) maxVolValue = v;
+    }
 
     const getCompositeRatio = (sharpe) =>
       maxSharpeValue === minSharpeValue ? 0 : (sharpe - minSharpeValue) / (maxSharpeValue - minSharpeValue);
@@ -1203,6 +1303,41 @@ export default function AllocationPage() {
       userDefined: userMetrics,
       standaloneRisk,
       lambda: lam,
+      marketCov: {
+        assets,
+        sigmaReturn,
+        vols: assets.map((_, i) => Math.sqrt(Math.max(sigmaReturn[i][i], 0))),
+        correlations: assets.map((_, i) =>
+          assets.map((_, j) => {
+            const vi = Math.sqrt(Math.max(sigmaReturn[i][i], 0));
+            const vj = Math.sqrt(Math.max(sigmaReturn[j][j], 0));
+            return vi > 0 && vj > 0 ? sigmaReturn[i][j] / (vi * vj) : 0;
+          })
+        ),
+      },
+      mathDiagnostics: {
+        assets,
+        factorCount,
+        factorNames: riskFactors,
+        factorWeights,
+        rawExposures: factorMatrix,
+        factorSums: factorSums,
+        normalizedFactors,
+        covarianceFactors,
+        weightedFactors,
+        compositeOnlyMatrix,
+        sigmaReturn,
+        traceReturn: traceOf(sigmaReturn),
+        traceComposite: traceOf(compositeOnlyMatrix),
+        sigmaReturnTilde,
+        sigmaCompositeTilde,
+        lambda: lam,
+        sigmaHybrid: compositeMatrix,
+        traceHybrid: traceOf(compositeMatrix),
+        bestPortfolio: maxSharpe,
+        expectedReturns,
+        riskFree,
+      },
     });
     setSimulating(false);
   };
@@ -1615,6 +1750,330 @@ export default function AllocationPage() {
             </div>
           </div>
         )}
+
+        {/* Math diagnostics — full step-by-step computation with LaTeX */}
+        {simulationResult?.mathDiagnostics && (() => {
+          const d = simulationResult.mathDiagnostics;
+          const n = d.assets.length;
+          const nonCashIdx = d.assets.map((t, i) => ({ t, i })).filter(x => x.t !== 'CASH');
+          const best = d.bestPortfolio;
+          const bestRet = best.weights.reduce((s, w, i) => s + w * d.expectedReturns[i], 0);
+          let bestVar = 0;
+          for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) bestVar += best.weights[i] * d.sigmaHybrid[i][j] * best.weights[j];
+          const bestRisk = Math.sqrt(Math.max(bestVar, 0));
+          const bestSharpe = bestRisk > 0 ? (bestRet - d.riskFree) / bestRisk : 0;
+
+          // Helper: render a matrix as LaTeX bmatrix (showing subset of rows/cols)
+          const matTex = (mat, rowIdx, colIdx, prec = 4) => {
+            const rows = rowIdx.map(ri =>
+              colIdx.map(ci => mat[ri][ci].toFixed(prec)).join(' & ')
+            ).join(' \\\\ ');
+            return `\\begin{bmatrix} ${rows} \\end{bmatrix}`;
+          };
+
+          // Show first 5 non-cash assets in matrix previews
+          const prev = nonCashIdx.slice(0, 5);
+          const prevI = prev.map(x => x.i);
+          const prevLabels = prev.map(x => x.t).join(',\\;');
+          const dots = nonCashIdx.length > 5 ? '\\;\\cdots' : '';
+
+          return (
+            <div className="mt-6 bg-white border border-gray-200 rounded-2xl p-5 animate-fade-in-up">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-gray-900">Optimization Math Breakdown</h3>
+                <span className="text-[10px] text-gray-400">Step-by-step computation audit</span>
+              </div>
+
+              <div className="space-y-6 text-[12px] leading-relaxed text-gray-700">
+
+                {/* Step 1: Inputs */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-800 mb-3">Step 1 — Inputs</p>
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+                    <D>{`n = ${n} \\text{ assets},\\quad m = ${d.factorCount} \\text{ factors}`}</D>
+                    <D>{`\\boldsymbol{\\mu} = \\begin{bmatrix} ${d.assets.map((t, i) => `${(d.expectedReturns[i] * 100).toFixed(2)}\\%`).join(' \\\\ ')} \\end{bmatrix} \\quad \\text{(expected returns: ${d.assets.join(', ')})}`}</D>
+                    <D>{`\\mathbf{d} = \\begin{bmatrix} ${d.factorWeights.map(w => w.toFixed(2)).join(' \\\\ ')} \\end{bmatrix} \\quad \\text{(factor importance: ${d.factorNames.join(', ')})}`}</D>
+                    <D>{`r_f = ${(d.riskFree * 100).toFixed(2)}\\%, \\quad \\lambda = ${d.lambda.toFixed(2)}`}</D>
+                  </div>
+                </div>
+
+                {/* Step 2: Factor normalization B */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-800 mb-3">Step 2 — Normalize Factor Exposures → B matrix</p>
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <D>{'B_{ik} = \\frac{E_{ik}}{\\sum_{i=1}^{n} E_{ik}} \\quad \\text{(column } L_1 \\text{-norm, CASH row} = 0\\text{)}'}</D>
+                    <p className="text-[11px] text-gray-500 font-medium">Example — first factor ({d.factorNames[0]}), column sum = {d.factorSums[0].toFixed(2)}:</p>
+                    <div className="overflow-x-auto">
+                      {nonCashIdx.slice(0, 4).map(({ t, i }) => (
+                        <div key={t} className="mb-1">
+                          <D>{`B_{\\text{${t}},1} = \\frac{${d.rawExposures[i][0].toFixed(2)}}{${d.factorSums[0].toFixed(2)}} = ${d.normalizedFactors[i][0].toFixed(4)}`}</D>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-gray-500 font-medium mt-2">Full B matrix ({n} × {d.factorCount}):</p>
+                    <div className="overflow-x-auto">
+                      <table className="text-[10px] font-mono border-collapse">
+                        <thead>
+                          <tr>
+                            <th className="pr-2 text-left text-gray-400" />
+                            {d.factorNames.map(f => <th key={f} className="px-1.5 text-center text-gray-400">{f}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {d.assets.map((t, i) => (
+                            <tr key={t} className={t === 'CASH' ? 'text-gray-300' : ''}>
+                              <td className="pr-2 text-gray-400">{t}</td>
+                              {d.normalizedFactors[i].map((v, k) => (
+                                <td key={k} className="px-1.5 text-center">{v.toFixed(4)}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 3: Factor covariance C */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-800 mb-3">Step 3 — Cross-Sectional Factor Covariance → C matrix</p>
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <D>{`C_{kl} = \\frac{1}{n-1} \\sum_{i=1}^{n} \\left(B_{ik} - \\bar{B}_k\\right)\\left(B_{il} - \\bar{B}_l\\right)`}</D>
+                    <D>{`C = ${matTex(d.covarianceFactors, d.factorNames.map((_, i) => i), d.factorNames.map((_, i) => i), 6)}`}</D>
+                  </div>
+                </div>
+
+                {/* Step 4: Weighted D C D */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-800 mb-3">Step 4 — Apply Importance Weights → W = D · C · D</p>
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <D>{`D = \\text{diag}(${d.factorWeights.map(w => w.toFixed(2)).join(',\\;')})`}</D>
+                    <D>{'W_{kl} = d_k \\cdot C_{kl} \\cdot d_l'}</D>
+                    <p className="text-[11px] text-gray-500 font-medium">Example — W[{d.factorNames[0]},{d.factorNames[0]}]:</p>
+                    <D>{`W_{11} = ${d.factorWeights[0].toFixed(2)} \\times ${d.covarianceFactors[0][0].toFixed(6)} \\times ${d.factorWeights[0].toFixed(2)} = ${d.weightedFactors[0][0].toFixed(6)}`}</D>
+                    <D>{`W = ${matTex(d.weightedFactors, d.factorNames.map((_, i) => i), d.factorNames.map((_, i) => i), 6)}`}</D>
+                  </div>
+                </div>
+
+                {/* Step 5: Sigma_composite */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-800 mb-3">Step 5 — Synthetic Covariance → Σ_composite = B · W · B<sup>T</sup></p>
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <D>{`\\Sigma_{\\text{composite}}[i,j] = \\sum_{k=1}^{m} \\sum_{l=1}^{m} B_{ik} \\cdot W_{kl} \\cdot B_{jl}`}</D>
+                    {nonCashIdx.length >= 2 && (() => {
+                      const a = nonCashIdx[0], b = nonCashIdx[1];
+                      const terms = [];
+                      for (let k = 0; k < d.factorCount; k++) {
+                        for (let l = 0; l < d.factorCount; l++) {
+                          const val = d.normalizedFactors[a.i][k] * d.weightedFactors[k][l] * d.normalizedFactors[b.i][l];
+                          if (Math.abs(val) > 1e-8) terms.push(val);
+                        }
+                      }
+                      return (
+                        <>
+                          <p className="text-[11px] text-gray-500 font-medium">Example — Σ_composite[{a.t},{b.t}]:</p>
+                          <D>{`\\Sigma_{\\text{comp}}[\\text{${a.t}},\\text{${b.t}}] = ${terms.map(v => v.toFixed(6)).join(' + ')} = ${d.compositeOnlyMatrix[a.i][b.i].toFixed(6)}`}</D>
+                        </>
+                      );
+                    })()}
+                    <p className="text-[11px] text-gray-500 font-medium">Preview ({prev.length}×{prev.length} of {n}×{n}) — rows: {prevLabels}{dots}:</p>
+                    <D>{`\\Sigma_{\\text{composite}} = ${matTex(d.compositeOnlyMatrix, prevI, prevI, 6)}`}</D>
+                    <D>{`\\text{tr}(\\Sigma_{\\text{composite}}) = ${d.traceComposite.toFixed(8)}`}</D>
+                  </div>
+                </div>
+
+                {/* Step 6: Sigma_return */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-800 mb-3">Step 6 — Empirical Return Covariance → Σ_return</p>
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <D>{'\\Sigma_{\\text{return}} = \\frac{1}{T-1}(R - \\bar{R})^\\top (R - \\bar{R}) \\times 252'}</D>
+                    <p className="text-[11px] text-gray-500">Where R is the (T × n) daily return matrix from ~252 trading days of Yahoo Finance price data, annualized by × 252.</p>
+                    <p className="text-[11px] text-gray-500 font-medium">Preview ({prev.length}×{prev.length}) — rows: {prevLabels}{dots}:</p>
+                    <D>{`\\Sigma_{\\text{return}} = ${matTex(d.sigmaReturn, prevI, prevI, 6)}`}</D>
+                    <D>{`\\text{tr}(\\Sigma_{\\text{return}}) = ${d.traceReturn.toFixed(8)}`}</D>
+                    <D>{`\\frac{\\text{tr}(\\Sigma_{\\text{return}})}{\\text{tr}(\\Sigma_{\\text{composite}})} = \\frac{${d.traceReturn.toFixed(6)}}{${d.traceComposite.toFixed(6)}} = ${d.traceComposite > 1e-12 ? (d.traceReturn / d.traceComposite).toFixed(1) + '\\times' : '\\text{N/A}'} \\quad \\text{(why trace normalization is needed)}`}</D>
+                  </div>
+                </div>
+
+                {/* Step 7: Trace normalization */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-800 mb-3">Step 7 — Trace Normalization</p>
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <D>{'\\tilde{\\Sigma} = \\frac{\\Sigma}{\\text{tr}(\\Sigma)} \\quad \\Rightarrow \\quad \\text{tr}(\\tilde{\\Sigma}) = 1'}</D>
+                    <p className="text-[11px] text-gray-500">Each matrix is divided by the sum of its diagonal (total variance mass). This preserves internal structure while removing scale differences.</p>
+                    <D>{`\\tilde{\\Sigma}_{\\text{return}} = \\frac{1}{${d.traceReturn.toFixed(6)}} \\cdot \\Sigma_{\\text{return}} = ${matTex(d.sigmaReturnTilde, prevI, prevI, 6)}`}</D>
+                    <D>{`\\text{tr}(\\tilde{\\Sigma}_{\\text{return}}) = ${d.sigmaReturnTilde.reduce((s, r, i) => s + r[i], 0).toFixed(10)}`}</D>
+                    <D>{`\\tilde{\\Sigma}_{\\text{composite}} = \\frac{1}{${d.traceComposite.toFixed(6)}} \\cdot \\Sigma_{\\text{composite}} = ${matTex(d.sigmaCompositeTilde, prevI, prevI, 6)}`}</D>
+                    <D>{`\\text{tr}(\\tilde{\\Sigma}_{\\text{composite}}) = ${d.sigmaCompositeTilde.reduce((s, r, i) => s + r[i], 0).toFixed(10)}`}</D>
+                  </div>
+                </div>
+
+                {/* Step 8: Hybrid blend */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-800 mb-3">Step 8 — Hybrid Blend</p>
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <D>{`\\Sigma_{\\text{hybrid}} = \\lambda \\, \\tilde{\\Sigma}_{\\text{return}} + (1 - \\lambda) \\, \\tilde{\\Sigma}_{\\text{composite}}`}</D>
+                    <D>{`= ${d.lambda.toFixed(2)} \\cdot \\tilde{\\Sigma}_{\\text{return}} \\;+\\; ${(1 - d.lambda).toFixed(2)} \\cdot \\tilde{\\Sigma}_{\\text{composite}}`}</D>
+                    <p className="text-[11px] text-gray-500 font-medium">Preview ({prev.length}×{prev.length}):</p>
+                    <D>{`\\Sigma_{\\text{hybrid}} = ${matTex(d.sigmaHybrid, prevI, prevI, 6)}`}</D>
+                    <D>{`\\text{tr}(\\Sigma_{\\text{hybrid}}) = ${d.traceHybrid.toFixed(10)} \\approx 1.0 \\;\\checkmark`}</D>
+                  </div>
+                </div>
+
+                {/* Step 9: Best portfolio evaluation */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-800 mb-3">Step 9 — Max Sharpe Portfolio Evaluation</p>
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <D>{`\\mathbf{w}^* = \\begin{bmatrix} ${d.assets.map((t, i) => `${(best.weights[i] * 100).toFixed(2)}\\%`).join(' \\\\ ')} \\end{bmatrix} \\quad \\text{(${d.assets.join(', ')})}`}</D>
+
+                    <p className="text-[11px] text-gray-500 font-medium">Expected return:</p>
+                    <D>{`\\mathbb{E}[R] = \\mathbf{w}^\\top \\boldsymbol{\\mu} = ${d.assets.map((t, i) => `${best.weights[i].toFixed(4)} \\times ${(d.expectedReturns[i] * 100).toFixed(2)}\\%`).join(' + ')}`}</D>
+                    <D>{`= \\boxed{${(bestRet * 100).toFixed(4)}\\%}`}</D>
+
+                    <p className="text-[11px] text-gray-500 font-medium">Hybrid variance and risk:</p>
+                    <D>{`\\sigma^2_{\\text{hybrid}} = \\mathbf{w}^\\top \\Sigma_{\\text{hybrid}} \\, \\mathbf{w} = ${bestVar.toFixed(8)}`}</D>
+                    <D>{`\\sigma_{\\text{hybrid}} = \\sqrt{${bestVar.toFixed(8)}} = \\boxed{${(bestRisk * 100).toFixed(4)}\\%}`}</D>
+                    <p className="text-[10px] text-gray-400 italic">This is hybrid covariance risk, not pure historical volatility.</p>
+
+                    <p className="text-[11px] text-gray-500 font-medium">Sharpe-like score:</p>
+                    <D>{`S = \\frac{\\mathbb{E}[R] - r_f}{\\sigma_{\\text{hybrid}}} = \\frac{${(bestRet * 100).toFixed(2)}\\% - ${(d.riskFree * 100).toFixed(2)}\\%}{${(bestRisk * 100).toFixed(4)}\\%} = \\boxed{${bestSharpe.toFixed(4)}}`}</D>
+                    <p className="text-[10px] text-gray-400 italic">Interpreted as expected excess return per unit of hybrid risk.</p>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Empirical return covariance (Sigma_return) — annualized vols & correlation matrix */}
+        {simulationResult?.marketCov && (() => {
+          const { assets: mcAssets, sigmaReturn, vols, correlations } = simulationResult.marketCov;
+          const nonCash = mcAssets.map((t, i) => ({ t, i })).filter(x => x.t !== 'CASH');
+          if (nonCash.length === 0) return null;
+          return (
+            <div className="mt-6 bg-white border border-gray-200 rounded-2xl p-5 animate-fade-in-up">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-gray-900">Market Return Covariance</h3>
+                <span className="text-[10px] text-gray-400">Empirical &middot; ~252 trading days &middot; annualized</span>
+              </div>
+
+              {/* Per-asset annualized volatilities */}
+              <div className="mb-5">
+                <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-2">Annualized Volatility</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                  {nonCash
+                    .sort((a, b) => vols[b.i] - vols[a.i])
+                    .map(({ t, i }) => {
+                      const volPct = vols[i] * 100;
+                      const barW = Math.min(volPct / 60 * 100, 100);
+                      const color = volPct > 40 ? 'bg-red-400' : volPct > 30 ? 'bg-amber-400' : 'bg-emerald-400';
+                      return (
+                        <div key={t} className="border border-gray-100 rounded-xl px-3 py-2.5">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-bold text-gray-800">{t}</span>
+                            <span className="text-[11px] font-mono text-gray-500">{volPct.toFixed(1)}%</span>
+                          </div>
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${color}`} style={{ width: `${barW}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* Correlation & Covariance matrices stacked, compact to fit screen */}
+              <div className="space-y-4">
+                {/* Correlation matrix */}
+                <div>
+                  <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-2">Correlation Matrix</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[10px] font-mono border-collapse" style={{ tableLayout: 'fixed' }}>
+                      <thead>
+                        <tr>
+                          <th className="px-1 py-0.5 text-left text-gray-400 w-10" />
+                          {nonCash.map(({ t }) => (
+                            <th key={t} className="px-1 py-0.5 text-center text-gray-500 font-semibold truncate">{t}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {nonCash.map(({ t: rowT, i: ri }) => (
+                          <tr key={rowT}>
+                            <td className="px-1 py-0.5 text-gray-500 font-semibold truncate">{rowT}</td>
+                            {nonCash.map(({ t: colT, i: ci }) => {
+                              const corr = correlations[ri][ci];
+                              const bg = ri === ci ? 'bg-gray-50'
+                                : corr > 0.3 ? 'bg-emerald-100'
+                                : corr > 0.1 ? 'bg-emerald-50/50'
+                                : corr >= -0.1 ? 'bg-amber-50'
+                                : corr >= -0.3 ? 'bg-red-50/50'
+                                : 'bg-red-100';
+                              const tc = ri === ci ? ''
+                                : corr > 0.3 ? 'text-emerald-800'
+                                : corr > 0.1 ? 'text-emerald-600'
+                                : corr >= -0.1 ? 'text-amber-600'
+                                : corr >= -0.3 ? 'text-red-600'
+                                : 'text-red-800';
+                              return (
+                                <td key={colT} className={`px-1 py-0.5 text-center ${bg} ${tc}`}>
+                                  {ri === ci ? <span className="text-gray-300">—</span> : corr.toFixed(2)}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Covariance matrix (raw annualized) */}
+                <div>
+                  <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-2">Covariance Matrix <span className="normal-case">(annualized)</span></p>
+                  <div className="overflow-x-auto">
+                    {(() => {
+                      const maxDiag = Math.max(...nonCash.map(({ i: k }) => sigmaReturn[k][k]), 1e-14);
+                      return (
+                        <table className="w-full text-[10px] font-mono border-collapse" style={{ tableLayout: 'fixed' }}>
+                          <thead>
+                            <tr>
+                              <th className="px-1 py-0.5 text-left text-gray-400 w-10" />
+                              {nonCash.map(({ t }) => (
+                                <th key={t} className="px-1 py-0.5 text-center text-gray-500 font-semibold truncate">{t}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {nonCash.map(({ t: rowT, i: ri }) => (
+                              <tr key={rowT}>
+                                <td className="px-1 py-0.5 text-gray-500 font-semibold truncate">{rowT}</td>
+                                {nonCash.map(({ t: colT, i: ci }) => {
+                                  const cov = sigmaReturn[ri][ci];
+                                  const intensity = Math.abs(cov) / maxDiag;
+                                  const bg = ri === ci ? 'bg-gray-50'
+                                    : intensity > 0.6 ? 'bg-red-50'
+                                    : intensity > 0.3 ? 'bg-amber-50'
+                                    : 'bg-white';
+                                  return (
+                                    <td key={colT} className={`px-1 py-0.5 text-center ${bg}`}>
+                                      {cov.toFixed(4)}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
         </>)}
 
         {activeSubTab === 'rebalancer' && (

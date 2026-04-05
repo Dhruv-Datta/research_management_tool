@@ -37,8 +37,8 @@ export async function GET(request) {
         if (series.length >= 20) {
           closesMap[t] = series;
         }
-      } catch {
-        // skip ticker on error
+      } catch (err) {
+        console.warn(`return-covariance: failed to fetch ${t}:`, err.message || err);
       }
     }));
 
