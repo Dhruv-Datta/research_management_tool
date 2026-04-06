@@ -880,20 +880,17 @@ export default function AllocationPage() {
     }
 
     const factorCount = riskFactors.length;
-    const factorSums = Array.from({ length: factorCount }, (_, idx) =>
-      factorMatrix.reduce((sum, row) => sum + (row[idx] || 0), 0)
-    );
-
-    const normalizedFactors = factorMatrix.map((row, rowIndex) => {
+    // Use raw exposures directly (CASH zeroed out), no column normalization
+    const exposureMatrix = factorMatrix.map((row, rowIndex) => {
       if (assets[rowIndex] === 'CASH') return Array.from({ length: factorCount }, () => 0);
-      return row.map((value, idx) => (factorSums[idx] > 0 ? value / factorSums[idx] : 0));
+      return [...row];
     });
 
     const factorMeans = Array.from({ length: factorCount }, (_, idx) =>
-      normalizedFactors.reduce((sum, row) => sum + row[idx], 0) / normalizedFactors.length
+      exposureMatrix.reduce((sum, row) => sum + row[idx], 0) / exposureMatrix.length
     );
 
-    const centeredFactors = normalizedFactors.map((row) =>
+    const centeredFactors = exposureMatrix.map((row) =>
       row.map((value, idx) => value - factorMeans[idx])
     );
 
@@ -901,7 +898,7 @@ export default function AllocationPage() {
       Array.from({ length: factorCount }, () => 0)
     );
 
-    const denominator = Math.max(normalizedFactors.length - 1, 1);
+    const denominator = Math.max(exposureMatrix.length - 1, 1);
     for (let i = 0; i < factorCount; i += 1) {
       for (let j = 0; j < factorCount; j += 1) {
         covarianceFactors[i][j] =
@@ -914,8 +911,8 @@ export default function AllocationPage() {
     );
 
     // Sigma_composite: synthetic factor-based covariance matrix.
-    // Computed as B * (D * C * D) * B^T where:
-    //   B = normalizedFactors (n_assets x m_factors), column-L1-normalized exposure matrix
+    // Computed as E * (D * C * D) * E^T where:
+    //   E = exposureMatrix (n_assets x m_factors), raw factor exposures (CASH zeroed)
     //   C = covarianceFactors (m_factors x m_factors), cross-sectional factor covariance
     //   D = diag(factorWeights), user-specified factor importance weights
     // This encodes structural risk relationships without requiring return history.
@@ -928,7 +925,7 @@ export default function AllocationPage() {
         let sum = 0;
         for (let k = 0; k < factorCount; k += 1) {
           for (let l = 0; l < factorCount; l += 1) {
-            sum += normalizedFactors[i][k] * weightedFactors[k][l] * normalizedFactors[j][l];
+            sum += exposureMatrix[i][k] * weightedFactors[k][l] * exposureMatrix[j][l];
           }
         }
         compositeOnlyMatrix[i][j] = sum;
@@ -1320,9 +1317,7 @@ export default function AllocationPage() {
         factorCount,
         factorNames: riskFactors,
         factorWeights,
-        rawExposures: factorMatrix,
-        factorSums: factorSums,
-        normalizedFactors,
+        exposureMatrix,
         covarianceFactors,
         weightedFactors,
         compositeOnlyMatrix,
@@ -1797,20 +1792,12 @@ export default function AllocationPage() {
                   </div>
                 </div>
 
-                {/* Step 2: Factor normalization B */}
+                {/* Step 2: Exposure matrix E (CASH zeroed) */}
                 <div>
-                  <p className="text-xs font-semibold text-gray-800 mb-3">Step 2 — Normalize Factor Exposures → B matrix</p>
+                  <p className="text-xs font-semibold text-gray-800 mb-3">Step 2 — Factor Exposure Matrix E (CASH row = 0)</p>
                   <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                    <D>{'B_{ik} = \\frac{E_{ik}}{\\sum_{i=1}^{n} E_{ik}} \\quad \\text{(column } L_1 \\text{-norm, CASH row} = 0\\text{)}'}</D>
-                    <p className="text-[11px] text-gray-500 font-medium">Example — first factor ({d.factorNames[0]}), column sum = {d.factorSums[0].toFixed(2)}:</p>
-                    <div className="overflow-x-auto">
-                      {nonCashIdx.slice(0, 4).map(({ t, i }) => (
-                        <div key={t} className="mb-1">
-                          <D>{`B_{\\text{${t}},1} = \\frac{${d.rawExposures[i][0].toFixed(2)}}{${d.factorSums[0].toFixed(2)}} = ${d.normalizedFactors[i][0].toFixed(4)}`}</D>
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-[11px] text-gray-500 font-medium mt-2">Full B matrix ({n} × {d.factorCount}):</p>
+                    <D>{'E_{ik} \\in [0, 1] \\quad \\text{(raw exposures used directly, CASH row} = 0\\text{)}'}</D>
+                    <p className="text-[11px] text-gray-500 font-medium mt-2">Full E matrix ({n} × {d.factorCount}):</p>
                     <div className="overflow-x-auto">
                       <table className="text-[10px] font-mono border-collapse">
                         <thead>
@@ -1823,7 +1810,7 @@ export default function AllocationPage() {
                           {d.assets.map((t, i) => (
                             <tr key={t} className={t === 'CASH' ? 'text-gray-300' : ''}>
                               <td className="pr-2 text-gray-400">{t}</td>
-                              {d.normalizedFactors[i].map((v, k) => (
+                              {d.exposureMatrix[i].map((v, k) => (
                                 <td key={k} className="px-1.5 text-center">{v.toFixed(4)}</td>
                               ))}
                             </tr>
@@ -1838,7 +1825,7 @@ export default function AllocationPage() {
                 <div>
                   <p className="text-xs font-semibold text-gray-800 mb-3">Step 3 — Cross-Sectional Factor Covariance → C matrix</p>
                   <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                    <D>{`C_{kl} = \\frac{1}{n-1} \\sum_{i=1}^{n} \\left(B_{ik} - \\bar{B}_k\\right)\\left(B_{il} - \\bar{B}_l\\right)`}</D>
+                    <D>{`C_{kl} = \\frac{1}{n-1} \\sum_{i=1}^{n} \\left(E_{ik} - \\bar{E}_k\\right)\\left(E_{il} - \\bar{E}_l\\right)`}</D>
                     <D>{`C = ${matTex(d.covarianceFactors, d.factorNames.map((_, i) => i), d.factorNames.map((_, i) => i), 6)}`}</D>
                   </div>
                 </div>
@@ -1857,15 +1844,15 @@ export default function AllocationPage() {
 
                 {/* Step 5: Sigma_composite */}
                 <div>
-                  <p className="text-xs font-semibold text-gray-800 mb-3">Step 5 — Synthetic Covariance → Σ_composite = B · W · B<sup>T</sup></p>
+                  <p className="text-xs font-semibold text-gray-800 mb-3">Step 5 — Synthetic Covariance → Σ_composite = E · W · E<sup>T</sup></p>
                   <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                    <D>{`\\Sigma_{\\text{composite}}[i,j] = \\sum_{k=1}^{m} \\sum_{l=1}^{m} B_{ik} \\cdot W_{kl} \\cdot B_{jl}`}</D>
+                    <D>{`\\Sigma_{\\text{composite}}[i,j] = \\sum_{k=1}^{m} \\sum_{l=1}^{m} E_{ik} \\cdot W_{kl} \\cdot E_{jl}`}</D>
                     {nonCashIdx.length >= 2 && (() => {
                       const a = nonCashIdx[0], b = nonCashIdx[1];
                       const terms = [];
                       for (let k = 0; k < d.factorCount; k++) {
                         for (let l = 0; l < d.factorCount; l++) {
-                          const val = d.normalizedFactors[a.i][k] * d.weightedFactors[k][l] * d.normalizedFactors[b.i][l];
+                          const val = d.exposureMatrix[a.i][k] * d.weightedFactors[k][l] * d.exposureMatrix[b.i][l];
                           if (Math.abs(val) > 1e-8) terms.push(val);
                         }
                       }
