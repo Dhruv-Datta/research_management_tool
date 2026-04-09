@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FMS — Editorial Newspaper</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,300;1,8..60,400&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #F2EFEA;
+    --card: #FAFAF7;
+    --dark: #161614;
+    --rule: #D4CFC7;
+    --rule-light: #E5E1DA;
+    --text: #1C1B18;
+    --text-2: #6E695F;
+    --text-3: #9E9A90;
+    --green: #3A6848;
+    --green-bg: #E6EFE8;
+    --red: #8A3A3F;
+    --red-bg: #F2E6E7;
+    --gold: #A8956D;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Source Serif 4', Georgia, serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.65;
+  }
+
+  .sans { font-family: 'Inter', -apple-system, sans-serif; }
+  .mono { font-family: 'SF Mono', 'Menlo', monospace; }
+
+  /* ── Masthead ── */
+  .masthead {
+    text-align: center;
+    padding: 20px 0 16px;
+    border-bottom: 3px double var(--rule);
+  }
+  .masthead-name {
+    font-size: 32px; font-weight: 700; letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .masthead-sub {
+    font-family: 'Inter',sans-serif;
+    font-size: 10px; font-weight: 500; color: var(--text-3);
+    text-transform: uppercase; letter-spacing: 0.2em;
+    margin-top: 4px;
+  }
+
+  /* ── Nav strip ── */
+  .nav-strip {
+    display: flex; justify-content: center; gap: 24px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--rule);
+    position: sticky; top: 0; z-index: 50;
+    background: var(--bg);
+  }
+  .nav-strip a {
+    font-family: 'Inter',sans-serif;
+    font-size: 11px; font-weight: 600; color: var(--text-2);
+    text-decoration: none; text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 4px 0;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  .nav-strip a:hover { color: var(--text); }
+  .nav-strip a.on { color: var(--text); border-bottom-color: var(--text); }
+
+  /* ── Page ── */
+  .page {
+    max-width: 1200px; margin: 0 auto;
+    padding: 0 clamp(20px, 3vw, 48px);
+  }
+
+  /* ── Date bar ── */
+  .datebar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--rule);
+    font-family: 'Inter',sans-serif;
+    font-size: 10px; color: var(--text-3);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+
+  /* ── Headline area ── */
+  .headline-area {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .headline-main {
+    padding: 28px 32px 28px 0;
+    border-right: 1px solid var(--rule);
+  }
+  .headline-sidebar {
+    padding: 28px 0 28px 28px;
+  }
+  .hl {
+    font-size: 48px; font-weight: 400; letter-spacing: -0.03em;
+    line-height: 1.1; margin-bottom: 12px;
+  }
+  .hl em { font-style: italic; color: var(--green); }
+  .hl-deck {
+    font-size: 16px; font-weight: 400; color: var(--text-2);
+    line-height: 1.6; max-width: 560px;
+  }
+  .hl-deck strong { color: var(--text); font-weight: 500; }
+
+  /* Sidebar quick stats */
+  .qs { margin-bottom: 16px; }
+  .qs-label {
+    font-family: 'Inter',sans-serif;
+    font-size: 9px; font-weight: 700; color: var(--text-3);
+    text-transform: uppercase; letter-spacing: 0.12em;
+    margin-bottom: 4px;
+  }
+  .qs-val { font-size: 28px; font-weight: 400; line-height: 1.2; }
+  .qs-sub { font-family: 'Inter',sans-serif; font-size: 11px; color: var(--text-2); }
+  .up { color: var(--green); }
+  .dn { color: var(--red); }
+  .mt { color: var(--text-3); }
+
+  /* ── Chart ── */
+  .chart-sec {
+    padding: 24px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .chart-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
+  .chart-legend { display: flex; gap: 14px; }
+  .cleg {
+    display: flex; align-items: center; gap: 5px;
+    font-family: 'Inter',sans-serif; font-size: 10px; color: var(--text-2);
+  }
+  .cleg-l { width: 12px; height: 2px; border-radius: 1px; }
+  .tfs { display: flex; gap: 0; }
+  .tf {
+    font-family: 'Inter',sans-serif;
+    font-size: 9px; font-weight: 700; color: var(--text-3);
+    padding: 3px 8px; border: 1px solid var(--rule);
+    background: none; cursor: pointer; margin-left: -1px;
+    letter-spacing: 0.04em;
+  }
+  .tf:first-child { border-radius: 4px 0 0 4px; margin-left: 0; }
+  .tf:last-child { border-radius: 0 4px 4px 0; }
+  .tf.on { background: var(--dark); color: #fff; border-color: var(--dark); }
+  .chart-svg { width: 100%; height: 240px; }
+
+  /* ── Returns strip ── */
+  .returns-strip {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    border-bottom: 1px solid var(--rule);
+  }
+  .ret-cell {
+    padding: 14px 16px;
+    border-right: 1px solid var(--rule);
+  }
+  .ret-cell:last-child { border-right: none; }
+  .ret-label {
+    font-family: 'Inter',sans-serif;
+    font-size: 8px; font-weight: 800; color: var(--text-3);
+    text-transform: uppercase; letter-spacing: 0.14em;
+    margin-bottom: 8px;
+  }
+  .ret-row { display: flex; justify-content: space-between; padding: 1px 0; }
+  .ret-n { font-family: 'Inter',sans-serif; font-size: 10px; color: var(--text-3); }
+  .ret-v { font-family: 'SF Mono',monospace; font-size: 11px; font-weight: 500; }
+  .ret-sep { height: 1px; background: var(--rule-light); margin: 4px 0; }
+
+  /* ── Content grid — newspaper columns ── */
+  .content-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    border-bottom: 1px solid var(--rule);
+  }
+  .content-col {
+    padding: 20px;
+    border-right: 1px solid var(--rule);
+  }
+  .content-col:last-child { border-right: none; }
+  .col-title {
+    font-family: 'Inter',sans-serif;
+    font-size: 9px; font-weight: 800; color: var(--text-3);
+    text-transform: uppercase; letter-spacing: 0.14em;
+    padding-bottom: 8px; margin-bottom: 12px;
+    border-bottom: 2px solid var(--text);
+  }
+
+  /* Holdings */
+  .hrow {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 0; border-bottom: 1px dotted var(--rule);
+  }
+  .hrow:last-child { border-bottom: none; }
+  .h-tk { font-family: 'SF Mono',monospace; font-size: 11px; font-weight: 500; width: 44px; }
+  .h-bar-bg { flex: 1; height: 6px; background: var(--rule-light); }
+  .h-bar-f { height: 100%; }
+  .h-pct { font-family: 'Inter',sans-serif; font-size: 10px; color: var(--text-2); width: 36px; text-align: right; }
+  .h-total {
+    margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--rule);
+    display: flex; justify-content: space-between;
+    font-family: 'Inter',sans-serif; font-size: 11px;
+  }
+
+  /* Movers */
+  .mrow {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 0; border-bottom: 1px dotted var(--rule);
+  }
+  .mrow:last-child { border-bottom: none; }
+  .mrow-l { display: flex; align-items: center; gap: 6px; }
+  .mrow-arr {
+    font-size: 8px; width: 16px; height: 16px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 3px;
+  }
+  .mrow-arr.u { background: var(--green-bg); color: var(--green); }
+  .mrow-arr.d { background: var(--red-bg); color: var(--red); }
+  .mrow-tk { font-family: 'SF Mono',monospace; font-size: 11px; font-weight: 500; }
+  .mrow-pr { font-family: 'Inter',sans-serif; font-size: 9px; color: var(--text-3); margin-left: 6px; }
+  .mrow-ch { font-family: 'SF Mono',monospace; font-size: 11px; font-weight: 500; }
+  .m-hdr {
+    font-family: 'Inter',sans-serif;
+    font-size: 8px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.12em; margin: 4px 0 6px;
+  }
+
+  /* Tasks */
+  .trow {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 0; border-bottom: 1px dotted var(--rule);
+  }
+  .trow:last-child { border-bottom: none; }
+  .t-dot { width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0; }
+  .t-txt { font-family: 'Inter',sans-serif; font-size: 11px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .t-st {
+    font-family: 'Inter',sans-serif; font-size: 8px; font-weight: 700;
+    padding: 1px 6px; border-radius: 3px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .t-prog { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--rule); }
+  .t-prog-txt {
+    font-family: 'Inter',sans-serif; font-size: 9px; color: var(--text-3);
+    display: flex; justify-content: space-between; margin-bottom: 4px;
+  }
+  .t-prog-bar { height: 2px; background: var(--rule-light); }
+  .t-prog-fill { height: 100%; background: var(--green); }
+
+  /* ── Macro — dark band (newspaper section break) ── */
+  .macro-band {
+    background: var(--dark); color: #E8E4DC;
+    padding: 32px 0;
+    border-top: 4px solid var(--text);
+  }
+  .macro-band-inner {
+    max-width: 1200px; margin: 0 auto;
+    padding: 0 clamp(20px, 3vw, 48px);
+  }
+  .macro-hl {
+    font-size: 24px; font-weight: 400; margin-bottom: 4px;
+  }
+  .macro-hl em { font-style: italic; color: var(--gold); }
+  .macro-sub {
+    font-family: 'Inter',sans-serif; font-size: 10px; color: #666;
+    margin-bottom: 24px;
+  }
+  .macro-layout { display: flex; gap: 32px; align-items: center; }
+  .macro-gauge {
+    width: 150px; height: 150px; border-radius: 50%;
+    position: relative; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mg-ring {
+    position: absolute; inset: 0; border-radius: 50%;
+    background: conic-gradient(var(--gold) 0deg 252deg, #2A2A26 252deg);
+  }
+  .mg-inner {
+    position: absolute; inset: 8px; border-radius: 50%;
+    background: var(--dark);
+  }
+  .mg-content { position: relative; z-index: 1; text-align: center; }
+  .mg-pct { font-size: 36px; font-weight: 300; }
+  .mg-label {
+    font-family: 'Inter',sans-serif; font-size: 8px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.12em; color: var(--gold); margin-top: 2px;
+  }
+  .macro-features {
+    flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
+  }
+  .mf-cell {
+    display: flex; justify-content: space-between;
+    padding: 7px 14px;
+    border-bottom: 1px solid #2A2A26;
+    border-right: 1px solid #2A2A26;
+  }
+  .mf-cell:nth-child(3n) { border-right: none; }
+  .mf-n { font-family: 'Inter',sans-serif; font-size: 10px; color: #777; }
+  .mf-v { font-family: 'SF Mono',monospace; font-size: 11px; font-weight: 500; color: #ddd; }
+  .mf-v.w { color: var(--gold); }
+  .mf-v.b { color: #C67070; }
+
+  /* ── Analytics ── */
+  .analytics-sec {
+    padding: 24px 0 48px;
+  }
+  .analytics-head {
+    display: flex; align-items: baseline; gap: 12px;
+    padding-bottom: 8px; margin-bottom: 16px;
+    border-bottom: 2px solid var(--text);
+  }
+  .analytics-title {
+    font-family: 'Inter',sans-serif;
+    font-size: 9px; font-weight: 800; color: var(--text-3);
+    text-transform: uppercase; letter-spacing: 0.14em;
+  }
+  .analytics-meta {
+    font-family: 'Inter',sans-serif; font-size: 9px; color: var(--text-3);
+  }
+  .a-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; }
+  .a-cell {
+    padding: 16px;
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+  .a-cell:nth-child(4n) { border-right: none; }
+  .a-cell:nth-child(n+5) { border-bottom: none; }
+  .a-label {
+    font-family: 'Inter',sans-serif;
+    font-size: 8px; font-weight: 800; color: var(--text-3);
+    text-transform: uppercase; letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+  .a-val { font-size: 26px; font-weight: 300; letter-spacing: -0.02em; margin-bottom: 2px; }
+  .a-sub { font-family: 'Inter',sans-serif; font-size: 9px; color: var(--text-3); margin-bottom: 10px; }
+  .a-bar { height: 2px; background: var(--rule-light); }
+  .a-fill { height: 100%; }
+</style>
+</head>
+<body>
+
+<!-- Masthead -->
+<div class="masthead">
+  <div class="masthead-name">B.D. Sterling Capital</div>
+  <div class="masthead-sub">Fund Management System &mdash; Daily Dashboard</div>
+</div>
+
+<!-- Nav -->
+<div class="nav-strip">
+  <a href="#" class="on">Dashboard</a>
+  <a href="#">CIO Suite</a>
+  <a href="#">Task Board</a>
+  <a href="#">Equity Research</a>
+  <a href="#">Documents</a>
+  <a href="#">Admin</a>
+</div>
+
+<div class="page">
+
+  <!-- Date bar -->
+  <div class="datebar">
+    <span>Wednesday, April 2, 2026</span>
+    <span>New York &middot; Markets Open</span>
+  </div>
+
+  <!-- Headline -->
+  <div class="headline-area">
+    <div class="headline-main">
+      <h1 class="hl">Fund reaches $147.23,<br>up <em>18.42%</em> since inception</h1>
+      <p class="hl-deck">
+        The fund continues to outperform its benchmark by <strong>5.82 percentage points</strong>,
+        driven by concentrated positions in quality compounders. Risk-adjusted returns remain
+        strong with a <strong>1.24 Sharpe ratio</strong> across 284 trading days.
+      </p>
+    </div>
+    <div class="headline-sidebar">
+      <div class="qs">
+        <div class="qs-label">Fund NAV</div>
+        <div class="qs-val">$147.23</div>
+        <div class="qs-sub up">+$0.50 today (+0.34%)</div>
+      </div>
+      <div class="qs">
+        <div class="qs-label">Alpha vs S&P 500</div>
+        <div class="qs-val up">+5.82%</div>
+        <div class="qs-sub">Cumulative outperformance</div>
+      </div>
+      <div class="qs">
+        <div class="qs-label">AUM</div>
+        <div class="qs-val">$46.6K</div>
+        <div class="qs-sub up">+$4.2K unrealized</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="chart-sec">
+    <div class="chart-head">
+      <div class="chart-legend">
+        <div class="cleg"><span class="cleg-l" style="background:var(--green)"></span>Fund NAV</div>
+        <div class="cleg"><span class="cleg-l" style="background:var(--text-3)"></span>S&P 500</div>
+      </div>
+      <div class="tfs">
+        <button class="tf">1M</button><button class="tf">3M</button><button class="tf">6M</button>
+        <button class="tf">YTD</button><button class="tf">1Y</button><button class="tf on">ALL</button>
+      </div>
+    </div>
+    <svg class="chart-svg" viewBox="0 0 900 220" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="gf" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="rgba(58,104,72,0.10)"/>
+          <stop offset="100%" stop-color="rgba(58,104,72,0)"/>
+        </linearGradient>
+      </defs>
+      <line x1="0" y1="55" x2="900" y2="55" stroke="#D4CFC7" stroke-width="0.5"/>
+      <line x1="0" y1="110" x2="900" y2="110" stroke="#D4CFC7" stroke-width="0.5"/>
+      <line x1="0" y1="165" x2="900" y2="165" stroke="#D4CFC7" stroke-width="0.5"/>
+      <polyline points="0,190 90,182 180,174 270,164 360,168 450,155 540,150 630,143 720,132 810,128 900,120" fill="none" stroke="#9E9A90" stroke-width="1.5" stroke-dasharray="5,4"/>
+      <polygon points="0,195 90,183 180,170 270,146 360,133 450,114 540,98 630,80 720,72 810,56 900,36 900,220 0,220" fill="url(#gf)"/>
+      <polyline points="0,195 90,183 180,170 270,146 360,133 450,114 540,98 630,80 720,72 810,56 900,36" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round"/>
+      <text x="0" y="214" fill="#9E9A90" font-family="Inter,sans-serif" font-size="9">Jan 25</text>
+      <text x="180" y="214" fill="#9E9A90" font-family="Inter,sans-serif" font-size="9">Apr</text>
+      <text x="360" y="214" fill="#9E9A90" font-family="Inter,sans-serif" font-size="9">Jul</text>
+      <text x="540" y="214" fill="#9E9A90" font-family="Inter,sans-serif" font-size="9">Oct</text>
+      <text x="720" y="214" fill="#9E9A90" font-family="Inter,sans-serif" font-size="9">Jan 26</text>
+      <text x="860" y="214" fill="#9E9A90" font-family="Inter,sans-serif" font-size="9">Mar</text>
+    </svg>
+  </div>
+
+  <!-- Returns strip -->
+  <div class="returns-strip">
+    <div class="ret-cell"><div class="ret-label">Today</div><div class="ret-row"><span class="ret-n">Fund</span><span class="ret-v up">+0.34%</span></div><div class="ret-row"><span class="ret-n">S&P</span><span class="ret-v mt">+0.12%</span></div><div class="ret-sep"></div><div class="ret-row"><span class="ret-n">Alpha</span><span class="ret-v up">+0.22%</span></div></div>
+    <div class="ret-cell"><div class="ret-label">1 Month</div><div class="ret-row"><span class="ret-n">Fund</span><span class="ret-v up">+2.81%</span></div><div class="ret-row"><span class="ret-n">S&P</span><span class="ret-v mt">+1.94%</span></div><div class="ret-sep"></div><div class="ret-row"><span class="ret-n">Alpha</span><span class="ret-v up">+0.87%</span></div></div>
+    <div class="ret-cell"><div class="ret-label">3 Month</div><div class="ret-row"><span class="ret-n">Fund</span><span class="ret-v up">+7.15%</span></div><div class="ret-row"><span class="ret-n">S&P</span><span class="ret-v mt">+4.82%</span></div><div class="ret-sep"></div><div class="ret-row"><span class="ret-n">Alpha</span><span class="ret-v up">+2.33%</span></div></div>
+    <div class="ret-cell"><div class="ret-label">1 Year</div><div class="ret-row"><span class="ret-n">Fund</span><span class="ret-v up">+14.20%</span></div><div class="ret-row"><span class="ret-n">S&P</span><span class="ret-v mt">+10.44%</span></div><div class="ret-sep"></div><div class="ret-row"><span class="ret-n">Alpha</span><span class="ret-v up">+3.76%</span></div></div>
+    <div class="ret-cell"><div class="ret-label">Cumulative</div><div class="ret-row"><span class="ret-n">Fund</span><span class="ret-v up">+18.42%</span></div><div class="ret-row"><span class="ret-n">S&P</span><span class="ret-v mt">+12.60%</span></div><div class="ret-sep"></div><div class="ret-row"><span class="ret-n">Alpha</span><span class="ret-v up">+5.82%</span></div></div>
+  </div>
+
+  <!-- 3-col newspaper -->
+  <div class="content-grid">
+    <!-- Portfolio -->
+    <div class="content-col">
+      <div class="col-title">Portfolio Holdings</div>
+      <div class="hrow"><span class="h-tk">BRK.B</span><div class="h-bar-bg"><div class="h-bar-f" style="width:100%;background:var(--text)"></div></div><span class="h-pct">24.8%</span></div>
+      <div class="hrow"><span class="h-tk">GOOG</span><div class="h-bar-bg"><div class="h-bar-f" style="width:73%;background:var(--text-2)"></div></div><span class="h-pct">18.2%</span></div>
+      <div class="hrow"><span class="h-tk">AMZN</span><div class="h-bar-bg"><div class="h-bar-f" style="width:63%;background:var(--green)"></div></div><span class="h-pct">15.6%</span></div>
+      <div class="hrow"><span class="h-tk">MSFT</span><div class="h-bar-bg"><div class="h-bar-f" style="width:53%;background:var(--gold)"></div></div><span class="h-pct">13.1%</span></div>
+      <div class="hrow"><span class="h-tk">META</span><div class="h-bar-bg"><div class="h-bar-f" style="width:48%;background:var(--red)"></div></div><span class="h-pct">12.0%</span></div>
+      <div class="hrow"><span class="h-tk" style="color:var(--text-3)">Cash</span><div class="h-bar-bg"><div class="h-bar-f" style="width:66%;background:var(--rule)"></div></div><span class="h-pct">16.3%</span></div>
+      <div class="h-total"><span class="mt">Total AUM</span><span style="font-weight:500">$46,554</span></div>
+    </div>
+
+    <!-- Movers -->
+    <div class="content-col">
+      <div class="col-title">Today's Movers</div>
+      <div class="m-hdr up">Gainers</div>
+      <div class="mrow"><div class="mrow-l"><span class="mrow-arr u">&#9650;</span><span class="mrow-tk">AMZN</span><span class="mrow-pr">$198.42</span></div><span class="mrow-ch up">+2.14%</span></div>
+      <div class="mrow"><div class="mrow-l"><span class="mrow-arr u">&#9650;</span><span class="mrow-tk">BRK.B</span><span class="mrow-pr">$482.10</span></div><span class="mrow-ch up">+1.08%</span></div>
+      <div class="mrow"><div class="mrow-l"><span class="mrow-arr u">&#9650;</span><span class="mrow-tk">GOOG</span><span class="mrow-pr">$177.84</span></div><span class="mrow-ch up">+0.52%</span></div>
+      <div style="height:1px;background:var(--rule);margin:8px 0"></div>
+      <div class="m-hdr dn">Decliners</div>
+      <div class="mrow"><div class="mrow-l"><span class="mrow-arr d">&#9660;</span><span class="mrow-tk">META</span><span class="mrow-pr">$524.30</span></div><span class="mrow-ch dn">-1.23%</span></div>
+      <div class="mrow"><div class="mrow-l"><span class="mrow-arr d">&#9660;</span><span class="mrow-tk">MSFT</span><span class="mrow-pr">$421.55</span></div><span class="mrow-ch dn">-0.38%</span></div>
+    </div>
+
+    <!-- Tasks -->
+    <div class="content-col">
+      <div class="col-title">Active Tasks</div>
+      <div class="trow"><span class="t-dot" style="background:var(--red)"></span><span class="t-txt">Review Q1 earnings model</span><span class="t-st" style="background:#FEF3C7;color:#92400E">WIP</span></div>
+      <div class="trow"><span class="t-dot" style="background:var(--red)"></span><span class="t-txt">Update allocation memo for IC</span><span class="t-st" style="background:#DBEAFE;color:#1E40AF">REV</span></div>
+      <div class="trow"><span class="t-dot" style="background:var(--red)"></span><span class="t-txt">Prepare LP quarterly letter</span><span class="t-st" style="background:#EDE9FE;color:#5B21B6">WAIT</span></div>
+      <div style="height:1px;background:var(--rule);margin:4px 0"></div>
+      <div class="trow"><span class="t-dot" style="background:var(--gold)"></span><span class="t-txt">Research TSMC capex revisions</span></div>
+      <div class="trow"><span class="t-dot" style="background:var(--text-3)"></span><span class="t-txt">Update watchlist thresholds</span></div>
+      <div class="trow"><span class="t-dot" style="background:var(--text-3)"></span><span class="t-txt">File quarterly 13F-HR</span></div>
+      <div class="t-prog">
+        <div class="t-prog-txt"><span>12 / 20 completed</span><span>60%</span></div>
+        <div class="t-prog-bar"><div class="t-prog-fill" style="width:60%"></div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Macro dark band -->
+<div class="macro-band">
+  <div class="macro-band-inner">
+    <div class="macro-hl">Market Confidence &mdash; <em>cautious</em></div>
+    <div class="macro-sub">Model prediction for April 2026 &middot; Data through March 28</div>
+    <div class="macro-layout">
+      <div class="macro-gauge">
+        <div class="mg-ring"></div>
+        <div class="mg-inner"></div>
+        <div class="mg-content">
+          <div class="mg-pct">70%</div>
+          <div class="mg-label">Equity Weight</div>
+        </div>
+      </div>
+      <div class="macro-features">
+        <div class="mf-cell"><span class="mf-n">Inflation YoY</span><span class="mf-v">2.82%</span></div>
+        <div class="mf-cell"><span class="mf-n">Inflation Impulse</span><span class="mf-v">+0.41%</span></div>
+        <div class="mf-cell"><span class="mf-n">Unemployment</span><span class="mf-v">4.10%</span></div>
+        <div class="mf-cell"><span class="mf-n">Credit Spread</span><span class="mf-v">3.45%</span></div>
+        <div class="mf-cell"><span class="mf-n">Credit Spd 3M</span><span class="mf-v w">+0.32%</span></div>
+        <div class="mf-cell"><span class="mf-n">Real Fed Funds</span><span class="mf-v">+1.68%</span></div>
+        <div class="mf-cell"><span class="mf-n">Yield Curve</span><span class="mf-v">+0.24%</span></div>
+        <div class="mf-cell"><span class="mf-n">VIX 1M Change</span><span class="mf-v w">+2.30</span></div>
+        <div class="mf-cell"><span class="mf-n">VIX Term Struct</span><span class="mf-v">0.952x</span></div>
+        <div class="mf-cell"><span class="mf-n">Equity Momentum</span><span class="mf-v">+4.21%</span></div>
+        <div class="mf-cell"><span class="mf-n">Equity Vol</span><span class="mf-v">18.50%</span></div>
+        <div class="mf-cell"><span class="mf-n">Drawdown</span><span class="mf-v b">-3.20%</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+  <!-- Analytics -->
+  <div class="analytics-sec">
+    <div class="analytics-head">
+      <span class="analytics-title">Fund Analytics</span>
+      <span class="analytics-meta">284 trading days</span>
+    </div>
+    <div class="a-grid">
+      <div class="a-cell"><div class="a-label">Ann. Return</div><div class="a-val up">+16.42%</div><div class="a-sub">CAGR</div><div class="a-bar"><div class="a-fill" style="width:55%;background:var(--green)"></div></div></div>
+      <div class="a-cell"><div class="a-label">Volatility</div><div class="a-val" style="color:var(--gold)">18.74%</div><div class="a-sub">Annualized std dev</div><div class="a-bar"><div class="a-fill" style="width:47%;background:var(--gold)"></div></div></div>
+      <div class="a-cell"><div class="a-label">Sharpe Ratio</div><div class="a-val up">1.24</div><div class="a-sub">rf = 4%</div><div class="a-bar"><div class="a-fill" style="width:41%;background:var(--green)"></div></div></div>
+      <div class="a-cell"><div class="a-label">Max Drawdown</div><div class="a-val" style="color:var(--gold)">8.72%</div><div class="a-sub">Peak-to-trough</div><div class="a-bar"><div class="a-fill" style="width:17%;background:var(--gold)"></div></div></div>
+      <div class="a-cell"><div class="a-label">Beta</div><div class="a-val" style="color:var(--gold)">0.91</div><div class="a-sub">vs S&P 500</div><div class="a-bar"><div class="a-fill" style="width:46%;background:var(--gold)"></div></div></div>
+      <div class="a-cell"><div class="a-label">Jensen's Alpha</div><div class="a-val up">+4.18%</div><div class="a-sub">Excess vs CAPM</div><div class="a-bar"><div class="a-fill" style="width:21%;background:var(--green)"></div></div></div>
+      <div class="a-cell"><div class="a-label">Tracking Error</div><div class="a-val up">6.32%</div><div class="a-sub">Excess return vol</div><div class="a-bar"><div class="a-fill" style="width:32%;background:var(--green)"></div></div></div>
+      <div class="a-cell"><div class="a-label">Win Rate</div><div class="a-val up">54.2%</div><div class="a-sub">154/284 days</div><div class="a-bar"><div class="a-fill" style="width:54%;background:var(--green)"></div></div></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

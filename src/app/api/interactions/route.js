@@ -32,16 +32,18 @@ export async function GET(req) {
 
 export async function POST(req) {
   const body = await req.json();
-  const { contact_id, type = 'note', summary, next_step, date } = body;
+  const { contact_id, type = 'note', summary, next_step, date, sentiment } = body;
 
   if (!contact_id) return NextResponse.json({ error: 'contact_id is required' }, { status: 400 });
 
+  const validSentiments = ['positive', 'neutral', 'negative'];
   const record = {
     contact_id,
     type,
     summary: summary || '',
     next_step: next_step || '',
     date: date || new Date().toISOString(),
+    sentiment: validSentiments.includes(sentiment) ? sentiment : 'neutral',
   };
 
   const { data, error } = await supabase.from(TABLE).insert(record).select().single();

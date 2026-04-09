@@ -78,6 +78,10 @@ export async function POST(req) {
     phone: body.phone || '',
     notes: '',
     last_meeting_note: '',
+    linkedin_url: body.linkedin_url || '',
+    birthday: body.birthday || null,
+    relationship_score: body.relationship_score || 50,
+    groups: body.groups || [],
     updated_at: new Date().toISOString(),
   };
 
@@ -86,12 +90,23 @@ export async function POST(req) {
   return NextResponse.json(data, { status: 201 });
 }
 
+const MUTABLE_FIELDS = new Set([
+  'name', 'company', 'role', 'relationship_type', 'contact_method', 'contact_value',
+  'status', 'relationship_strength', 'importance', 'outreach_type', 'summary',
+  'next_action', 'follow_up_date', 'last_contacted_at', 'tags', 'city', 'phone',
+  'notes', 'last_meeting_note', 'linkedin_url', 'birthday', 'relationship_score', 'groups',
+]);
+
 export async function PUT(req) {
   const body = await req.json();
-  const { id, ...updates } = body;
+  const { id, ...raw } = body;
 
   if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
 
+  const updates = {};
+  for (const key of Object.keys(raw)) {
+    if (MUTABLE_FIELDS.has(key)) updates[key] = raw[key];
+  }
   updates.updated_at = new Date().toISOString();
 
   const { data, error } = await supabase
@@ -111,9 +126,10 @@ export async function DELETE(req) {
 
   if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 });
 
-  // Delete related interactions and files first
+  // Delete related records first
   await supabase.from('interactions').delete().eq('contact_id', id);
   await supabase.from('contact_files').delete().eq('contact_id', id);
+  await supabase.from('contact_connections').delete().or(`contact_a_id.eq.${id},contact_b_id.eq.${id}`);
   const { error } = await supabase.from(TABLE).delete().eq('id', id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

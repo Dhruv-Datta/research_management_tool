@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FMS — Dark Editorial Mockup</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0F0F0E;
+    --surface: #171715;
+    --surface-2: #1E1E1B;
+    --border: #2A2A26;
+    --border-hover: #3A3A34;
+    --text: #E8E4DC;
+    --text-body: #9A9588;
+    --text-muted: #625E55;
+    --cream: #F5F3EF;
+    --green: #7CB686;
+    --green-dim: rgba(124,182,134,0.10);
+    --red: #C67070;
+    --red-dim: rgba(198,112,112,0.10);
+    --amber: #C8A96E;
+    --accent: #C8B89A;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Subtle noise texture */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    opacity: 0.015;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0;
+  }
+
+  .sans {
+    font-family: -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  }
+  .mono {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  }
+
+  /* Nav */
+  .nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(15,15,14,0.9);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 48px; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-brand {
+    font-size: 16px; font-weight: 600; color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .nav-brand span { color: var(--accent); font-style: italic; }
+  .nav-links { display: flex; gap: 4px; }
+  .nav-btn {
+    font-family: -apple-system, sans-serif;
+    font-size: 12px; font-weight: 500; color: var(--text-body);
+    padding: 6px 16px; border-radius: 999px;
+    border: 1px solid transparent; background: none;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .nav-btn:hover { color: var(--text); border-color: var(--border); }
+  .nav-btn.active { background: var(--cream); color: var(--bg); border-color: var(--cream); }
+
+  /* Content */
+  .content {
+    max-width: 1200px; margin: 0 auto;
+    padding: 32px 48px 80px;
+    position: relative; z-index: 1;
+  }
+
+  .section { margin-bottom: 40px; }
+
+  /* Hero */
+  .hero { margin-bottom: 36px; }
+  .hero-value {
+    font-size: 56px; font-weight: 300; color: var(--text);
+    letter-spacing: -0.04em; line-height: 1;
+  }
+  .hero-change {
+    font-size: 22px; font-weight: 400; margin-left: 16px;
+    position: relative; top: -4px;
+  }
+  .hero-sub {
+    font-size: 16px; font-weight: 400; color: var(--text-body);
+    margin-top: 8px;
+  }
+  .hero-sub strong { color: var(--text); font-weight: 500; }
+
+  /* Section header */
+  .sec-head {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sec-title {
+    font-size: 13px; font-weight: 400; color: var(--text-muted);
+    font-style: italic;
+  }
+  .sec-meta {
+    font-family: -apple-system, sans-serif;
+    font-size: 10px; color: var(--text-muted);
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+
+  /* Chart */
+  .chart-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    transition: border-color 0.3s;
+  }
+  .chart-wrap:hover { border-color: var(--border-hover); }
+  .chart-top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .chart-legend { display: flex; gap: 20px; }
+  .leg { display: flex; align-items: center; gap: 6px; }
+  .leg-line { width: 16px; height: 2px; border-radius: 1px; }
+  .leg-text { font-family: -apple-system,sans-serif; font-size: 11px; color: var(--text-muted); }
+  .tf-group { display: flex; gap: 2px; }
+  .tf {
+    font-family: -apple-system,sans-serif;
+    font-size: 10px; font-weight: 500;
+    padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--border);
+    background: none; color: var(--text-muted);
+    cursor: pointer; transition: all 0.2s;
+  }
+  .tf:hover { border-color: var(--text-muted); color: var(--text-body); }
+  .tf.on { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+  .chart-svg { width: 100%; height: 260px; }
+
+  /* Period returns */
+  .periods { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .p-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    transition: border-color 0.3s;
+  }
+  .p-card:hover { border-color: var(--border-hover); }
+  .p-label {
+    font-family: -apple-system,sans-serif;
+    font-size: 9px; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.1em;
+    margin-bottom: 10px;
+  }
+  .p-row { display: flex; justify-content: space-between; padding: 2px 0; }
+  .p-name { font-family: -apple-system,sans-serif; font-size: 11px; color: var(--text-muted); }
+  .p-val { font-family: 'SF Mono',monospace; font-size: 12px; font-weight: 500; }
+  .p-div { height: 1px; background: var(--border); margin: 5px 0; }
+  .up { color: var(--green); }
+  .down { color: var(--red); }
+
+  /* Three columns */
+  .cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .col {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+  .col:hover { border-color: var(--border-hover); }
+  .col-head {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .col-t {
+    font-family: -apple-system,sans-serif;
+    font-size: 10px; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .col-body { padding: 14px 18px; }
+
+  /* Holdings */
+  .h-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(42,42,38,0.6);
+  }
+  .h-row:last-child { border-bottom: none; }
+  .h-tick { font-family: 'SF Mono',monospace; font-size: 12px; font-weight: 500; width: 48px; color: var(--text); }
+  .h-bar-bg { flex: 1; height: 3px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
+  .h-bar-fill { height: 100%; border-radius: 2px; }
+  .h-pct { font-family: -apple-system,sans-serif; font-size: 11px; color: var(--text-body); width: 42px; text-align: right; }
+
+  /* Movers */
+  .m-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(42,42,38,0.6);
+  }
+  .m-row:last-child { border-bottom: none; }
+  .m-left { display: flex; align-items: center; gap: 10px; }
+  .m-icon {
+    width: 22px; height: 22px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700;
+  }
+  .m-icon.u { background: var(--green-dim); color: var(--green); }
+  .m-icon.d { background: var(--red-dim); color: var(--red); }
+  .m-tick { font-family: 'SF Mono',monospace; font-size: 12px; font-weight: 500; }
+  .m-pr { font-family: -apple-system,sans-serif; font-size: 10px; color: var(--text-muted); }
+  .m-ch { font-family: 'SF Mono',monospace; font-size: 12px; font-weight: 500; }
+  .m-sec {
+    font-family: -apple-system,sans-serif;
+    font-size: 9px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.08em; padding: 0 0 6px;
+  }
+
+  /* Tasks */
+  .t-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(42,42,38,0.6);
+  }
+  .t-row:last-child { border-bottom: none; }
+  .t-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .t-text {
+    font-family: -apple-system,sans-serif;
+    font-size: 12px; color: var(--text); flex: 1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .t-badge {
+    font-family: -apple-system,sans-serif;
+    font-size: 9px; font-weight: 600;
+    padding: 2px 8px; border-radius: 999px;
+    letter-spacing: 0.02em;
+  }
+  .prog-wrap { padding-top: 12px; margin-top: 6px; border-top: 1px solid var(--border); }
+  .prog-text {
+    font-family: -apple-system,sans-serif;
+    font-size: 10px; color: var(--text-muted);
+    display: flex; justify-content: space-between; margin-bottom: 5px;
+  }
+  .prog-bar { height: 2px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
+  .prog-fill { height: 100%; background: var(--green); border-radius: 2px; }
+
+  /* Macro — cream section */
+  .cream-section {
+    background: var(--cream);
+    border-radius: 12px;
+    padding: 32px;
+    color: #1A1A1A;
+  }
+  .cream-title {
+    font-size: 24px; font-weight: 400; color: #1A1A1A;
+    margin-bottom: 24px;
+  }
+  .cream-title em { font-style: italic; color: #8B7355; }
+  .macro-flex { display: flex; gap: 32px; align-items: flex-start; }
+  .gauge-outer {
+    width: 150px; height: 150px; border-radius: 50%;
+    border: 2px solid #C8B89A;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; flex-shrink: 0;
+  }
+  .gauge-pct { font-size: 36px; font-weight: 300; color: #1A1A1A; }
+  .gauge-label {
+    font-family: -apple-system,sans-serif;
+    font-size: 9px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.1em; color: #8B7355; margin-top: 2px;
+  }
+  .macro-grid {
+    flex: 1;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+  }
+  .mf-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 7px 14px;
+    border-bottom: 1px solid #E1DDD9;
+  }
+  .mf-name {
+    font-family: -apple-system,sans-serif;
+    font-size: 12px; color: #787068;
+  }
+  .mf-val {
+    font-family: 'SF Mono',monospace;
+    font-size: 12px; font-weight: 500; color: #1A1A1A;
+  }
+
+  /* Analytics */
+  .a-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .a-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    transition: border-color 0.3s;
+  }
+  .a-card:hover { border-color: var(--border-hover); }
+  .a-label {
+    font-family: -apple-system,sans-serif;
+    font-size: 9px; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 10px;
+  }
+  .a-val {
+    font-size: 28px; font-weight: 300;
+    letter-spacing: -0.02em; margin-bottom: 3px;
+  }
+  .a-sub {
+    font-family: -apple-system,sans-serif;
+    font-size: 10px; color: var(--text-muted); margin-bottom: 12px;
+  }
+  .a-bar { height: 2px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
+  .a-fill { height: 100%; border-radius: 2px; }
+
+  /* Ambient terminal lines */
+  .ambient-wrap {
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 0;
+    overflow: hidden;
+  }
+  .amb {
+    position: absolute;
+    font-family: 'SF Mono', monospace;
+    font-size: 10px; color: var(--text-muted);
+    opacity: 0;
+    white-space: nowrap;
+  }
+  @keyframes drift-r {
+    0% { opacity: 0; transform: translateX(-40px); }
+    15% { opacity: 0.06; }
+    85% { opacity: 0.06; }
+    100% { opacity: 0; transform: translateX(40px); }
+  }
+  .amb { animation: drift-r 12s ease-in-out infinite; }
+  .amb:nth-child(1) { top: 14%; left: 5%; animation-delay: 0s; }
+  .amb:nth-child(2) { top: 32%; right: 3%; animation-delay: 3s; }
+  .amb:nth-child(3) { top: 55%; left: 8%; animation-delay: 6s; }
+  .amb:nth-child(4) { top: 75%; right: 6%; animation-delay: 9s; }
+  .amb:nth-child(5) { top: 90%; left: 4%; animation-delay: 2s; }
+</style>
+</head>
+<body>
+
+<!-- Ambient -->
+<div class="ambient-wrap">
+  <div class="amb">$ portfolio.rebalance() → 5 positions adjusted, target weights restored</div>
+  <div class="amb">BUY BRK.B | 482.10 | 24 units | filled | latency: 12ms</div>
+  <div class="amb">// regime_model.predict() → CAUTIOUS (p=0.72) | equity_weight: 0.70</div>
+  <div class="amb">$ nav.update(2026-03-31) → $147.23 | delta: +$0.50 | sp500_delta: +$0.17</div>
+  <div class="amb">// risk.drawdown_monitor() → current: -3.20% | max_allowed: -15%</div>
+</div>
+
+<!-- Nav -->
+<nav class="nav">
+  <div class="nav-brand">B.D. Sterling <span>Capital</span></div>
+  <div class="nav-links">
+    <button class="nav-btn active">Dashboard</button>
+    <button class="nav-btn">Holdings</button>
+    <button class="nav-btn">Research</button>
+    <button class="nav-btn">Tasks</button>
+    <button class="nav-btn" style="border-color:var(--border)">Documents</button>
+  </div>
+</nav>
+
+<div class="content">
+
+  <!-- Hero -->
+  <div class="hero section">
+    <div style="display:flex;align-items:baseline;gap:16px">
+      <span class="hero-value">$147.23</span>
+      <span class="hero-change up">+18.42%</span>
+    </div>
+    <div class="hero-sub">
+      Fund NAV as of March 31, 2026 &mdash; outperforming the S&P 500 by <strong>5.82%</strong> since inception
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="section">
+    <div class="chart-wrap">
+      <div class="chart-top">
+        <div class="chart-legend">
+          <div class="leg"><span class="leg-line" style="background:var(--green)"></span><span class="leg-text">Fund</span></div>
+          <div class="leg"><span class="leg-line" style="background:var(--text-muted)"></span><span class="leg-text">S&P 500</span></div>
+        </div>
+        <div class="tf-group">
+          <button class="tf">1M</button><button class="tf">3M</button><button class="tf">6M</button>
+          <button class="tf">YTD</button><button class="tf">1Y</button><button class="tf on">All</button>
+        </div>
+      </div>
+      <svg class="chart-svg" viewBox="0 0 900 240" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="gf" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="rgba(124,182,134,0.15)"/>
+            <stop offset="100%" stop-color="rgba(124,182,134,0)"/>
+          </linearGradient>
+        </defs>
+        <line x1="0" y1="60" x2="900" y2="60" stroke="var(--border)" stroke-width="0.5"/>
+        <line x1="0" y1="120" x2="900" y2="120" stroke="var(--border)" stroke-width="0.5"/>
+        <line x1="0" y1="180" x2="900" y2="180" stroke="var(--border)" stroke-width="0.5"/>
+        <polyline points="0,200 90,190 180,180 270,170 360,175 450,160 540,155 630,148 720,135 810,130 900,122" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="6,4"/>
+        <polygon points="0,210 90,195 180,180 270,155 360,140 450,120 540,105 630,85 720,78 810,60 900,40 900,240 0,240" fill="url(#gf)"/>
+        <polyline points="0,210 90,195 180,180 270,155 360,140 450,120 540,105 630,85 720,78 810,60 900,40" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round"/>
+        <text x="0" y="236" fill="var(--text-muted)" font-family="sans-serif" font-size="10">Jan 2025</text>
+        <text x="180" y="236" fill="var(--text-muted)" font-family="sans-serif" font-size="10">Apr</text>
+        <text x="360" y="236" fill="var(--text-muted)" font-family="sans-serif" font-size="10">Jul</text>
+        <text x="540" y="236" fill="var(--text-muted)" font-family="sans-serif" font-size="10">Oct</text>
+        <text x="720" y="236" fill="var(--text-muted)" font-family="sans-serif" font-size="10">Jan 2026</text>
+        <text x="860" y="236" fill="var(--text-muted)" font-family="sans-serif" font-size="10">Mar</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Periods -->
+  <div class="section">
+    <div class="periods">
+      <div class="p-card"><div class="p-label">Today</div><div class="p-row"><span class="p-name">Fund</span><span class="p-val up">+0.34%</span></div><div class="p-row"><span class="p-name">S&P</span><span class="p-val" style="color:var(--text-muted)">+0.12%</span></div><div class="p-div"></div><div class="p-row"><span class="p-name">Alpha</span><span class="p-val up">+0.22%</span></div></div>
+      <div class="p-card"><div class="p-label">1 Month</div><div class="p-row"><span class="p-name">Fund</span><span class="p-val up">+2.81%</span></div><div class="p-row"><span class="p-name">S&P</span><span class="p-val" style="color:var(--text-muted)">+1.94%</span></div><div class="p-div"></div><div class="p-row"><span class="p-name">Alpha</span><span class="p-val up">+0.87%</span></div></div>
+      <div class="p-card"><div class="p-label">3 Month</div><div class="p-row"><span class="p-name">Fund</span><span class="p-val up">+7.15%</span></div><div class="p-row"><span class="p-name">S&P</span><span class="p-val" style="color:var(--text-muted)">+4.82%</span></div><div class="p-div"></div><div class="p-row"><span class="p-name">Alpha</span><span class="p-val up">+2.33%</span></div></div>
+      <div class="p-card"><div class="p-label">1 Year</div><div class="p-row"><span class="p-name">Fund</span><span class="p-val up">+14.20%</span></div><div class="p-row"><span class="p-name">S&P</span><span class="p-val" style="color:var(--text-muted)">+10.44%</span></div><div class="p-div"></div><div class="p-row"><span class="p-name">Alpha</span><span class="p-val up">+3.76%</span></div></div>
+      <div class="p-card"><div class="p-label">Cumulative</div><div class="p-row"><span class="p-name">Fund</span><span class="p-val up">+18.42%</span></div><div class="p-row"><span class="p-name">S&P</span><span class="p-val" style="color:var(--text-muted)">+12.60%</span></div><div class="p-div"></div><div class="p-row"><span class="p-name">Alpha</span><span class="p-val up">+5.82%</span></div></div>
+    </div>
+  </div>
+
+  <!-- 3-col -->
+  <div class="section">
+    <div class="cols">
+      <!-- Portfolio -->
+      <div class="col">
+        <div class="col-head">
+          <span class="col-t">Portfolio</span>
+          <span style="font-size:15px;font-weight:500">$46.6K</span>
+        </div>
+        <div class="col-body">
+          <div class="h-row"><span class="h-tick">BRK.B</span><div class="h-bar-bg"><div class="h-bar-fill" style="width:100%;background:var(--text)"></div></div><span class="h-pct">24.8%</span></div>
+          <div class="h-row"><span class="h-tick">GOOG</span><div class="h-bar-bg"><div class="h-bar-fill" style="width:73%;background:var(--text-body)"></div></div><span class="h-pct">18.2%</span></div>
+          <div class="h-row"><span class="h-tick">AMZN</span><div class="h-bar-bg"><div class="h-bar-fill" style="width:63%;background:var(--green)"></div></div><span class="h-pct">15.6%</span></div>
+          <div class="h-row"><span class="h-tick">MSFT</span><div class="h-bar-bg"><div class="h-bar-fill" style="width:53%;background:var(--amber)"></div></div><span class="h-pct">13.1%</span></div>
+          <div class="h-row"><span class="h-tick">META</span><div class="h-bar-bg"><div class="h-bar-fill" style="width:48%;background:var(--red)"></div></div><span class="h-pct">12.0%</span></div>
+          <div class="h-row"><span class="h-tick" style="color:var(--text-muted)">Cash</span><div class="h-bar-bg"><div class="h-bar-fill" style="width:66%;background:var(--border)"></div></div><span class="h-pct">16.3%</span></div>
+        </div>
+      </div>
+
+      <!-- Movers -->
+      <div class="col">
+        <div class="col-head"><span class="col-t">Today's Movers</span></div>
+        <div class="col-body">
+          <div class="m-sec up">Gainers</div>
+          <div class="m-row"><div class="m-left"><div class="m-icon u">&#9650;</div><div><div class="m-tick">AMZN</div><div class="m-pr">$198.42</div></div></div><span class="m-ch up">+2.14%</span></div>
+          <div class="m-row"><div class="m-left"><div class="m-icon u">&#9650;</div><div><div class="m-tick">BRK.B</div><div class="m-pr">$482.10</div></div></div><span class="m-ch up">+1.08%</span></div>
+          <div class="m-row"><div class="m-left"><div class="m-icon u">&#9650;</div><div><div class="m-tick">GOOG</div><div class="m-pr">$177.84</div></div></div><span class="m-ch up">+0.52%</span></div>
+          <div style="height:1px;background:var(--border);margin:8px 0"></div>
+          <div class="m-sec down">Decliners</div>
+          <div class="m-row"><div class="m-left"><div class="m-icon d">&#9660;</div><div><div class="m-tick">META</div><div class="m-pr">$524.30</div></div></div><span class="m-ch down">-1.23%</span></div>
+          <div class="m-row"><div class="m-left"><div class="m-icon d">&#9660;</div><div><div class="m-tick">MSFT</div><div class="m-pr">$421.55</div></div></div><span class="m-ch down">-0.38%</span></div>
+        </div>
+      </div>
+
+      <!-- Tasks -->
+      <div class="col">
+        <div class="col-head">
+          <span class="col-t">Tasks</span>
+          <span style="font-family:-apple-system,sans-serif;font-size:10px;color:var(--red)">3 high</span>
+        </div>
+        <div class="col-body">
+          <div class="t-row"><span class="t-dot" style="background:var(--red)"></span><span class="t-text">Review Q1 earnings model</span><span class="t-badge" style="background:rgba(200,169,110,0.15);color:var(--amber)">Working</span></div>
+          <div class="t-row"><span class="t-dot" style="background:var(--red)"></span><span class="t-text">Update allocation memo for IC</span><span class="t-badge" style="background:rgba(77,148,255,0.12);color:#6EA8FF">Review</span></div>
+          <div class="t-row"><span class="t-dot" style="background:var(--red)"></span><span class="t-text">Prepare LP quarterly letter</span><span class="t-badge" style="background:rgba(139,92,246,0.12);color:#A78BFA">Waiting</span></div>
+          <div style="height:1px;background:var(--border);margin:6px 0"></div>
+          <div class="t-row"><span class="t-dot" style="background:var(--amber)"></span><span class="t-text">Research TSMC capex revisions</span></div>
+          <div class="t-row"><span class="t-dot" style="background:var(--text-muted)"></span><span class="t-text">Update watchlist thresholds</span></div>
+          <div class="prog-wrap">
+            <div class="prog-text"><span>12 of 20 done</span><span>60%</span></div>
+            <div class="prog-bar"><div class="prog-fill" style="width:60%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Macro — inverted cream -->
+  <div class="section">
+    <div class="cream-section">
+      <div class="cream-title">Market Confidence &mdash; <em>cautious</em></div>
+      <div class="macro-flex">
+        <div class="gauge-outer">
+          <div class="gauge-pct">70%</div>
+          <div class="gauge-label">Equity Weight</div>
+        </div>
+        <div class="macro-grid">
+          <div class="mf-row"><span class="mf-name">Inflation YoY</span><span class="mf-val">2.82%</span></div>
+          <div class="mf-row"><span class="mf-name">Inflation Impulse</span><span class="mf-val">+0.41%</span></div>
+          <div class="mf-row"><span class="mf-name">Unemployment</span><span class="mf-val">4.10%</span></div>
+          <div class="mf-row"><span class="mf-name">Credit Spread</span><span class="mf-val">3.45%</span></div>
+          <div class="mf-row"><span class="mf-name">Credit Spd 3M</span><span class="mf-val" style="color:#8B7355">+0.32%</span></div>
+          <div class="mf-row"><span class="mf-name">Real Fed Funds</span><span class="mf-val">+1.68%</span></div>
+          <div class="mf-row"><span class="mf-name">Yield Curve</span><span class="mf-val">+0.24%</span></div>
+          <div class="mf-row"><span class="mf-name">VIX 1M Change</span><span class="mf-val" style="color:#8B7355">+2.30</span></div>
+          <div class="mf-row"><span class="mf-name">VIX Term Structure</span><span class="mf-val">0.952x</span></div>
+          <div class="mf-row"><span class="mf-name">Equity Momentum</span><span class="mf-val">+4.21%</span></div>
+          <div class="mf-row"><span class="mf-name">Equity Volatility</span><span class="mf-val">18.50%</span></div>
+          <div class="mf-row"><span class="mf-name">Drawdown</span><span class="mf-val" style="color:#9C4146">-3.20%</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Analytics -->
+  <div class="section">
+    <div class="sec-head">
+      <span class="sec-title">Fund Analytics</span>
+      <span class="sec-meta">284 trading days</span>
+    </div>
+    <div class="a-grid">
+      <div class="a-card"><div class="a-label">Annualized Return</div><div class="a-val up">+16.42%</div><div class="a-sub">CAGR</div><div class="a-bar"><div class="a-fill" style="width:55%;background:var(--green)"></div></div></div>
+      <div class="a-card"><div class="a-label">Volatility</div><div class="a-val" style="color:var(--amber)">18.74%</div><div class="a-sub">Annualized std dev</div><div class="a-bar"><div class="a-fill" style="width:47%;background:var(--amber)"></div></div></div>
+      <div class="a-card"><div class="a-label">Sharpe Ratio</div><div class="a-val up">1.24</div><div class="a-sub">rf = 4.00%</div><div class="a-bar"><div class="a-fill" style="width:41%;background:var(--green)"></div></div></div>
+      <div class="a-card"><div class="a-label">Max Drawdown</div><div class="a-val" style="color:var(--amber)">8.72%</div><div class="a-sub">Peak-to-trough</div><div class="a-bar"><div class="a-fill" style="width:17%;background:var(--amber)"></div></div></div>
+      <div class="a-card"><div class="a-label">Beta</div><div class="a-val" style="color:var(--amber)">0.91</div><div class="a-sub">vs S&P 500</div><div class="a-bar"><div class="a-fill" style="width:46%;background:var(--amber)"></div></div></div>
+      <div class="a-card"><div class="a-label">Jensen's Alpha</div><div class="a-val up">+4.18%</div><div class="a-sub">Excess vs CAPM</div><div class="a-bar"><div class="a-fill" style="width:21%;background:var(--green)"></div></div></div>
+      <div class="a-card"><div class="a-label">Tracking Error</div><div class="a-val up">6.32%</div><div class="a-sub">Excess return vol</div><div class="a-bar"><div class="a-fill" style="width:32%;background:var(--green)"></div></div></div>
+      <div class="a-card"><div class="a-label">Win Rate</div><div class="a-val up">54.2%</div><div class="a-sub">154/284 days</div><div class="a-bar"><div class="a-fill" style="width:54%;background:var(--green)"></div></div></div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

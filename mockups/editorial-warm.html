@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FMS — Editorial Warm Mockup</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Domine:wght@400;500;600;700&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #F5F3EF;
+    --bg-card: #FEFDFB;
+    --bg-dark: #1A1A1A;
+    --bg-dark-2: #242424;
+    --border: #E1DDD9;
+    --border-dark: #333;
+    --text: #1A1A1A;
+    --text-body: #787068;
+    --text-muted: #A8A29E;
+    --text-light: #FAF9F7;
+    --green: #4A7C59;
+    --green-light: #E8F0EA;
+    --red: #9C4146;
+    --red-light: #F3E8E9;
+    --amber: #8B7355;
+    --accent: #C8B89A;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Source Serif 4', 'Domine', Georgia, serif;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Nav */
+  .nav {
+    position: sticky; top: 0; z-index: 50;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 0 48px;
+    height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-brand {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .nav-logo {
+    font-family: 'Source Serif 4', serif;
+    font-size: 18px; font-weight: 600; color: var(--text);
+    letter-spacing: -0.02em;
+  }
+  .nav-sep {
+    color: var(--border); font-weight: 300;
+  }
+  .nav-sub {
+    font-family: 'Geist', sans-serif;
+    font-size: 12px; color: var(--text-muted);
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .nav-links {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .nav-link {
+    font-family: 'Geist', sans-serif;
+    font-size: 13px; font-weight: 400; color: var(--text-body);
+    padding: 6px 16px; border-radius: 999px;
+    border: none; background: none; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .nav-link:hover { color: var(--text); }
+  .nav-link.active {
+    background: var(--bg-dark);
+    color: var(--text-light);
+  }
+  .nav-link.ghost {
+    border: 1px solid var(--border);
+  }
+  .nav-link.ghost:hover { border-color: var(--text-body); }
+
+  /* Content */
+  .content {
+    max-width: 1200px; margin: 0 auto;
+    padding: 32px 48px 80px;
+  }
+
+  /* Section spacing */
+  .section { margin-bottom: 40px; }
+  .section-title {
+    font-family: 'Source Serif 4', serif;
+    font-size: 14px; font-weight: 400; color: var(--text-muted);
+    letter-spacing: 0.04em; text-transform: uppercase;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Hero stats */
+  .hero-stats {
+    display: flex; align-items: baseline; gap: 32px;
+    margin-bottom: 8px;
+  }
+  .hero-nav-value {
+    font-size: 48px; font-weight: 700; color: var(--text);
+    letter-spacing: -0.03em; line-height: 1.1;
+  }
+  .hero-change {
+    font-size: 20px; font-weight: 500;
+  }
+  .hero-meta {
+    font-size: 15px; color: var(--text-body); font-weight: 400;
+    margin-bottom: 24px;
+  }
+
+  /* Chart card */
+  .chart-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  .chart-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .chart-legend {
+    display: flex; gap: 20px;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'Geist', sans-serif;
+    font-size: 12px; color: var(--text-body);
+  }
+  .legend-line {
+    width: 20px; height: 2px; border-radius: 1px;
+  }
+  .tf-row {
+    display: flex; gap: 2px;
+  }
+  .tf-btn {
+    font-family: 'Geist', sans-serif;
+    font-size: 11px; font-weight: 500;
+    padding: 5px 12px; border-radius: 999px;
+    border: 1px solid var(--border);
+    background: none; color: var(--text-body);
+    cursor: pointer; transition: all 0.2s;
+  }
+  .tf-btn:hover { border-color: var(--text-body); color: var(--text); }
+  .tf-btn.active { background: var(--bg-dark); color: var(--text-light); border-color: var(--bg-dark); }
+  .chart-area {
+    height: 280px; position: relative;
+  }
+  .chart-svg { width: 100%; height: 100%; }
+
+  /* Period returns */
+  .period-grid {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;
+  }
+  .period-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    transition: border-color 0.2s;
+  }
+  .period-card:hover { border-color: var(--text-muted); }
+  .period-label {
+    font-family: 'Geist', sans-serif;
+    font-size: 10px; font-weight: 500; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.1em;
+    margin-bottom: 12px;
+  }
+  .period-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 3px 0;
+  }
+  .period-name {
+    font-family: 'Geist', sans-serif;
+    font-size: 12px; color: var(--text-muted);
+  }
+  .period-val {
+    font-family: 'Geist Mono', monospace;
+    font-size: 13px; font-weight: 500;
+  }
+  .period-divider {
+    height: 1px; background: var(--border); margin: 6px 0;
+  }
+
+  .up { color: var(--green); }
+  .down { color: var(--red); }
+  .muted { color: var(--text-muted); }
+
+  /* Three column */
+  .three-col {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;
+  }
+  .col-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .col-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .col-title {
+    font-family: 'Geist', sans-serif;
+    font-size: 11px; font-weight: 500; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .col-body { padding: 16px 20px; }
+
+  /* Holdings table */
+  .h-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0ede8;
+  }
+  .h-row:last-child { border-bottom: none; }
+  .h-ticker {
+    font-family: 'Geist Mono', monospace;
+    font-size: 13px; font-weight: 500; color: var(--text);
+    width: 60px;
+  }
+  .h-weight {
+    font-family: 'Geist', sans-serif;
+    font-size: 12px; color: var(--text-body);
+  }
+  .h-bar-wrap { width: 80px; height: 4px; background: #f0ede8; border-radius: 2px; overflow: hidden; }
+  .h-bar { height: 100%; border-radius: 2px; }
+
+  /* Movers */
+  .m-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0ede8;
+  }
+  .m-row:last-child { border-bottom: none; }
+  .m-left { display: flex; align-items: center; gap: 10px; }
+  .m-arrow {
+    width: 24px; height: 24px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700;
+  }
+  .m-arrow.up { background: var(--green-light); color: var(--green); }
+  .m-arrow.down { background: var(--red-light); color: var(--red); }
+  .m-ticker {
+    font-family: 'Geist Mono', monospace;
+    font-size: 13px; font-weight: 500;
+  }
+  .m-price {
+    font-family: 'Geist', sans-serif;
+    font-size: 11px; color: var(--text-muted);
+  }
+  .m-pct {
+    font-family: 'Geist Mono', monospace;
+    font-size: 13px; font-weight: 500;
+  }
+  .m-section-label {
+    font-family: 'Geist', sans-serif;
+    font-size: 9px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.1em; padding: 0 0 6px;
+  }
+
+  /* Tasks */
+  .t-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0ede8;
+  }
+  .t-row:last-child { border-bottom: none; }
+  .t-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+  .t-title {
+    font-family: 'Geist', sans-serif;
+    font-size: 12px; color: var(--text); flex: 1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .t-badge {
+    font-family: 'Geist', sans-serif;
+    font-size: 10px; font-weight: 500;
+    padding: 2px 10px; border-radius: 999px;
+  }
+  .progress-wrap { padding-top: 14px; border-top: 1px solid #f0ede8; margin-top: 8px; }
+  .progress-text {
+    font-family: 'Geist', sans-serif;
+    font-size: 11px; color: var(--text-muted);
+    display: flex; justify-content: space-between; margin-bottom: 6px;
+  }
+  .progress-track { height: 3px; background: #f0ede8; border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--green); border-radius: 3px; }
+
+  /* Macro — dark section */
+  .dark-section {
+    background: var(--bg-dark);
+    border-radius: 16px;
+    padding: 32px;
+    color: var(--text-light);
+  }
+  .dark-title {
+    font-family: 'Source Serif 4', serif;
+    font-size: 22px; font-weight: 400; color: var(--text-light);
+    margin-bottom: 24px;
+  }
+  .dark-title em { font-style: italic; color: var(--accent); }
+  .macro-layout {
+    display: flex; gap: 32px; align-items: flex-start;
+  }
+  .macro-gauge {
+    width: 160px; height: 160px; border-radius: 50%;
+    border: 3px solid var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; flex-shrink: 0;
+    position: relative;
+  }
+  .macro-gauge::before {
+    content: '';
+    position: absolute; inset: 6px;
+    border-radius: 50%;
+    border: 1px solid var(--border-dark);
+  }
+  .macro-pct {
+    font-family: 'Source Serif 4', serif;
+    font-size: 36px; font-weight: 600; color: var(--text-light);
+  }
+  .macro-regime {
+    font-family: 'Geist', sans-serif;
+    font-size: 10px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--accent);
+    margin-top: 2px;
+  }
+  .macro-features {
+    flex: 1;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+  }
+  .mf-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border-dark);
+  }
+  .mf-name {
+    font-family: 'Geist', sans-serif;
+    font-size: 12px; color: #999;
+  }
+  .mf-val {
+    font-family: 'Geist Mono', monospace;
+    font-size: 13px; font-weight: 500; color: var(--text-light);
+  }
+
+  /* Analytics */
+  .analytics-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+  }
+  .a-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    transition: border-color 0.2s;
+  }
+  .a-card:hover { border-color: var(--text-muted); }
+  .a-label {
+    font-family: 'Geist', sans-serif;
+    font-size: 10px; font-weight: 500; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 10px;
+  }
+  .a-value {
+    font-family: 'Source Serif 4', serif;
+    font-size: 28px; font-weight: 600;
+    margin-bottom: 4px; letter-spacing: -0.02em;
+  }
+  .a-sub {
+    font-family: 'Geist', sans-serif;
+    font-size: 10px; color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+  .a-bar { height: 2px; background: #f0ede8; border-radius: 2px; overflow: hidden; }
+  .a-bar-fill { height: 100%; border-radius: 2px; }
+
+  /* Terminal ambient text */
+  .ambient {
+    position: fixed; pointer-events: none; z-index: 0;
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px; color: var(--text-muted);
+    opacity: 0.08;
+  }
+  .ambient-1 { top: 120px; right: 60px; }
+  .ambient-2 { top: 240px; left: 30px; }
+  .ambient-3 { top: 480px; right: 40px; }
+  .ambient-4 { top: 680px; left: 50px; }
+
+  @keyframes fade-pulse {
+    0%, 100% { opacity: 0.04; }
+    50% { opacity: 0.1; }
+  }
+  .ambient { animation: fade-pulse 6s ease-in-out infinite; }
+  .ambient-2 { animation-delay: 1.5s; }
+  .ambient-3 { animation-delay: 3s; }
+  .ambient-4 { animation-delay: 4.5s; }
+</style>
+</head>
+<body>
+
+<!-- Ambient terminal text -->
+<div class="ambient ambient-1">$ rebalancing portfolio... 5 positions updated<br>// macro signal: CAUTIOUS → equity weight 70%</div>
+<div class="ambient ambient-2">BUY BRK.B | 482.10 | 24 units | filled<br>$ correlation analysis complete</div>
+<div class="ambient ambient-3">// drawdown monitor: -3.20% from peak<br>SELL signal suppressed — regime = CAUTIOUS</div>
+<div class="ambient ambient-4">$ fund NAV updated: $147.23 (+0.34%)<br>// benchmark delta: +5.82% cumulative alpha</div>
+
+<!-- Nav -->
+<nav class="nav">
+  <div class="nav-brand">
+    <span class="nav-logo">B.D. Sterling Capital</span>
+    <span class="nav-sep">|</span>
+    <span class="nav-sub">Fund Management</span>
+  </div>
+  <div class="nav-links">
+    <button class="nav-link active">Dashboard</button>
+    <button class="nav-link">Holdings</button>
+    <button class="nav-link">Research</button>
+    <button class="nav-link">Tasks</button>
+    <button class="nav-link ghost">Documents</button>
+  </div>
+</nav>
+
+<div class="content" style="position:relative;z-index:1">
+
+  <!-- Hero -->
+  <div class="section">
+    <div class="hero-stats">
+      <span class="hero-nav-value">$147.23</span>
+      <span class="hero-change up">+18.42%</span>
+    </div>
+    <div class="hero-meta">
+      Fund NAV as of March 31, 2026 &mdash; outperforming S&P 500 by <strong style="color:var(--text)">5.82%</strong> since inception
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="section">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-legend">
+          <div class="legend-item">
+            <span class="legend-line" style="background:var(--green)"></span> Fund
+          </div>
+          <div class="legend-item">
+            <span class="legend-line" style="background:var(--text-muted)"></span> S&P 500
+          </div>
+        </div>
+        <div class="tf-row">
+          <button class="tf-btn">1M</button>
+          <button class="tf-btn">3M</button>
+          <button class="tf-btn">6M</button>
+          <button class="tf-btn">YTD</button>
+          <button class="tf-btn">1Y</button>
+          <button class="tf-btn active">All</button>
+        </div>
+      </div>
+      <div class="chart-area">
+        <svg class="chart-svg" viewBox="0 0 900 240" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="fundFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="rgba(74,124,89,0.12)"/>
+              <stop offset="100%" stop-color="rgba(74,124,89,0)"/>
+            </linearGradient>
+          </defs>
+          <!-- Grid lines -->
+          <line x1="0" y1="60" x2="900" y2="60" stroke="#E1DDD9" stroke-width="0.5"/>
+          <line x1="0" y1="120" x2="900" y2="120" stroke="#E1DDD9" stroke-width="0.5"/>
+          <line x1="0" y1="180" x2="900" y2="180" stroke="#E1DDD9" stroke-width="0.5"/>
+          <!-- S&P line -->
+          <polyline points="0,200 90,190 180,180 270,170 360,175 450,160 540,155 630,148 720,135 810,130 900,122"
+            fill="none" stroke="#A8A29E" stroke-width="1.5" stroke-dasharray="6,4"/>
+          <!-- Fund fill -->
+          <polygon points="0,210 90,195 180,180 270,155 360,140 450,120 540,105 630,85 720,78 810,60 900,40 900,240 0,240"
+            fill="url(#fundFill)"/>
+          <!-- Fund line -->
+          <polyline points="0,210 90,195 180,180 270,155 360,140 450,120 540,105 630,85 720,78 810,60 900,40"
+            fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Labels -->
+          <text x="0" y="236" fill="#A8A29E" font-family="Geist, sans-serif" font-size="10">Jan 2025</text>
+          <text x="180" y="236" fill="#A8A29E" font-family="Geist, sans-serif" font-size="10">Apr</text>
+          <text x="360" y="236" fill="#A8A29E" font-family="Geist, sans-serif" font-size="10">Jul</text>
+          <text x="540" y="236" fill="#A8A29E" font-family="Geist, sans-serif" font-size="10">Oct</text>
+          <text x="720" y="236" fill="#A8A29E" font-family="Geist, sans-serif" font-size="10">Jan 2026</text>
+          <text x="860" y="236" fill="#A8A29E" font-family="Geist, sans-serif" font-size="10">Mar</text>
+          <!-- Y labels -->
+          <text x="870" y="65" fill="#A8A29E" font-family="Geist Mono, monospace" font-size="9">$150</text>
+          <text x="870" y="125" fill="#A8A29E" font-family="Geist Mono, monospace" font-size="9">$130</text>
+          <text x="870" y="185" fill="#A8A29E" font-family="Geist Mono, monospace" font-size="9">$110</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Period Returns -->
+  <div class="section">
+    <div class="period-grid">
+      <div class="period-card">
+        <div class="period-label">Today</div>
+        <div class="period-row"><span class="period-name">Fund</span><span class="period-val up">+0.34%</span></div>
+        <div class="period-row"><span class="period-name">S&P 500</span><span class="period-val muted">+0.12%</span></div>
+        <div class="period-divider"></div>
+        <div class="period-row"><span class="period-name">Alpha</span><span class="period-val up">+0.22%</span></div>
+      </div>
+      <div class="period-card">
+        <div class="period-label">1 Month</div>
+        <div class="period-row"><span class="period-name">Fund</span><span class="period-val up">+2.81%</span></div>
+        <div class="period-row"><span class="period-name">S&P 500</span><span class="period-val muted">+1.94%</span></div>
+        <div class="period-divider"></div>
+        <div class="period-row"><span class="period-name">Alpha</span><span class="period-val up">+0.87%</span></div>
+      </div>
+      <div class="period-card">
+        <div class="period-label">3 Month</div>
+        <div class="period-row"><span class="period-name">Fund</span><span class="period-val up">+7.15%</span></div>
+        <div class="period-row"><span class="period-name">S&P 500</span><span class="period-val muted">+4.82%</span></div>
+        <div class="period-divider"></div>
+        <div class="period-row"><span class="period-name">Alpha</span><span class="period-val up">+2.33%</span></div>
+      </div>
+      <div class="period-card">
+        <div class="period-label">1 Year</div>
+        <div class="period-row"><span class="period-name">Fund</span><span class="period-val up">+14.20%</span></div>
+        <div class="period-row"><span class="period-name">S&P 500</span><span class="period-val muted">+10.44%</span></div>
+        <div class="period-divider"></div>
+        <div class="period-row"><span class="period-name">Alpha</span><span class="period-val up">+3.76%</span></div>
+      </div>
+      <div class="period-card">
+        <div class="period-label">Cumulative</div>
+        <div class="period-row"><span class="period-name">Fund</span><span class="period-val up">+18.42%</span></div>
+        <div class="period-row"><span class="period-name">S&P 500</span><span class="period-val muted">+12.60%</span></div>
+        <div class="period-divider"></div>
+        <div class="period-row"><span class="period-name">Alpha</span><span class="period-val up">+5.82%</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3-col -->
+  <div class="section">
+    <div class="three-col">
+      <!-- Portfolio -->
+      <div class="col-card">
+        <div class="col-header">
+          <span class="col-title">Portfolio</span>
+          <span style="font-family:'Source Serif 4',serif;font-size:16px;font-weight:600">$46.6K</span>
+        </div>
+        <div class="col-body">
+          <div class="h-row">
+            <span class="h-ticker">BRK.B</span>
+            <div class="h-bar-wrap"><div class="h-bar" style="width:100%;background:var(--text)"></div></div>
+            <span class="h-weight">24.8%</span>
+          </div>
+          <div class="h-row">
+            <span class="h-ticker">GOOG</span>
+            <div class="h-bar-wrap"><div class="h-bar" style="width:73%;background:var(--text-body)"></div></div>
+            <span class="h-weight">18.2%</span>
+          </div>
+          <div class="h-row">
+            <span class="h-ticker">AMZN</span>
+            <div class="h-bar-wrap"><div class="h-bar" style="width:63%;background:var(--green)"></div></div>
+            <span class="h-weight">15.6%</span>
+          </div>
+          <div class="h-row">
+            <span class="h-ticker">MSFT</span>
+            <div class="h-bar-wrap"><div class="h-bar" style="width:53%;background:var(--amber)"></div></div>
+            <span class="h-weight">13.1%</span>
+          </div>
+          <div class="h-row">
+            <span class="h-ticker">META</span>
+            <div class="h-bar-wrap"><div class="h-bar" style="width:48%;background:var(--red)"></div></div>
+            <span class="h-weight">12.0%</span>
+          </div>
+          <div class="h-row">
+            <span class="h-ticker" style="color:var(--text-muted)">Cash</span>
+            <div class="h-bar-wrap"><div class="h-bar" style="width:66%;background:var(--border)"></div></div>
+            <span class="h-weight">16.3%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Movers -->
+      <div class="col-card">
+        <div class="col-header">
+          <span class="col-title">Today's Movers</span>
+        </div>
+        <div class="col-body">
+          <div class="m-section-label up">Gainers</div>
+          <div class="m-row">
+            <div class="m-left"><div class="m-arrow up">&#9650;</div><div><div class="m-ticker">AMZN</div><div class="m-price">$198.42</div></div></div>
+            <span class="m-pct up">+2.14%</span>
+          </div>
+          <div class="m-row">
+            <div class="m-left"><div class="m-arrow up">&#9650;</div><div><div class="m-ticker">BRK.B</div><div class="m-price">$482.10</div></div></div>
+            <span class="m-pct up">+1.08%</span>
+          </div>
+          <div class="m-row">
+            <div class="m-left"><div class="m-arrow up">&#9650;</div><div><div class="m-ticker">GOOG</div><div class="m-price">$177.84</div></div></div>
+            <span class="m-pct up">+0.52%</span>
+          </div>
+          <div style="height:1px;background:#f0ede8;margin:10px 0"></div>
+          <div class="m-section-label down">Decliners</div>
+          <div class="m-row">
+            <div class="m-left"><div class="m-arrow down">&#9660;</div><div><div class="m-ticker">META</div><div class="m-price">$524.30</div></div></div>
+            <span class="m-pct down">-1.23%</span>
+          </div>
+          <div class="m-row">
+            <div class="m-left"><div class="m-arrow down">&#9660;</div><div><div class="m-ticker">MSFT</div><div class="m-price">$421.55</div></div></div>
+            <span class="m-pct down">-0.38%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tasks -->
+      <div class="col-card">
+        <div class="col-header">
+          <span class="col-title">Tasks</span>
+          <span style="font-family:'Geist',sans-serif;font-size:10px;color:var(--red);font-weight:500">3 high priority</span>
+        </div>
+        <div class="col-body">
+          <div class="t-row"><span class="t-dot" style="background:var(--red)"></span><span class="t-title">Review Q1 earnings model</span><span class="t-badge" style="background:#FEF3C7;color:#92400E">Working</span></div>
+          <div class="t-row"><span class="t-dot" style="background:var(--red)"></span><span class="t-title">Update allocation memo for IC</span><span class="t-badge" style="background:#DBEAFE;color:#1E40AF">Review</span></div>
+          <div class="t-row"><span class="t-dot" style="background:var(--red)"></span><span class="t-title">Prepare LP quarterly letter</span><span class="t-badge" style="background:#EDE9FE;color:#5B21B6">Waiting</span></div>
+          <div style="height:1px;background:#f0ede8;margin:8px 0"></div>
+          <div class="t-row"><span class="t-dot" style="background:var(--amber)"></span><span class="t-title">Research TSMC capex revisions</span></div>
+          <div class="t-row"><span class="t-dot" style="background:var(--text-muted)"></span><span class="t-title">Update watchlist thresholds</span></div>
+          <div class="progress-wrap">
+            <div class="progress-text"><span>12 of 20 done</span><span>60%</span></div>
+            <div class="progress-track"><div class="progress-fill" style="width:60%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Market Confidence — dark section -->
+  <div class="section">
+    <div class="dark-section">
+      <div class="dark-title">Market Confidence &mdash; <em>cautious</em></div>
+      <div class="macro-layout">
+        <div class="macro-gauge">
+          <div class="macro-pct">70%</div>
+          <div class="macro-regime">Equity Weight</div>
+        </div>
+        <div class="macro-features">
+          <div class="mf-row"><span class="mf-name">Inflation YoY</span><span class="mf-val">2.82%</span></div>
+          <div class="mf-row"><span class="mf-name">Inflation Impulse</span><span class="mf-val">+0.41%</span></div>
+          <div class="mf-row"><span class="mf-name">Unemployment</span><span class="mf-val">4.10%</span></div>
+          <div class="mf-row"><span class="mf-name">Credit Spread</span><span class="mf-val">3.45%</span></div>
+          <div class="mf-row"><span class="mf-name">Credit Spd 3M</span><span class="mf-val" style="color:var(--accent)">+0.32%</span></div>
+          <div class="mf-row"><span class="mf-name">Real Fed Funds</span><span class="mf-val">+1.68%</span></div>
+          <div class="mf-row"><span class="mf-name">Yield Curve</span><span class="mf-val">+0.24%</span></div>
+          <div class="mf-row"><span class="mf-name">VIX 1M Change</span><span class="mf-val" style="color:var(--accent)">+2.30</span></div>
+          <div class="mf-row"><span class="mf-name">VIX Term Structure</span><span class="mf-val">0.952x</span></div>
+          <div class="mf-row"><span class="mf-name">Equity Momentum</span><span class="mf-val">+4.21%</span></div>
+          <div class="mf-row"><span class="mf-name">Equity Volatility</span><span class="mf-val">18.50%</span></div>
+          <div class="mf-row"><span class="mf-name">Drawdown</span><span class="mf-val" style="color:#9C4146">-3.20%</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Analytics -->
+  <div class="section">
+    <div class="section-title">Fund Analytics &mdash; 284 trading days</div>
+    <div class="analytics-grid">
+      <div class="a-card">
+        <div class="a-label">Annualized Return</div>
+        <div class="a-value up">+16.42%</div>
+        <div class="a-sub">Compound annual growth rate</div>
+        <div class="a-bar"><div class="a-bar-fill" style="width:55%;background:var(--green)"></div></div>
+      </div>
+      <div class="a-card">
+        <div class="a-label">Volatility</div>
+        <div class="a-value" style="color:var(--amber)">18.74%</div>
+        <div class="a-sub">Annualized std deviation</div>
+        <div class="a-bar"><div class="a-bar-fill" style="width:47%;background:var(--amber)"></div></div>
+      </div>
+      <div class="a-card">
+        <div class="a-label">Sharpe Ratio</div>
+        <div class="a-value up">1.24</div>
+        <div class="a-sub">Risk-adjusted return (rf=4%)</div>
+        <div class="a-bar"><div class="a-bar-fill" style="width:41%;background:var(--green)"></div></div>
+      </div>
+      <div class="a-card">
+        <div class="a-label">Max Drawdown</div>
+        <div class="a-value" style="color:var(--amber)">8.72%</div>
+        <div class="a-sub">Peak-to-trough decline</div>
+        <div class="a-bar"><div class="a-bar-fill" style="width:17%;background:var(--amber)"></div></div>
+      </div>
+      <div class="a-card">
+        <div class="a-label">Beta</div>
+        <div class="a-value" style="color:var(--amber)">0.91</div>
+        <div class="a-sub">Sensitivity to S&P 500</div>
+        <div class="a-bar"><div class="a-bar-fill" style="width:46%;background:var(--amber)"></div></div>
+      </div>
+      <div class="a-card">
+        <div class="a-label">Jensen's Alpha</div>
+        <div class="a-value up">+4.18%</div>
+        <div class="a-sub">Excess return vs CAPM</div>
+        <div class="a-bar"><div class="a-bar-fill" style="width:21%;background:var(--green)"></div></div>
+      </div>
+      <div class="a-card">
+        <div class="a-label">Tracking Error</div>
+        <div class="a-value up">6.32%</div>
+        <div class="a-sub">Volatility of excess returns</div>
+        <div class="a-bar"><div class="a-bar-fill" style="width:32%;background:var(--green)"></div></div>
+      </div>
+      <div class="a-card">
+        <div class="a-label">Win Rate vs S&P</div>
+        <div class="a-value up">54.2%</div>
+        <div class="a-sub">154 of 284 trading days</div>
+        <div class="a-bar"><div class="a-bar-fill" style="width:54%;background:var(--green)"></div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FMS — Terminal / ASCII Mockup</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0c0c0c;
+    --surface: #111111;
+    --border: #2a2a2a;
+    --border-bright: #444;
+    --green: #39ff14;
+    --green-dim: #1a3a0f;
+    --red: #ff3333;
+    --red-dim: #3a1a1a;
+    --amber: #ffa500;
+    --cyan: #00d4ff;
+    --blue: #5588ff;
+    --text: #cccccc;
+    --text-dim: #666666;
+    --text-bright: #ffffff;
+    --header-bg: #1a1a1a;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* Scanline overlay */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none; z-index: 9999;
+  }
+
+  /* Top bar */
+  .topbar {
+    background: var(--header-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 50;
+  }
+  .topbar-left {
+    display: flex; align-items: center; gap: 16px;
+  }
+  .brand {
+    color: var(--green);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+  }
+  .brand-sub {
+    color: var(--text-dim);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .topbar-nav {
+    display: flex; gap: 4px;
+  }
+  .topbar-nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+  }
+  .topbar-nav a:hover {
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .topbar-nav a.active {
+    color: var(--green);
+    border-color: var(--green);
+    background: var(--green-dim);
+  }
+  .topbar-right {
+    display: flex; align-items: center; gap: 16px;
+    font-size: 10px; color: var(--text-dim);
+  }
+  .topbar-right .clock { color: var(--cyan); font-weight: 600; }
+
+  /* Container */
+  .container {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 16px 20px 40px;
+  }
+
+  /* Box drawing borders */
+  .box {
+    border: 1px solid var(--border);
+    position: relative;
+    margin-bottom: 12px;
+  }
+  .box:hover { border-color: var(--border-bright); }
+  .box-header {
+    background: var(--header-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 6px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .box-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--green);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .box-body { padding: 14px; }
+
+  /* ASCII chart */
+  .ascii-chart {
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--text-dim);
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .ascii-chart .axis { color: var(--border-bright); }
+  .ascii-chart .fund-line { color: var(--green); }
+  .ascii-chart .sp-line { color: var(--text-dim); }
+  .ascii-chart .label { color: var(--text-dim); font-size: 10px; }
+
+  /* Grid layouts */
+  .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; }
+  .grid-4-inner { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+
+  /* Period cells */
+  .period-cell {
+    border: 1px solid var(--border);
+    padding: 12px 14px;
+    margin: -1px 0 0 -1px; /* collapse borders */
+  }
+  .period-cell:first-child { margin-left: 0; }
+  .period-cell .label {
+    font-size: 9px; font-weight: 700;
+    color: var(--text-dim); text-transform: uppercase;
+    letter-spacing: 0.12em; margin-bottom: 8px;
+  }
+  .period-row {
+    display: flex; justify-content: space-between; padding: 2px 0;
+    font-size: 11px;
+  }
+  .period-row .name { color: var(--text-dim); }
+  .period-row .val { font-weight: 600; }
+  .period-sep {
+    border-top: 1px dashed var(--border); margin: 4px 0;
+  }
+
+  .up { color: var(--green); }
+  .down { color: var(--red); }
+  .dim { color: var(--text-dim); }
+  .bright { color: var(--text-bright); font-weight: 600; }
+  .cyan { color: var(--cyan); }
+  .amber { color: var(--amber); }
+
+  /* Holdings table */
+  .table {
+    width: 100%; border-collapse: collapse;
+  }
+  .table th {
+    text-align: left; padding: 6px 10px;
+    font-size: 9px; font-weight: 700;
+    color: var(--text-dim); text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-bottom: 1px solid var(--border);
+  }
+  .table th:last-child, .table td:last-child { text-align: right; }
+  .table td {
+    padding: 6px 10px; font-size: 11px;
+    border-bottom: 1px dotted var(--border);
+  }
+  .table tr:hover td { background: rgba(57,255,20,0.02); }
+
+  /* Bar chart ASCII */
+  .bar-ascii {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 0;
+  }
+  .bar-label {
+    width: 100px; font-size: 11px; font-weight: 500;
+    color: var(--text); text-align: right;
+    flex-shrink: 0;
+  }
+  .bar-track {
+    flex: 1; height: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    position: relative;
+  }
+  .bar-fill {
+    height: 100%; background: var(--green);
+    position: absolute; left: 0; top: 0;
+  }
+  .bar-val {
+    width: 60px; font-size: 11px; font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  /* Movers */
+  .mover-line {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 5px 10px;
+    border-bottom: 1px dotted var(--border);
+  }
+  .mover-line:last-child { border-bottom: none; }
+  .mover-line:hover { background: rgba(57,255,20,0.02); }
+  .mover-ticker { font-weight: 700; color: var(--text-bright); width: 60px; }
+  .mover-price { color: var(--text-dim); width: 80px; }
+  .mover-pct { font-weight: 700; width: 70px; text-align: right; }
+
+  /* Tasks */
+  .task-line {
+    display: flex; align-items: center; gap: 10px;
+    padding: 5px 10px;
+    border-bottom: 1px dotted var(--border);
+  }
+  .task-line:last-child { border-bottom: none; }
+  .task-line:hover { background: rgba(57,255,20,0.02); }
+  .task-prio {
+    font-size: 10px; font-weight: 700;
+    width: 14px; text-align: center;
+  }
+  .task-title-text {
+    flex: 1; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .task-status {
+    font-size: 10px; font-weight: 600;
+    padding: 1px 8px;
+    border: 1px solid;
+    letter-spacing: 0.04em;
+  }
+
+  /* Progress */
+  .progress-text {
+    font-size: 10px; color: var(--text-dim);
+    display: flex; justify-content: space-between; margin-bottom: 4px;
+  }
+  .progress-track {
+    height: 4px; background: var(--surface);
+    border: 1px solid var(--border);
+  }
+  .progress-fill {
+    height: 100%; background: var(--green);
+  }
+
+  /* Macro gauge ASCII art */
+  .macro-layout {
+    display: flex; gap: 20px; align-items: flex-start;
+  }
+  .gauge-ascii {
+    white-space: pre; font-size: 11px; line-height: 1.3;
+    color: var(--amber); flex-shrink: 0;
+  }
+  .features-list {
+    flex: 1;
+  }
+  .feature-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 10px;
+    border-bottom: 1px dotted var(--border);
+  }
+  .feature-row:last-child { border-bottom: none; }
+  .feature-row:hover { background: rgba(57,255,20,0.02); }
+  .feature-name { color: var(--text); font-weight: 500; }
+  .feature-desc { color: var(--text-dim); font-size: 10px; margin-left: 8px; }
+  .feature-value { font-weight: 700; color: var(--text-bright); font-size: 12px; }
+
+  /* Metric cards */
+  .metric-cell {
+    border: 1px solid var(--border);
+    padding: 14px;
+    margin: -1px 0 0 -1px;
+  }
+  .metric-cell .label {
+    font-size: 9px; font-weight: 700; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+  .metric-cell .value {
+    font-size: 20px; font-weight: 800; margin-bottom: 2px;
+  }
+  .metric-cell .sub {
+    font-size: 9px; color: var(--text-dim); margin-bottom: 8px;
+  }
+  .metric-cell .bar {
+    height: 3px; background: var(--surface);
+    border: 1px solid var(--border);
+  }
+  .metric-cell .bar-inner { height: 100%; }
+
+  /* Status bar */
+  .statusbar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--header-bg);
+    border-top: 1px solid var(--border);
+    padding: 4px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 10px; z-index: 50;
+  }
+  .statusbar-left { display: flex; gap: 16px; }
+  .statusbar-item { color: var(--text-dim); }
+  .statusbar-item .val { color: var(--text); font-weight: 600; }
+  .statusbar-item .green-val { color: var(--green); font-weight: 600; }
+
+  /* Blink cursor effect */
+  @keyframes blink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
+  .cursor { animation: blink 1s infinite; color: var(--green); }
+
+  /* Subtle glow on green text */
+  .glow { text-shadow: 0 0 8px rgba(57,255,20,0.3); }
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="brand glow">BD STERLING</span>
+    <span class="brand-sub">Fund Management System v2.1</span>
+  </div>
+  <div class="topbar-nav">
+    <a href="#" class="active">[F1] DASHBOARD</a>
+    <a href="#">[F2] HOLDINGS</a>
+    <a href="#">[F3] TASKS</a>
+    <a href="#">[F4] RESEARCH</a>
+    <a href="#">[F5] DOCS</a>
+  </div>
+  <div class="topbar-right">
+    <span>MKT: <span class="up">OPEN</span></span>
+    <span class="clock" id="clock">--:--:--</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Performance Chart -->
+  <div class="box">
+    <div class="box-header">
+      <div style="display:flex;align-items:center;gap:16px">
+        <span class="box-title">Fund Performance</span>
+        <span class="dim">NAV $147.23</span>
+        <span class="up glow">+18.42%</span>
+        <span class="dim">|</span>
+        <span class="dim">S&P $139.81</span>
+        <span class="up">+12.60%</span>
+        <span class="dim">|</span>
+        <span class="dim">Alpha</span>
+        <span class="up glow">+5.82%</span>
+      </div>
+      <div style="display:flex;gap:4px;font-size:10px">
+        <span class="dim" style="padding:2px 8px;border:1px solid var(--border)">1M</span>
+        <span class="dim" style="padding:2px 8px;border:1px solid var(--border)">3M</span>
+        <span class="dim" style="padding:2px 8px;border:1px solid var(--border)">6M</span>
+        <span class="dim" style="padding:2px 8px;border:1px solid var(--border)">YTD</span>
+        <span class="dim" style="padding:2px 8px;border:1px solid var(--border)">1Y</span>
+        <span style="padding:2px 8px;border:1px solid var(--green);color:var(--green);background:var(--green-dim)">ALL</span>
+      </div>
+    </div>
+    <div class="box-body">
+      <div class="ascii-chart"><span class="axis">  $150 |</span>
+<span class="axis">       |</span>                                                        <span class="fund-line">_____,---'</span>
+<span class="axis">  $140 |</span>                                              <span class="fund-line">_,--'`</span>
+<span class="axis">       |</span>                                        <span class="fund-line">_,-'`</span>       <span class="sp-line">...---''</span>
+<span class="axis">  $130 |</span>                                  <span class="fund-line">_,-'`</span>    <span class="sp-line">..--''`</span>
+<span class="axis">       |</span>                            <span class="fund-line">_,-'`</span>   <span class="sp-line">..--'`</span>
+<span class="axis">  $120 |</span>                      <span class="fund-line">,--'`</span> <span class="sp-line">..--'`</span>
+<span class="axis">       |</span>                <span class="fund-line">_,--'` </span><span class="sp-line">..--'`</span>
+<span class="axis">  $110 |</span>          <span class="fund-line">_,--'`</span><span class="sp-line">..--'`</span>
+<span class="axis">       |</span>    <span class="fund-line">_,--'`</span><span class="sp-line">..--'`</span>
+<span class="axis">  $100 |</span><span class="fund-line">--'`</span><span class="sp-line">.-'`</span>
+<span class="axis">       |</span><span class="sp-line">..'</span>
+<span class="axis">       +</span><span class="axis">--------+--------+--------+--------+--------+--------</span>
+<span class="label">       Jan25     Apr25     Jul25     Oct25     Jan26     Mar26</span>
+
+        <span class="fund-line">===</span> Fund NAV        <span class="sp-line">...</span> S&P 500</div>
+    </div>
+  </div>
+
+  <!-- Period Returns -->
+  <div class="grid-5">
+    <div class="period-cell">
+      <div class="label">Today</div>
+      <div class="period-row"><span class="name">Fund</span><span class="val up">+0.34%</span></div>
+      <div class="period-row"><span class="name">S&P</span><span class="val dim">+0.12%</span></div>
+      <div class="period-sep"></div>
+      <div class="period-row"><span class="name">Alpha</span><span class="val up">+0.22%</span></div>
+    </div>
+    <div class="period-cell">
+      <div class="label">1 Month</div>
+      <div class="period-row"><span class="name">Fund</span><span class="val up">+2.81%</span></div>
+      <div class="period-row"><span class="name">S&P</span><span class="val dim">+1.94%</span></div>
+      <div class="period-sep"></div>
+      <div class="period-row"><span class="name">Alpha</span><span class="val up">+0.87%</span></div>
+    </div>
+    <div class="period-cell">
+      <div class="label">3 Month</div>
+      <div class="period-row"><span class="name">Fund</span><span class="val up">+7.15%</span></div>
+      <div class="period-row"><span class="name">S&P</span><span class="val dim">+4.82%</span></div>
+      <div class="period-sep"></div>
+      <div class="period-row"><span class="name">Alpha</span><span class="val up">+2.33%</span></div>
+    </div>
+    <div class="period-cell">
+      <div class="label">1 Year</div>
+      <div class="period-row"><span class="name">Fund</span><span class="val up">+14.20%</span></div>
+      <div class="period-row"><span class="name">S&P</span><span class="val dim">+10.44%</span></div>
+      <div class="period-sep"></div>
+      <div class="period-row"><span class="name">Alpha</span><span class="val up">+3.76%</span></div>
+    </div>
+    <div class="period-cell">
+      <div class="label">Cumulative</div>
+      <div class="period-row"><span class="name">Fund</span><span class="val up">+18.42%</span></div>
+      <div class="period-row"><span class="name">S&P</span><span class="val dim">+12.60%</span></div>
+      <div class="period-sep"></div>
+      <div class="period-row"><span class="name">Alpha</span><span class="val up glow">+5.82%</span></div>
+    </div>
+  </div>
+
+  <div style="height:12px"></div>
+
+  <!-- 3-col: Portfolio / Movers / Tasks -->
+  <div class="grid-3">
+
+    <!-- Portfolio -->
+    <div class="box" style="margin-bottom:0">
+      <div class="box-header">
+        <span class="box-title">Portfolio Holdings</span>
+        <span class="bright">$46.6K</span>
+      </div>
+      <div class="box-body" style="padding:0">
+        <table class="table">
+          <thead>
+            <tr><th>Ticker</th><th>Weight</th><th>Day</th><th>P&L</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="bright">BRK.B</td><td>24.8%</td><td class="up">+1.08%</td><td class="up">+$2,140</td></tr>
+            <tr><td class="bright">GOOG</td><td>18.2%</td><td class="up">+0.52%</td><td class="up">+$890</td></tr>
+            <tr><td class="bright">AMZN</td><td>15.6%</td><td class="up">+2.14%</td><td class="up">+$1,420</td></tr>
+            <tr><td class="bright">MSFT</td><td>13.1%</td><td class="down">-0.38%</td><td class="up">+$310</td></tr>
+            <tr><td class="bright">META</td><td>12.0%</td><td class="down">-1.23%</td><td class="down">-$180</td></tr>
+            <tr><td class="dim">Cash</td><td>16.3%</td><td class="dim">--</td><td class="dim">--</td></tr>
+          </tbody>
+        </table>
+        <div style="padding:10px 14px">
+          <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px">Allocation</div>
+          <div class="bar-ascii">
+            <span class="bar-label" style="width:50px;color:var(--blue)">BRK.B</span>
+            <div class="bar-track"><div class="bar-fill" style="width:24.8%;background:var(--blue)"></div></div>
+          </div>
+          <div class="bar-ascii">
+            <span class="bar-label" style="width:50px;color:var(--red)">GOOG</span>
+            <div class="bar-track"><div class="bar-fill" style="width:18.2%;background:var(--red)"></div></div>
+          </div>
+          <div class="bar-ascii">
+            <span class="bar-label" style="width:50px;color:var(--green)">AMZN</span>
+            <div class="bar-track"><div class="bar-fill" style="width:15.6%;background:var(--green)"></div></div>
+          </div>
+          <div class="bar-ascii">
+            <span class="bar-label" style="width:50px;color:#9b59ff">MSFT</span>
+            <div class="bar-track"><div class="bar-fill" style="width:13.1%;background:#9b59ff"></div></div>
+          </div>
+          <div class="bar-ascii">
+            <span class="bar-label" style="width:50px;color:var(--amber)">META</span>
+            <div class="bar-track"><div class="bar-fill" style="width:12.0%;background:var(--amber)"></div></div>
+          </div>
+          <div class="bar-ascii">
+            <span class="bar-label" style="width:50px;color:var(--text-dim)">Cash</span>
+            <div class="bar-track"><div class="bar-fill" style="width:16.3%;background:var(--text-dim)"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Movers -->
+    <div class="box" style="margin-bottom:0">
+      <div class="box-header">
+        <span class="box-title">Today's Movers</span>
+      </div>
+      <div class="box-body" style="padding:0">
+        <div style="padding:6px 14px 2px;font-size:9px;font-weight:700;color:var(--green);letter-spacing:0.1em;text-transform:uppercase">
+          ▲ Gainers
+        </div>
+        <div class="mover-line"><span class="mover-ticker">AMZN</span><span class="mover-price">$198.42</span><span class="mover-pct up glow">+2.14%</span></div>
+        <div class="mover-line"><span class="mover-ticker">BRK.B</span><span class="mover-price">$482.10</span><span class="mover-pct up">+1.08%</span></div>
+        <div class="mover-line"><span class="mover-ticker">GOOG</span><span class="mover-price">$177.84</span><span class="mover-pct up">+0.52%</span></div>
+
+        <div style="border-top:1px dashed var(--border);margin:4px 0"></div>
+
+        <div style="padding:6px 14px 2px;font-size:9px;font-weight:700;color:var(--red);letter-spacing:0.1em;text-transform:uppercase">
+          ▼ Decliners
+        </div>
+        <div class="mover-line"><span class="mover-ticker">META</span><span class="mover-price">$524.30</span><span class="mover-pct down">-1.23%</span></div>
+        <div class="mover-line"><span class="mover-ticker">MSFT</span><span class="mover-price">$421.55</span><span class="mover-pct down">-0.38%</span></div>
+      </div>
+    </div>
+
+    <!-- Tasks -->
+    <div class="box" style="margin-bottom:0">
+      <div class="box-header">
+        <span class="box-title">Tasks</span>
+        <span style="font-size:10px"><span class="down">3 HIGH</span> <span class="dim">| 5 OTHER</span></span>
+      </div>
+      <div class="box-body" style="padding:0">
+        <div class="task-line">
+          <span class="task-prio down">!!</span>
+          <span class="task-title-text">Review Q1 earnings model</span>
+          <span class="task-status" style="color:var(--amber);border-color:var(--amber)">WORK</span>
+        </div>
+        <div class="task-line">
+          <span class="task-prio down">!!</span>
+          <span class="task-title-text">Update allocation memo for IC</span>
+          <span class="task-status" style="color:var(--blue);border-color:var(--blue)">REVW</span>
+        </div>
+        <div class="task-line">
+          <span class="task-prio down">!!</span>
+          <span class="task-title-text">Prepare LP quarterly letter</span>
+          <span class="task-status" style="color:#9b59ff;border-color:#9b59ff">WAIT</span>
+        </div>
+        <div style="border-top:1px dashed var(--border);margin:2px 0"></div>
+        <div class="task-line">
+          <span class="task-prio amber">!</span>
+          <span class="task-title-text">Research TSMC capex revisions</span>
+          <span class="task-status dim" style="border-color:var(--border)">TODO</span>
+        </div>
+        <div class="task-line">
+          <span class="task-prio dim">-</span>
+          <span class="task-title-text">Update watchlist thresholds</span>
+          <span class="task-status dim" style="border-color:var(--border)">TODO</span>
+        </div>
+        <div class="task-line">
+          <span class="task-prio dim">-</span>
+          <span class="task-title-text">File quarterly 13F-HR</span>
+          <span class="task-status dim" style="border-color:var(--border)">TODO</span>
+        </div>
+        <div style="padding:10px 14px">
+          <div class="progress-text">
+            <span>12/20 completed</span>
+            <span class="up">60%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" style="width:60%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:12px"></div>
+
+  <!-- Market Confidence -->
+  <div class="box">
+    <div class="box-header">
+      <span class="box-title">Market Confidence Signal</span>
+      <span class="dim">Data thru Mar 28 | Signal for Apr</span>
+    </div>
+    <div class="box-body">
+      <div class="macro-layout">
+        <div class="gauge-ascii">
+        ┌───────────────────┐
+        │                   │
+        │    ╔═══════╗      │
+        │    ║       ║      │
+        │    ║  <span class="bright" style="color:var(--amber)">70%</span>  ║      │
+        │    ║       ║      │
+        │    ╚═══════╝      │
+        │                   │
+        │   <span style="color:var(--amber);font-weight:700">[ CAUTIOUS ]</span>    │
+        │                   │
+        │  Equity:  <span class="bright">70%</span>     │
+        │  Fixed:   <span class="bright">30%</span>     │
+        │                   │
+        └───────────────────┘</div>
+        <div class="features-list" style="flex:1">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+            <div class="feature-row"><span><span class="feature-name">Inflation YoY</span></span><span class="feature-value">2.82%</span></div>
+            <div class="feature-row"><span><span class="feature-name">Inflation Impulse</span></span><span class="feature-value">+0.41%</span></div>
+            <div class="feature-row"><span><span class="feature-name">Unemployment</span></span><span class="feature-value">4.10%</span></div>
+            <div class="feature-row"><span><span class="feature-name">Credit Spread</span></span><span class="feature-value">3.45%</span></div>
+            <div class="feature-row"><span><span class="feature-name">Credit Spd 3M</span></span><span class="feature-value amber">+0.32%</span></div>
+            <div class="feature-row"><span><span class="feature-name">Real Fed Funds</span></span><span class="feature-value">+1.68%</span></div>
+            <div class="feature-row"><span><span class="feature-name">Yield Curve</span></span><span class="feature-value">+0.24%</span></div>
+            <div class="feature-row"><span><span class="feature-name">VIX 1M Change</span></span><span class="feature-value amber">+2.30</span></div>
+            <div class="feature-row"><span><span class="feature-name">VIX Term Struct</span></span><span class="feature-value">0.952</span></div>
+            <div class="feature-row"><span><span class="feature-name">Equity Momentum</span></span><span class="feature-value up">+4.21%</span></div>
+            <div class="feature-row"><span><span class="feature-name">Equity Volatility</span></span><span class="feature-value">18.50%</span></div>
+            <div class="feature-row"><span><span class="feature-name">Drawdown</span></span><span class="feature-value down">-3.20%</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fund Analytics -->
+  <div class="box">
+    <div class="box-header">
+      <span class="box-title">Fund Analytics</span>
+      <span class="dim">284 trading days</span>
+    </div>
+    <div class="box-body" style="padding:0">
+      <div class="grid-4">
+        <div class="metric-cell">
+          <div class="label">Ann. Return</div>
+          <div class="value up glow">+16.42%</div>
+          <div class="sub">CAGR</div>
+          <div class="bar"><div class="bar-inner" style="width:55%;background:var(--green)"></div></div>
+        </div>
+        <div class="metric-cell">
+          <div class="label">Volatility</div>
+          <div class="value amber">18.74%</div>
+          <div class="sub">Annualized std dev</div>
+          <div class="bar"><div class="bar-inner" style="width:47%;background:var(--amber)"></div></div>
+        </div>
+        <div class="metric-cell">
+          <div class="label">Sharpe Ratio</div>
+          <div class="value up">1.24</div>
+          <div class="sub">rf = 4.00%</div>
+          <div class="bar"><div class="bar-inner" style="width:41%;background:var(--green)"></div></div>
+        </div>
+        <div class="metric-cell">
+          <div class="label">Max Drawdown</div>
+          <div class="value amber">8.72%</div>
+          <div class="sub">Peak-to-trough</div>
+          <div class="bar"><div class="bar-inner" style="width:17%;background:var(--amber)"></div></div>
+        </div>
+        <div class="metric-cell">
+          <div class="label">Beta</div>
+          <div class="value amber">0.91</div>
+          <div class="sub">vs S&P 500</div>
+          <div class="bar"><div class="bar-inner" style="width:46%;background:var(--amber)"></div></div>
+        </div>
+        <div class="metric-cell">
+          <div class="label">Jensen's Alpha</div>
+          <div class="value up glow">+4.18%</div>
+          <div class="sub">Excess vs CAPM</div>
+          <div class="bar"><div class="bar-inner" style="width:21%;background:var(--green)"></div></div>
+        </div>
+        <div class="metric-cell">
+          <div class="label">Tracking Error</div>
+          <div class="value up">6.32%</div>
+          <div class="sub">Excess return vol</div>
+          <div class="bar"><div class="bar-inner" style="width:32%;background:var(--green)"></div></div>
+        </div>
+        <div class="metric-cell">
+          <div class="label">Win Rate</div>
+          <div class="value up">54.2%</div>
+          <div class="sub">154/284 days beat S&P</div>
+          <div class="bar"><div class="bar-inner" style="width:54%;background:var(--green)"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Status bar -->
+<div class="statusbar">
+  <div class="statusbar-left">
+    <span class="statusbar-item">CONNECTED <span class="green-val">●</span></span>
+    <span class="statusbar-item">NAV: <span class="green-val">$147.23</span></span>
+    <span class="statusbar-item">ALPHA: <span class="green-val">+5.82%</span></span>
+    <span class="statusbar-item">REGIME: <span class="val" style="color:var(--amber)">CAUTIOUS</span></span>
+  </div>
+  <div style="color:var(--text-dim)">
+    BD STERLING FMS v2.1 <span class="cursor">_</span>
+  </div>
+</div>
+
+<div style="height:24px"></div>
+
+<script>
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      now.toLocaleTimeString('en-US', { hour12: false });
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+</script>
+
+</body>
+</html>
