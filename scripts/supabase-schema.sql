@@ -309,6 +309,29 @@ CREATE TABLE IF NOT EXISTS fund_nav_data (
 
 
 -- ============================================================
+-- 19. STRATEGIC NOTES (per-position CIO annotations)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS strategic_notes (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  ticker TEXT UNIQUE NOT NULL,
+  sentiment TEXT DEFAULT 'neutral',        -- bullish, neutral, bearish
+  conviction INTEGER DEFAULT 3,            -- 1-5
+  action TEXT DEFAULT 'hold',              -- hold, trim, add, watch, exit
+  action_reason TEXT DEFAULT '',
+  notes TEXT DEFAULT '',
+  alternatives TEXT DEFAULT '',            -- alternative tickers / ideas
+  expected_return NUMERIC,                  -- expected return %
+  target_weight NUMERIC,                   -- target portfolio weight %
+  priority TEXT DEFAULT 'normal',          -- urgent, high, normal, low
+  sort_order NUMERIC DEFAULT 0,            -- manual ordering within a priority bucket
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_strategic_notes_ticker ON strategic_notes(ticker);
+
+
+-- ============================================================
 -- STORAGE BUCKETS
 -- Run these separately or create via the Supabase dashboard
 -- Dashboard > Storage > New Bucket
