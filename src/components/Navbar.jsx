@@ -15,14 +15,13 @@ const NAV_GROUPS = [
     label: 'CIO Suite',
     icon: Briefcase,
     items: [
-      { href: '/strategic-hub', label: 'Strategic Hub', icon: Target },
       { href: '/holdings', label: 'Holdings', icon: Briefcase },
       { href: '/allocation', label: 'Allocation', icon: PieChart },
       { href: '/macro-regime', label: 'Market Confidence', icon: Activity },
       { href: '/relationships', label: 'Relationships', icon: Users },
     ],
     // Active if any child route is active
-    matchPaths: ['/strategic-hub', '/holdings', '/allocation', '/macro-regime', '/relationships'],
+    matchPaths: ['/holdings', '/allocation', '/macro-regime', '/relationships'],
   },
   {
     label: 'Equity Research',
@@ -199,18 +198,18 @@ export default function Navbar() {
               <NavDropdown group={group} pathname={pathname} searchParams={searchParams} isDark={isDark} />
               {i === 0 && (
                 <Link
-                  href="/tasks"
+                  href="/strategic-hub"
                   className={`
                     relative flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 no-underline
-                    ${pathname === '/tasks' || pathname.startsWith('/tasks/')
+                    ${pathname === '/strategic-hub' || pathname.startsWith('/strategic-hub/')
                       ? isDark ? 'text-emerald-400 bg-emerald-500/15' : 'text-emerald-700 bg-emerald-50'
                       : isDark ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
                     }
                   `}
                 >
-                  <ClipboardList size={15} />
-                  Task Board
-                  {(pathname === '/tasks' || pathname.startsWith('/tasks/')) && (
+                  <Target size={15} />
+                  Strategic Hub
+                  {(pathname === '/strategic-hub' || pathname.startsWith('/strategic-hub/')) && (
                     <span className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full ${isDark ? 'bg-emerald-400' : 'bg-emerald-500'}`} />
                   )}
                 </Link>

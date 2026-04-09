@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import {
   ThumbsUp, Meh, CloudRain, AlertTriangle,
   Scissors, Plus, LogOut as ExitIcon, FileText, ArrowRight,
-  BarChart3, Shield, X, RefreshCw, Crosshair, ChevronUp, ChevronDown,
+  BarChart3, Shield, X, RefreshCw, Crosshair, ChevronUp, ChevronDown, ClipboardList, Target,
 } from 'lucide-react';
+import TaskBoardPage from '../tasks/page';
 
 /* ── helpers ── */
 const fmt$ = v => {
@@ -122,13 +123,12 @@ function EditModal({ holding, onSave, onClose }) {
   }, [holding.ticker, onSave]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/15"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md mx-4">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
-            <Crosshair size={16} className="text-emerald-600" />
-            <h3 className="text-sm font-bold text-gray-900">{holding.ticker} — Strategic View</h3>
+            <h3 className="text-sm font-bold text-gray-900">{holding.ticker}</h3>
           </div>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
             <X size={16} />
@@ -207,8 +207,10 @@ function EditModal({ holding, onSave, onClose }) {
           <div>
             <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Notes</label>
             <textarea value={form.notes} onChange={e => set('notes', e.target.value)}
+              ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
+              onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
               rows={3} placeholder="Key observations, catalysts, risks..."
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 resize-none" />
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 resize-none overflow-hidden" />
           </div>
         </div>
       </div>
@@ -226,6 +228,32 @@ export default function StrategicHubPage() {
   const [sortBy, setSortBy] = useState('priority'); // priority | weight | completeness | sentiment | action
   const [filterAction, setFilterAction] = useState('all');
   const [filterSentiment, setFilterSentiment] = useState('all');
+  const [tab, setTab] = useState('hub');
+  const [portfolioNotes, setPortfolioNotes] = useState('');
+  const [notesSaved, setNotesSaved] = useState(false);
+  const notesTimer = useRef(null);
+
+  useEffect(() => {
+    fetch('/api/strategic-notes').then(r => r.json()).then(rows => {
+      const row = (rows || []).find(r => r.ticker === '_PORTFOLIO');
+      if (row?.notes) setPortfolioNotes(row.notes);
+    }).catch(() => {});
+  }, []);
+
+  const handleNotesChange = (val) => {
+    setPortfolioNotes(val);
+    setNotesSaved(false);
+    if (notesTimer.current) clearTimeout(notesTimer.current);
+    notesTimer.current = setTimeout(async () => {
+      await fetch('/api/strategic-notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker: '_PORTFOLIO', notes: val }),
+      });
+      setNotesSaved(true);
+      setTimeout(() => setNotesSaved(false), 1500);
+    }, 600);
+  };
 
   const load = useCallback(async () => {
     try {
@@ -415,15 +443,35 @@ export default function StrategicHubPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-6 lg:px-12 pb-16 space-y-6">
+    <div className="max-w-7xl mx-auto px-6 lg:px-12 pb-16 space-y-6 animate-hub-fade-in relative">
+      <style jsx global>{`
+        @keyframes hubFadeIn {
+          0% { opacity: 0; }
+          100% { opacity: 1; }
+        }
+        .animate-hub-fade-in { animation: hubFadeIn 0.5s ease-out both; }
+      `}</style>
       {/* ── Header ── */}
+      <div className="absolute right-6 lg:right-12 top-1 z-20 flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+        <button onClick={() => setTab('hub')}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${tab === 'hub' ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+          <Target size={13} /> Strategic Hub
+        </button>
+        <button onClick={() => setTab('tasks')}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${tab === 'tasks' ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+          <ClipboardList size={13} /> Task Board
+        </button>
+      </div>
+
+      {tab === 'tasks' ? (
+        <div key="tasks" className="-mx-6 lg:-mx-12 animate-hub-fade-in"><TaskBoardPage /></div>
+      ) : (<div key="hub" className="space-y-6 animate-hub-fade-in">
       <h1 className="text-3xl font-bold text-gray-900">Strategic Hub</h1>
 
       {/* ── Full Position Grid ── */}
       <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
-            <BarChart3 size={13} className="text-emerald-500" />
             Position Overview
           </h2>
           <div className="flex items-center gap-2">
@@ -522,6 +570,25 @@ export default function StrategicHubPage() {
           </table>
         </div>
       </div>
+
+      {/* ── Portfolio Notes ── */}
+      <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Portfolio Notes</h2>
+          <span className={`text-[10px] text-emerald-600 transition-opacity ${notesSaved ? 'opacity-100' : 'opacity-0'}`}>Saved</span>
+        </div>
+        <textarea
+          value={portfolioNotes}
+          onChange={e => handleNotesChange(e.target.value)}
+          ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
+          onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
+          placeholder="Overall thoughts on the portfolio, market, themes, ideas to revisit..."
+          rows={6}
+          className="w-full border-0 bg-transparent text-sm text-gray-700 placeholder-gray-300 focus:outline-none resize-none leading-relaxed overflow-hidden"
+        />
+      </div>
+
+      </div>)}
 
       {/* ── Edit Modal ── */}
       {editHolding && (

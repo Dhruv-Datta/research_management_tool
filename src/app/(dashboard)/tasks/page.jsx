@@ -527,6 +527,7 @@ export default function TaskBoardPage() {
   const [activeId, setActiveId] = useState(null);
   const [savedAssignees, setSavedAssignees] = useState([]);
   const [capacityFlash, setCapacityFlash] = useState(null); // section key that's full
+  const [pendingDelete, setPendingDelete] = useState(null); // 'task-{id}' or 'sub-{taskId}-{subId}'
   const tasksSnapshot = useRef(null);
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
@@ -1276,6 +1277,11 @@ export default function TaskBoardPage() {
                                 saveEdit(task.id);
                               }
                             }}
+                            onMouseLeave={() => {
+                              if (pendingDelete === `task-${task.id}` || pendingDelete?.startsWith(`sub-${task.id}-`)) {
+                                setPendingDelete(null);
+                              }
+                            }}
                           >
                             <div className={`flex gap-3 px-4 py-3 ${isEditing ? 'items-start' : 'items-center'}`}>
                               {/* Drag handle */}
@@ -1397,7 +1403,7 @@ export default function TaskBoardPage() {
 
                                 {/* Actions */}
                                 {!isEditing && (
-                                  <div className="flex items-center gap-0 max-w-0 overflow-hidden opacity-0 group-hover:max-w-[80px] group-hover:opacity-100 transition-all duration-700 ease-in-out delay-0 group-hover:delay-200"
+                                  <div className={`flex items-center gap-0 overflow-hidden opacity-0 group-hover:opacity-100 ${pendingDelete === `task-${task.id}` ? 'max-w-[180px] transition-opacity duration-300' : 'max-w-0 group-hover:max-w-[80px] transition-all duration-700 ease-in-out delay-0 group-hover:delay-200'}`}
                                   >
                                     <button
                                       onClick={() => {
@@ -1410,13 +1416,22 @@ export default function TaskBoardPage() {
                                     >
                                       <Plus size={14} />
                                     </button>
-                                    <button
-                                      onClick={() => removeTask(task.id)}
-                                      className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-                                      title="Delete task"
-                                    >
-                                      <X size={14} />
-                                    </button>
+                                    {pendingDelete === `task-${task.id}` ? (
+                                      <div className="flex items-center gap-1 ml-1 whitespace-nowrap">
+                                        <button onClick={() => setPendingDelete(null)}
+                                          className="text-[11px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md hover:bg-gray-200 transition-colors">Cancel</button>
+                                        <button onClick={() => { removeTask(task.id); setPendingDelete(null); }}
+                                          className="text-[11px] font-semibold text-white bg-red-500 px-2 py-0.5 rounded-md hover:bg-red-600 transition-colors">Delete</button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        onClick={() => setPendingDelete(`task-${task.id}`)}
+                                        className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                                        title="Delete task"
+                                      >
+                                        <X size={14} />
+                                      </button>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -1563,13 +1578,23 @@ export default function TaskBoardPage() {
                                         )}
                                       </div>
 
-                                      <div className="flex items-center max-w-0 overflow-hidden opacity-0 group-hover/sub:max-w-[40px] group-hover/sub:opacity-100 transition-all duration-700 ease-in-out delay-0 group-hover/sub:delay-200">
-                                        <button
-                                          onClick={() => removeSubtask(task.id, sub.id)}
-                                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-                                        >
-                                          <X size={12} />
-                                        </button>
+                                      <div className={`flex items-center overflow-hidden opacity-0 group-hover/sub:opacity-100 ${pendingDelete === `sub-${task.id}-${sub.id}` ? 'max-w-[160px] transition-opacity duration-300' : 'max-w-0 group-hover/sub:max-w-[40px] transition-all duration-700 ease-in-out delay-0 group-hover/sub:delay-200'}`}
+                                        onMouseLeave={() => { if (pendingDelete === `sub-${task.id}-${sub.id}`) setPendingDelete(null); }}>
+                                        {pendingDelete === `sub-${task.id}-${sub.id}` ? (
+                                          <div className="flex items-center gap-1 ml-1 whitespace-nowrap">
+                                            <button onClick={() => setPendingDelete(null)}
+                                              className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-md hover:bg-gray-200 transition-colors">Cancel</button>
+                                            <button onClick={() => { removeSubtask(task.id, sub.id); setPendingDelete(null); }}
+                                              className="text-[10px] font-semibold text-white bg-red-500 px-1.5 py-0.5 rounded-md hover:bg-red-600 transition-colors">Delete</button>
+                                          </div>
+                                        ) : (
+                                          <button
+                                            onClick={() => setPendingDelete(`sub-${task.id}-${sub.id}`)}
+                                            className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                                          >
+                                            <X size={12} />
+                                          </button>
+                                        )}
                                       </div>
                                     </div>
                                   </div>
@@ -1733,6 +1758,7 @@ export default function TaskBoardPage() {
         ) : null}
       </DragOverlay>
       </DndContext>
+
     </div>
   );
 }
