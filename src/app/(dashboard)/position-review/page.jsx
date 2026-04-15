@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { RefreshCw, Download, AlertTriangle, Save, Plus, Trash2, CheckCircle, FileDown, Check, Image as ImageIcon, X, ZoomIn, Star, ChevronDown } from 'lucide-react';
+import { RefreshCw, Download, AlertTriangle, Save, Plus, Trash2, CheckCircle, FileDown, Check, Image as ImageIcon, X, ZoomIn, Star, ChevronDown, ExternalLink, Link as LinkIcon, Send, MessageSquare, FileText, BookOpen, Mic, MoreHorizontal, Pencil } from 'lucide-react';
 import Card from '@/components/Card';
 import StatCard from '@/components/StatCard';
 import LineChart from '@/components/charts/LineChart';
@@ -14,6 +14,69 @@ import { formatMoney, formatLargeNumber, formatShareCount, formatNumber } from '
 import { useCache } from '@/lib/CacheContext';
 import ValuationModel from '@/components/ValuationModel';
 import RichTextArea from '@/components/RichTextArea';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+function SortableTab({ tab, isActive, isConfirming, isEditing, editingTabTitle, setEditingTabTitle, canDelete, tabCount, onSelect, onStartEdit, onFinishEdit, onConfirmDelete, onCancelDelete, onDelete, setConfirmDeleteTabId }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: tab.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform ? { ...transform, y: 0 } : null),
+    transition: transition || 'transform 200ms ease',
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 50 : 'auto',
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="flex items-center group/tab">
+      {isConfirming ? (
+        <div className="flex items-center gap-1 px-2 py-1 bg-white rounded-lg shadow-sm border border-red-200">
+          <span className="text-[10px] text-red-600 font-medium whitespace-nowrap">Delete?</span>
+          <button onClick={onDelete} className="text-[10px] font-semibold text-white bg-red-500 px-1.5 py-0.5 rounded hover:bg-red-600 transition-colors">Yes</button>
+          <button onClick={onCancelDelete} className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded hover:bg-gray-200 transition-colors">No</button>
+        </div>
+      ) : isEditing ? (
+        <input
+          autoFocus
+          value={editingTabTitle}
+          onChange={e => setEditingTabTitle(e.target.value)}
+          onBlur={() => onFinishEdit(editingTabTitle || 'Untitled')}
+          onKeyDown={e => { if (e.key === 'Enter') onFinishEdit(editingTabTitle || 'Untitled'); if (e.key === 'Escape') onFinishEdit(null); }}
+          onClick={e => e.stopPropagation()}
+          onPointerDown={e => e.stopPropagation()}
+          className="px-3 py-1.5 text-xs font-semibold bg-white rounded-lg outline-none ring-2 ring-emerald-500 min-w-[60px] max-w-[120px]"
+        />
+      ) : (
+        <button
+          onClick={onSelect}
+          onDoubleClick={onStartEdit}
+          className={`flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
+            isActive ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          {tab.title}
+          <span
+            role="button"
+            onClick={(e) => { e.stopPropagation(); if (tabCount > 1) setConfirmDeleteTabId(tab.id); }}
+            className={`p-0.5 rounded transition-all ${
+              tabCount > 1 ? 'hover:bg-red-100 hover:text-red-500 cursor-pointer' : 'cursor-default'
+            } ${isActive ? 'text-gray-400' : 'text-gray-300'}`}
+          >
+            <X size={10} />
+          </span>
+        </button>
+      )}
+    </div>
+  );
+}
 
 export default function ResearchPage() {
   const cache = useCache();
@@ -257,6 +320,130 @@ export default function ResearchPage() {
     setThesisDirty(true);
   };
 
+  const DEFAULT_NOTES = { links: [], tabs: [{ id: '1', title: 'General', content: [] }] };
+  const getNotes = (t) => {
+    const raw = t?.notes || {};
+    const base = { ...DEFAULT_NOTES, ...raw };
+    // Migrate old content-array format to tabs
+    if (raw.content && Array.isArray(raw.content) && !raw.tabs) {
+      base.tabs = [{ id: '1', title: 'General', content: raw.content }];
+      delete base.content;
+    }
+    if (!base.tabs || base.tabs.length === 0) base.tabs = [{ id: '1', title: 'General', content: [] }];
+    return base;
+  };
+
+  // -- Note links --
+  const [noteLinkUrl, setNoteLinkUrl] = useState('');
+  const [noteLinkType, setNoteLinkType] = useState('web_article');
+  const [noteLinkJustSaved, setNoteLinkJustSaved] = useState(false);
+  const [editingLinkIdx, setEditingLinkIdx] = useState(null);
+
+  const addNoteLink = () => {
+    if (!noteLinkUrl.trim()) return;
+    setThesis(prev => {
+      const notes = getNotes(prev);
+      return {
+        ...prev,
+        notes: { ...notes, links: [...notes.links, { url: noteLinkUrl.trim(), title: '', type: noteLinkType, addedAt: new Date().toISOString().slice(0, 10) }] },
+      };
+    });
+    setThesisDirty(true);
+    setNoteLinkUrl('');
+    setNoteLinkJustSaved(true);
+    setTimeout(() => setNoteLinkJustSaved(false), 1200);
+  };
+
+  const updateNoteLink = (idx, field, value) => {
+    setThesis(prev => {
+      const notes = getNotes(prev);
+      return {
+        ...prev,
+        notes: { ...notes, links: notes.links.map((l, i) => i === idx ? { ...l, [field]: value } : l) },
+      };
+    });
+    setThesisDirty(true);
+  };
+
+  const removeNoteLink = (idx) => {
+    setThesis(prev => {
+      const notes = getNotes(prev);
+      return {
+        ...prev,
+        notes: { ...notes, links: notes.links.filter((_, i) => i !== idx) },
+      };
+    });
+    setThesisDirty(true);
+  };
+
+  // -- Scratchpad tabs --
+  const [activeNoteTab, setActiveNoteTab] = useState('1');
+  const [editingTabId, setEditingTabId] = useState(null);
+  const [editingTabTitle, setEditingTabTitle] = useState('');
+  const [confirmDeleteTabId, setConfirmDeleteTabId] = useState(null);
+  const tabSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  const addNoteTab = () => {
+    const id = Date.now().toString();
+    setThesis(prev => {
+      const notes = getNotes(prev);
+      return {
+        ...prev,
+        notes: { ...notes, tabs: [...notes.tabs, { id, title: 'New Tab', content: [] }] },
+      };
+    });
+    setActiveNoteTab(id);
+    setThesisDirty(true);
+  };
+
+  const removeNoteTab = (id) => {
+    let nextTabId = null;
+    setThesis(prev => {
+      const notes = getNotes(prev);
+      const filtered = notes.tabs.filter(t => t.id !== id);
+      if (filtered.length === 0) filtered.push({ id: '1', title: 'General', content: [] });
+      nextTabId = filtered[0].id;
+      return { ...prev, notes: { ...notes, tabs: filtered } };
+    });
+    setActiveNoteTab(prev => prev === id ? (nextTabId || '1') : prev);
+    setThesisDirty(true);
+  };
+
+  const renameNoteTab = (id, title) => {
+    setThesis(prev => {
+      const notes = getNotes(prev);
+      return {
+        ...prev,
+        notes: { ...notes, tabs: notes.tabs.map(t => t.id === id ? { ...t, title } : t) },
+      };
+    });
+    setThesisDirty(true);
+  };
+
+  const updateNoteTabContent = (id, content) => {
+    setThesis(prev => {
+      const notes = getNotes(prev);
+      return {
+        ...prev,
+        notes: { ...notes, tabs: notes.tabs.map(t => t.id === id ? { ...t, content } : t) },
+      };
+    });
+    setThesisDirty(true);
+  };
+
+  const handleTabDragEnd = (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setThesis(prev => {
+      const notes = getNotes(prev);
+      const oldIdx = notes.tabs.findIndex(t => t.id === active.id);
+      const newIdx = notes.tabs.findIndex(t => t.id === over.id);
+      if (oldIdx === -1 || newIdx === -1) return prev;
+      return { ...prev, notes: { ...notes, tabs: arrayMove(notes.tabs, oldIdx, newIdx) } };
+    });
+    setThesisDirty(true);
+  };
+
   const addTodo = () => {
     const updated = { ...thesis, todos: [...(thesis.todos || []), { text: '', done: false }] };
     setThesis(updated);
@@ -319,10 +506,11 @@ export default function ResearchPage() {
 
   const holdings = portfolio?.holdings || [];
   const cashVal = portfolio?.cash || 0;
-  const totalAum = holdings.reduce((s, h) => s + h.shares * h.cost_basis, 0) + cashVal;
-
   const holding = holdings.find(h => h.ticker === selectedTicker);
-  const holdingValue = holding ? holding.shares * holding.cost_basis : 0;
+  const selectedLivePrice = liveQuote?.price || null;
+  const holdingPrice = (h) => (h.ticker === selectedTicker && selectedLivePrice) ? selectedLivePrice : h.cost_basis;
+  const totalAum = holdings.reduce((s, h) => s + h.shares * holdingPrice(h), 0) + cashVal;
+  const holdingValue = holding ? holding.shares * holdingPrice(holding) : 0;
   const pctAum = totalAum > 0 ? ((holdingValue / totalAum) * 100).toFixed(1) : '0.0';
 
   const dataExists = tickerData?.dataExists;
@@ -455,14 +643,19 @@ export default function ResearchPage() {
           <h1 className="text-3xl font-bold text-gray-900">Position Review</h1>
         </div>
         {dataExists && (
-          <button
-            onClick={() => setShowUpdateModal(true)}
-            disabled={generating}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-white border border-gray-200 rounded-2xl text-gray-700 hover:border-emerald-300 hover:bg-emerald-50/50 hover:shadow-md transition-all duration-200 disabled:opacity-40"
-          >
-            <RefreshCw size={14} className={generating ? 'animate-spin' : ''} />
-            Update Data
-          </button>
+          <div className="flex flex-col items-end gap-1">
+            <button
+              onClick={() => setShowUpdateModal(true)}
+              disabled={generating}
+              className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-white border border-gray-200 rounded-2xl text-gray-700 hover:border-emerald-300 hover:bg-emerald-50/50 hover:shadow-md transition-all duration-200 disabled:opacity-40"
+            >
+              <RefreshCw size={14} className={generating ? 'animate-spin' : ''} />
+              Update Data
+            </button>
+            {priceLabels.length > 0 && (
+              <span className="text-[10px] text-gray-400">Last updated {priceLabels[priceLabels.length - 1]}</span>
+            )}
+          </div>
         )}
       </div>
 
@@ -523,6 +716,7 @@ export default function ResearchPage() {
               {[
                 { key: 'fundamentals', label: 'Fundamentals' },
                 { key: 'thesis', label: 'Thesis & Underwriting' },
+                { key: 'notes', label: 'Notes' },
               ].map(tab => (
                 <button
                   key={tab.key}
@@ -537,7 +731,7 @@ export default function ResearchPage() {
                 </button>
               ))}
             </div>
-            {activeResearchTab === 'thesis' && thesis && (
+            {(activeResearchTab === 'thesis' || activeResearchTab === 'notes') && thesis && (
               <button
                 onClick={() => saveThesis()}
                 disabled={thesisSaving || !thesisDirty}
@@ -554,7 +748,7 @@ export default function ResearchPage() {
                 ) : (
                   <CheckCircle size={14} />
                 )}
-                {thesisSaving ? 'Saving...' : thesisDirty ? 'Save Thesis' : 'Saved'}
+                {thesisSaving ? 'Saving...' : thesisDirty ? 'Save' : 'Saved'}
               </button>
             )}
           </div>
@@ -562,7 +756,7 @@ export default function ResearchPage() {
           {/* Position Snapshot */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
             <StatCard label="Ticker" value={selectedTicker} />
-            <StatCard label="% of AUM" value={`${pctAum}%`} />
+            <StatCard label="% of AUM" value={quoteLoading ? null : `${pctAum}%`} />
             <StatCard
               label="Unrealized Gain/Loss"
               variant={
@@ -622,7 +816,7 @@ export default function ResearchPage() {
                 <PriceChart title="FCF Yield" labels={fcfYieldLabels} data={fcfYieldData} label="FCF Yield" color="#10b981" formatY={(v) => `${v.toFixed(1)}%`} showCagr={false} className="" />
               </div>
             </>
-          ) : (
+          ) : activeResearchTab === 'thesis' ? (
             /* ── Thesis & Underwriting Tab ── */
             thesisLoading ? (
               <div className="space-y-6">
@@ -973,7 +1167,232 @@ export default function ResearchPage() {
                 </Card>
               </div>
             ) : null
-          )}
+          ) : activeResearchTab === 'notes' ? (
+            /* ── Notes Tab ── */
+            thesisLoading ? (
+              <div className="space-y-6">
+                <div className="skeleton h-48 rounded-2xl" />
+              </div>
+            ) : thesis ? (
+              (() => {
+                const notes = getNotes(thesis);
+                const NOTE_TYPES = [
+                  { value: 'tweet', label: 'Tweet', icon: MessageSquare, color: 'blue' },
+                  { value: 'web_article', label: 'Article', icon: FileText, color: 'emerald' },
+                  { value: 'white_paper', label: 'White Paper', icon: BookOpen, color: 'indigo' },
+                  { value: 'transcript', label: 'Transcript', icon: Mic, color: 'teal' },
+                  { value: 'other', label: 'Other', icon: MoreHorizontal, color: 'gray' },
+                ];
+                const NOTE_TYPE_MAP = Object.fromEntries(NOTE_TYPES.map(c => [c.value, c]));
+                const NOTE_TYPE_COLORS = {
+                  blue: 'bg-blue-50 text-blue-700 border-blue-200',
+                  emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                  indigo: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                  teal: 'bg-teal-50 text-teal-700 border-teal-200',
+                  gray: 'bg-gray-100 text-gray-600 border-gray-200',
+                };
+                const NOTE_TYPE_SELECTED = {
+                  blue: 'bg-blue-600 text-white border-blue-600',
+                  emerald: 'bg-emerald-600 text-white border-emerald-600',
+                  indigo: 'bg-indigo-600 text-white border-indigo-600',
+                  teal: 'bg-teal-600 text-white border-teal-600',
+                  gray: 'bg-gray-600 text-white border-gray-600',
+                };
+                const currentTab = notes.tabs.find(t => t.id === activeNoteTab) || notes.tabs[0];
+
+                return (
+                  <div className="space-y-8" onBlur={() => saveThesis()}>
+                    {/* ── Links ── */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <h2 className="text-lg font-bold text-gray-900">Links</h2>
+                      </div>
+
+                      {/* Add bar */}
+                      <div className={`rounded-2xl border mb-4 transition-all ${
+                        noteLinkJustSaved ? 'border-emerald-300 bg-emerald-50/30' : 'border-gray-200 bg-white'
+                      }`}>
+                        <div className="flex items-center gap-2 px-4 py-3">
+                          <Plus size={16} className={`flex-shrink-0 transition-colors ${noteLinkJustSaved ? 'text-emerald-500' : 'text-gray-300'}`} />
+                          <input
+                            type="url"
+                            value={noteLinkUrl}
+                            onChange={e => setNoteLinkUrl(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') addNoteLink(); }}
+                            placeholder="Paste a link..."
+                            className="flex-1 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-300"
+                          />
+                          <button
+                            onClick={addNoteLink}
+                            disabled={!noteLinkUrl.trim()}
+                            className={`p-1.5 rounded-lg transition-all ${
+                              noteLinkJustSaved ? 'text-emerald-500'
+                                : noteLinkUrl.trim() ? 'text-gray-900 hover:bg-gray-100'
+                                : 'text-gray-200 cursor-not-allowed'
+                            }`}
+                          >
+                            {noteLinkJustSaved ? <Check size={16} /> : <Send size={15} />}
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-1 px-4 pb-3 pt-0">
+                          {NOTE_TYPES.map(ct => {
+                            const Icon = ct.icon;
+                            const selected = noteLinkType === ct.value;
+                            return (
+                              <button key={ct.value} onClick={() => setNoteLinkType(ct.value)}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-all ${
+                                  selected ? NOTE_TYPE_SELECTED[ct.color] : 'border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                                }`}>
+                                <Icon size={10} />
+                                {ct.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Link cards */}
+                      {notes.links.length === 0 ? (
+                        <p className="text-sm text-gray-300 italic px-1">No links saved yet</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {notes.links.map((link, idx) => {
+                            const ct = NOTE_TYPE_MAP[link.type] || NOTE_TYPE_MAP.other;
+                            const TypeIcon = ct.icon;
+                            const isEditing = editingLinkIdx === idx;
+                            return (
+                              <div key={idx} className={`group bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all ${isEditing ? 'border-emerald-200' : 'border-gray-100 hover:border-gray-200'}`}>
+                                <div className="px-5 py-3.5">
+                                  {isEditing ? (
+                                    <div className="space-y-2">
+                                      <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-300 uppercase tracking-wide font-medium pointer-events-none">Title</span>
+                                        <input
+                                          autoFocus
+                                          type="text"
+                                          value={link.title || ''}
+                                          onChange={e => updateNoteLink(idx, 'title', e.target.value)}
+                                          placeholder="Add a title..."
+                                          className="w-full bg-gray-50/50 border border-gray-200 rounded-lg pl-12 pr-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all placeholder:text-gray-300"
+                                        />
+                                      </div>
+                                      <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-300 uppercase tracking-wide font-medium pointer-events-none">Link</span>
+                                        <input
+                                          type="text"
+                                          value={link.url || ''}
+                                          onChange={e => updateNoteLink(idx, 'url', e.target.value)}
+                                          placeholder="https://..."
+                                          className="w-full bg-gray-50/50 border border-gray-200 rounded-lg pl-12 pr-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all placeholder:text-gray-300 font-mono text-xs"
+                                        />
+                                      </div>
+                                      <div className="flex justify-end">
+                                        <button
+                                          onClick={() => setEditingLinkIdx(null)}
+                                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors"
+                                        >
+                                          <Check size={12} /> Done
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <a href={link.url.startsWith('http') ? link.url : `https://${link.url}`}
+                                            target="_blank" rel="noopener noreferrer"
+                                            className="text-sm font-semibold text-gray-900 hover:text-emerald-600 truncate max-w-md transition-colors">
+                                            {link.title || link.url}
+                                          </a>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                          <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${NOTE_TYPE_COLORS[ct.color]}`}>
+                                            <TypeIcon size={10} />
+                                            {ct.label}
+                                          </span>
+                                          {link.addedAt && <span className="text-[10px] text-gray-400">{link.addedAt}</span>}
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-0.5 flex-shrink-0">
+                                        <button
+                                          onClick={() => setEditingLinkIdx(idx)}
+                                          className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
+                                          <Pencil size={14} />
+                                        </button>
+                                        <button
+                                          onClick={() => removeNoteLink(idx)}
+                                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
+                                          <Trash2 size={14} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── Scratchpad with tabs ── */}
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-lg font-bold text-gray-900">Scratchpad</h2>
+                      </div>
+
+                      {/* Tab bar */}
+                      <div className="flex items-center gap-0.5 bg-gray-100/80 rounded-t-2xl p-1 overflow-x-auto">
+                        <DndContext sensors={tabSensors} collisionDetection={closestCenter} onDragEnd={handleTabDragEnd}>
+                          <SortableContext items={notes.tabs.map(t => t.id)} strategy={horizontalListSortingStrategy}>
+                            {notes.tabs.map(tab => (
+                              <SortableTab
+                                key={tab.id}
+                                tab={tab}
+                                isActive={currentTab?.id === tab.id}
+                                isConfirming={confirmDeleteTabId === tab.id}
+                                isEditing={editingTabId === tab.id}
+                                editingTabTitle={editingTabTitle}
+                                setEditingTabTitle={setEditingTabTitle}
+                                canDelete={notes.tabs.length > 1}
+                                tabCount={notes.tabs.length}
+                                onSelect={() => setActiveNoteTab(tab.id)}
+                                onStartEdit={() => { setEditingTabId(tab.id); setEditingTabTitle(tab.title); }}
+                                onFinishEdit={(title) => { if (title) renameNoteTab(tab.id, title); setEditingTabId(null); }}
+                                onConfirmDelete={() => setConfirmDeleteTabId(tab.id)}
+                                onCancelDelete={() => setConfirmDeleteTabId(null)}
+                                onDelete={() => { removeNoteTab(tab.id); setConfirmDeleteTabId(null); }}
+                                setConfirmDeleteTabId={setConfirmDeleteTabId}
+                              />
+                            ))}
+                          </SortableContext>
+                        </DndContext>
+                        <button
+                          onClick={addNoteTab}
+                          className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-gray-50 rounded-lg transition-colors flex-shrink-0"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+
+                      {/* Tab content */}
+                      <Card className="rounded-t-none border-t-0">
+                        {currentTab && (
+                          <RichTextArea
+                            value={currentTab.content || []}
+                            onChange={(blocks) => updateNoteTabContent(currentTab.id, blocks)}
+                            ticker={selectedTicker}
+                            placeholder="Paste anything here — text, images, screenshots, notes..."
+                            rows={8}
+                          />
+                        )}
+                      </Card>
+                    </div>
+                  </div>
+                );
+              })()
+            ) : null
+          ) : null}
         </>
       )}
 

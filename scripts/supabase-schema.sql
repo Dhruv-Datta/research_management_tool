@@ -165,6 +165,7 @@ CREATE TABLE IF NOT EXISTS theses (
   underwriting JSONB,
   news_updates JSONB DEFAULT '[]'::jsonb,
   todos JSONB DEFAULT '[]'::jsonb,
+  notes JSONB DEFAULT '{"links":[],"content":[]}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );

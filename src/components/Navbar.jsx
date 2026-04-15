@@ -62,7 +62,7 @@ function NavDropdown({ group, pathname, searchParams, isDark }) {
   };
 
   const handleLeave = () => {
-    timeoutRef.current = setTimeout(() => setOpen(false), 50);
+    timeoutRef.current = setTimeout(() => setOpen(false), 150);
   };
 
   useEffect(() => {

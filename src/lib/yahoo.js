@@ -88,35 +88,87 @@ export async function fetchQuotes(tickers) {
 }
 
 export async function fetchFundamentals(tickers) {
-  const result = {};
+  const results = await Promise.allSettled(
+    tickers.map(async (t) => {
+      // Try quoteSummary first for full data
+      let summary = null;
+      try {
+        summary = await yahooFinance.quoteSummary(t, {
+          modules: ['summaryDetail', 'assetProfile', 'defaultKeyStatistics', 'financialData'],
+        });
+      } catch {
+        // quoteSummary can fail for ETFs/funds — fall back to basic quote
+      }
 
-  for (const t of tickers) {
-    try {
-      const summary = await yahooFinance.quoteSummary(t, {
-        modules: ['summaryDetail', 'assetProfile', 'defaultKeyStatistics', 'financialData'],
-      });
+      // If quoteSummary failed or returned no profile, try basic quote for sector/type info
+      let quoteData = null;
+      if (!summary?.assetProfile?.sector) {
+        try {
+          quoteData = await yahooFinance.quote(t);
+        } catch {}
+      }
 
-      const profile = summary.assetProfile || {};
-      const detail = summary.summaryDetail || {};
-      const stats = summary.defaultKeyStatistics || {};
-      const fin = summary.financialData || {};
+      const profile = summary?.assetProfile || {};
+      const detail = summary?.summaryDetail || {};
+      const stats = summary?.defaultKeyStatistics || {};
 
-      result[t] = {
-        sector: profile.sector || 'Unknown',
-        industry: profile.industry || 'Unknown',
-        marketCap: safeFloat(detail.marketCap),
-        pe: safeFloat(detail.trailingPE),
-        forwardPe: safeFloat(detail.forwardPE),
-        peg: safeFloat(stats.pegRatio),
-        pb: safeFloat(stats.priceToBook),
-        ps: safeFloat(detail.priceToSalesTrailing12Months),
-        evEbitda: safeFloat(stats.enterpriseToEbitda),
-        evRevenue: safeFloat(stats.enterpriseToRevenue),
-        beta: safeFloat(stats.beta),
+      // Determine sector: prefer assetProfile, fall back to quoteType category
+      let sector = profile.sector || null;
+      if (!sector && quoteData) {
+        // Map ETF/fund quoteTypes to meaningful categories
+        const qt = quoteData.quoteType;
+        if (qt === 'ETF' || qt === 'MUTUALFUND') {
+          // Use the fund's display name to infer a rough sector
+          const name = (quoteData.shortName || quoteData.longName || '').toLowerCase();
+          if (name.includes('tech') || name.includes('semiconductor') || name.includes('software')) sector = 'Technology';
+          else if (name.includes('health') || name.includes('biotech') || name.includes('pharma')) sector = 'Healthcare';
+          else if (name.includes('financ') || name.includes('bank')) sector = 'Financial Services';
+          else if (name.includes('energy') || name.includes('oil') || name.includes('gas')) sector = 'Energy';
+          else if (name.includes('real estate') || name.includes('reit')) sector = 'Real Estate';
+          else if (name.includes('utilit')) sector = 'Utilities';
+          else if (name.includes('industrial')) sector = 'Industrials';
+          else if (name.includes('consumer') && name.includes('stapl')) sector = 'Consumer Defensive';
+          else if (name.includes('consumer') || name.includes('retail')) sector = 'Consumer Cyclical';
+          else if (name.includes('communicat') || name.includes('media')) sector = 'Communication Services';
+          else if (name.includes('material') || name.includes('mining') || name.includes('metal')) sector = 'Basic Materials';
+          else if (name.includes('gold') || name.includes('silver') || name.includes('commodit')) sector = 'Commodities';
+          else if (name.includes('bond') || name.includes('treasury') || name.includes('fixed income')) sector = 'Fixed Income';
+          else if (name.includes('s&p') || name.includes('total market') || name.includes('index')) sector = 'Broad Market';
+          else sector = qt === 'ETF' ? 'ETF' : 'Fund';
+        }
+      }
+
+      return {
+        ticker: t,
+        data: {
+          sector: sector || 'Unknown',
+          industry: profile.industry || (quoteData?.shortName || 'Unknown'),
+          marketCap: safeFloat(detail.marketCap) || safeFloat(quoteData?.marketCap),
+          pe: safeFloat(detail.trailingPE) || safeFloat(quoteData?.trailingPE),
+          forwardPe: safeFloat(detail.forwardPE) || safeFloat(quoteData?.forwardPE),
+          peg: safeFloat(stats.pegRatio),
+          pb: safeFloat(stats.priceToBook) || safeFloat(quoteData?.priceToBook),
+          ps: safeFloat(detail.priceToSalesTrailing12Months),
+          evEbitda: safeFloat(stats.enterpriseToEbitda),
+          evRevenue: safeFloat(stats.enterpriseToRevenue),
+          beta: safeFloat(stats.beta),
+        },
       };
-    } catch (e) {
-      result[t] = { error: e.message };
+    })
+  );
+
+  const result = {};
+  for (const r of results) {
+    if (r.status === 'fulfilled') {
+      result[r.value.ticker] = r.value.data;
+    } else {
+      // Extract ticker from the error if possible — fallback
     }
+  }
+
+  // Fill in any missing tickers
+  for (const t of tickers) {
+    if (!result[t]) result[t] = { sector: 'Unknown', industry: 'Unknown' };
   }
 
   return result;

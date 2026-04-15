@@ -458,7 +458,7 @@ export default function HoldingsPage() {
         {[
           { key: 'summary', label: 'Summary' },
           { key: 'risk', label: 'Risk' },
-          { key: 'factors', label: 'Factors' },
+          { key: 'factors', label: 'Sector' },
         ].map(tab => (
           <button
             key={tab.key}
@@ -537,7 +537,11 @@ export default function HoldingsPage() {
             }
             className="mb-6 animate-fade-in-up stagger-5"
           >
-            <Treemap positions={treemapPositions} mode={treemapMode} />
+            {quotesLoaded ? (
+              <Treemap positions={treemapPositions} mode={treemapMode} />
+            ) : (
+              <div className="h-64 w-full rounded-2xl skeleton" />
+            )}
           </Card>
 
           {/* Positions Table */}
@@ -581,7 +585,9 @@ export default function HoldingsPage() {
                               {p.ticker}
                             </span>
                           </td>
-                          <td className="text-right py-3.5 px-3 text-gray-500">{weight.toFixed(1)}%</td>
+                          <td className="text-right py-3.5 px-3 text-gray-500">
+                            {quotesLoaded ? `${weight.toFixed(1)}%` : <div className="h-5 w-12 rounded skeleton ml-auto" />}
+                          </td>
                           <td className="text-right py-3.5 px-3 text-gray-900 font-semibold">
                             {quotesLoaded ? formatMoney(p.value) : <div className="h-5 w-20 rounded skeleton ml-auto" />}
                           </td>
@@ -647,7 +653,9 @@ export default function HoldingsPage() {
                       <td className="py-3.5 px-3">
                         <span className="bg-gray-200 text-gray-600 font-bold text-xs px-2.5 py-1 rounded-lg">CASH</span>
                       </td>
-                      <td className="text-right py-3.5 px-3 text-gray-500">{totalAum > 0 ? ((parseFloat(cash) || 0) / totalAum * 100).toFixed(1) : '0.0'}%</td>
+                      <td className="text-right py-3.5 px-3 text-gray-500">
+                        {quotesLoaded ? `${totalAum > 0 ? ((parseFloat(cash) || 0) / totalAum * 100).toFixed(1) : '0.0'}%` : <div className="h-5 w-12 rounded skeleton ml-auto" />}
+                      </td>
                       <td className="text-right py-3.5 px-3 text-gray-900 font-semibold">
                         <div className="flex items-center justify-end gap-1">
                           <span className="text-gray-400 text-xs">$</span>
@@ -1075,7 +1083,7 @@ export default function HoldingsPage() {
       {/* ===== FACTORS TAB ===== */}
       {activeSubTab === 'factors' && (
         <>
-          {fundamentalsLoading ? (
+          {fundamentalsLoading || !quotesLoaded ? (
             <div className="space-y-6">
               <div className="skeleton h-52 rounded-3xl" />
               <div className="skeleton h-72 rounded-3xl" />
@@ -1105,7 +1113,10 @@ export default function HoldingsPage() {
                     'Healthcare': '#ef4444', 'Consumer Defensive': '#0891b2',
                     'Industrials': '#8b5cf6', 'Energy': '#f97316',
                     'Basic Materials': '#84cc16', 'Real Estate': '#ec4899',
-                    'Utilities': '#14b8a6', 'Unknown': '#9ca3af',
+                    'Utilities': '#14b8a6', 'Commodities': '#d97706',
+                    'Fixed Income': '#64748b', 'Broad Market': '#0ea5e9',
+                    'ETF': '#a855f7', 'Fund': '#a855f7',
+                    'Unknown': '#9ca3af',
                   };
 
                   const labels = sorted.map(([s]) => getSectorLabel(s));

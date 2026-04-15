@@ -26,6 +26,7 @@ const DEFAULT_THESIS = {
   },
   newsUpdates: [],
   todos: [],
+  notes: { links: [], tabs: [{ id: '1', title: 'General', content: [] }] },
 };
 
 // assumptions can be a plain string (legacy) or a JSON array of blocks (new rich text)
@@ -66,6 +67,7 @@ export async function GET(request, { params }) {
     underwriting: { ...DEFAULT_THESIS.underwriting, ...(data.underwriting || {}) },
     newsUpdates: data.news_updates || [],
     todos: data.todos || [],
+    notes: data.notes || { links: [], tabs: [{ id: '1', title: 'General', content: [] }] },
   });
 }
 
@@ -83,6 +85,7 @@ export async function POST(request, { params }) {
       underwriting: { ...DEFAULT_THESIS.underwriting, ...(body.underwriting || {}) },
       news_updates: body.newsUpdates || [],
       todos: body.todos || [],
+      notes: body.notes || { links: [], tabs: [{ id: '1', title: 'General', content: [] }] },
       updated_at: new Date().toISOString(),
     };
 
@@ -98,6 +101,7 @@ export async function POST(request, { params }) {
       underwriting: row.underwriting,
       newsUpdates: row.news_updates,
       todos: row.todos,
+      notes: row.notes,
     });
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 });
