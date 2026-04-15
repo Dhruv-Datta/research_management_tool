@@ -248,8 +248,12 @@ function LinkCard({ link, onUpdate, onDelete }) {
           </button>
         </div>
         <div className="px-4 pb-2.5">
-          <input type="text" value={editFields.notes} onChange={ef('notes')} placeholder="Notes..."
-            className={`${iCls} w-full text-gray-500`} />
+          <textarea value={editFields.notes} onChange={ef('notes')} placeholder="Notes..."
+            rows={2}
+            className={`${iCls} w-full text-gray-500 resize-vertical min-h-[2.5rem] overflow-hidden`}
+            onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
+            ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
+          />
         </div>
       </div>
     );
