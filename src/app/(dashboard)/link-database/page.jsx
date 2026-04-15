@@ -14,6 +14,8 @@ const CONTENT_TYPES = [
   { value: 'web_article',   label: 'Article',       icon: FileText,      color: 'emerald' },
   { value: 'white_paper',   label: 'White Paper',   icon: BookOpen,      color: 'indigo' },
   { value: 'transcript',    label: 'Transcript',    icon: Mic,           color: 'teal' },
+  { value: 'report',         label: 'Report',        icon: FileText,      color: 'amber' },
+  { value: 'deck',           label: 'Deck',          icon: BookOpen,      color: 'violet' },
   { value: 'other',         label: 'Other',         icon: MoreHorizontal,color: 'gray' },
 ];
 
@@ -46,6 +48,8 @@ const FILTER_TABS = [
   { value: 'web_article', label: 'Articles' },
   { value: 'transcript', label: 'Transcripts' },
   { value: 'white_paper', label: 'White Papers' },
+  { value: 'report', label: 'Reports' },
+  { value: 'deck', label: 'Decks' },
 ];
 
 function formatDate(dateStr) {
@@ -450,7 +454,7 @@ export default function LinkDatabasePage() {
       </div>
 
       {/* Ticker filter dropdown + read filter */}
-      <div className="flex items-center gap-2 mb-3 animate-fade-in-up stagger-2">
+      <div className="relative z-50 flex items-center gap-2 mb-3 animate-fade-in-up stagger-2">
         <TickerFilterDropdown value={activeTicker} onChange={setActiveTicker} tickers={tickers} />
         <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-0.5">
           {[
