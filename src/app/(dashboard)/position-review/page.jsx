@@ -1202,6 +1202,60 @@ export default function ResearchPage() {
 
                 return (
                   <div className="space-y-8" onBlur={() => saveThesis()}>
+                    {/* ── Scratchpad with tabs ── */}
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-lg font-bold text-gray-900">Scratchpad</h2>
+                      </div>
+
+                      {/* Tab bar */}
+                      <div className="flex items-center gap-0.5 bg-gray-100/80 rounded-t-2xl p-1 overflow-x-auto">
+                        <DndContext sensors={tabSensors} collisionDetection={closestCenter} onDragEnd={handleTabDragEnd}>
+                          <SortableContext items={notes.tabs.map(t => t.id)} strategy={horizontalListSortingStrategy}>
+                            {notes.tabs.map(tab => (
+                              <SortableTab
+                                key={tab.id}
+                                tab={tab}
+                                isActive={currentTab?.id === tab.id}
+                                isConfirming={confirmDeleteTabId === tab.id}
+                                isEditing={editingTabId === tab.id}
+                                editingTabTitle={editingTabTitle}
+                                setEditingTabTitle={setEditingTabTitle}
+                                canDelete={notes.tabs.length > 1}
+                                tabCount={notes.tabs.length}
+                                onSelect={() => setActiveNoteTab(tab.id)}
+                                onStartEdit={() => { setEditingTabId(tab.id); setEditingTabTitle(tab.title); }}
+                                onFinishEdit={(title) => { if (title) renameNoteTab(tab.id, title); setEditingTabId(null); }}
+                                onConfirmDelete={() => setConfirmDeleteTabId(tab.id)}
+                                onCancelDelete={() => setConfirmDeleteTabId(null)}
+                                onDelete={() => { removeNoteTab(tab.id); setConfirmDeleteTabId(null); }}
+                                setConfirmDeleteTabId={setConfirmDeleteTabId}
+                              />
+                            ))}
+                          </SortableContext>
+                        </DndContext>
+                        <button
+                          onClick={addNoteTab}
+                          className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-gray-50 rounded-lg transition-colors flex-shrink-0"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+
+                      {/* Tab content */}
+                      <Card className="rounded-t-none border-t-0">
+                        {currentTab && (
+                          <RichTextArea
+                            value={currentTab.content || []}
+                            onChange={(blocks) => updateNoteTabContent(currentTab.id, blocks)}
+                            ticker={selectedTicker}
+                            placeholder="Paste anything here — text, images, screenshots, notes..."
+                            rows={8}
+                          />
+                        )}
+                      </Card>
+                    </div>
+
                     {/* ── Links ── */}
                     <div>
                       <div className="flex items-center gap-2 mb-3">
@@ -1335,59 +1389,6 @@ export default function ResearchPage() {
                       )}
                     </div>
 
-                    {/* ── Scratchpad with tabs ── */}
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <h2 className="text-lg font-bold text-gray-900">Scratchpad</h2>
-                      </div>
-
-                      {/* Tab bar */}
-                      <div className="flex items-center gap-0.5 bg-gray-100/80 rounded-t-2xl p-1 overflow-x-auto">
-                        <DndContext sensors={tabSensors} collisionDetection={closestCenter} onDragEnd={handleTabDragEnd}>
-                          <SortableContext items={notes.tabs.map(t => t.id)} strategy={horizontalListSortingStrategy}>
-                            {notes.tabs.map(tab => (
-                              <SortableTab
-                                key={tab.id}
-                                tab={tab}
-                                isActive={currentTab?.id === tab.id}
-                                isConfirming={confirmDeleteTabId === tab.id}
-                                isEditing={editingTabId === tab.id}
-                                editingTabTitle={editingTabTitle}
-                                setEditingTabTitle={setEditingTabTitle}
-                                canDelete={notes.tabs.length > 1}
-                                tabCount={notes.tabs.length}
-                                onSelect={() => setActiveNoteTab(tab.id)}
-                                onStartEdit={() => { setEditingTabId(tab.id); setEditingTabTitle(tab.title); }}
-                                onFinishEdit={(title) => { if (title) renameNoteTab(tab.id, title); setEditingTabId(null); }}
-                                onConfirmDelete={() => setConfirmDeleteTabId(tab.id)}
-                                onCancelDelete={() => setConfirmDeleteTabId(null)}
-                                onDelete={() => { removeNoteTab(tab.id); setConfirmDeleteTabId(null); }}
-                                setConfirmDeleteTabId={setConfirmDeleteTabId}
-                              />
-                            ))}
-                          </SortableContext>
-                        </DndContext>
-                        <button
-                          onClick={addNoteTab}
-                          className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-gray-50 rounded-lg transition-colors flex-shrink-0"
-                        >
-                          <Plus size={14} />
-                        </button>
-                      </div>
-
-                      {/* Tab content */}
-                      <Card className="rounded-t-none border-t-0">
-                        {currentTab && (
-                          <RichTextArea
-                            value={currentTab.content || []}
-                            onChange={(blocks) => updateNoteTabContent(currentTab.id, blocks)}
-                            ticker={selectedTicker}
-                            placeholder="Paste anything here — text, images, screenshots, notes..."
-                            rows={8}
-                          />
-                        )}
-                      </Card>
-                    </div>
                   </div>
                 );
               })()
