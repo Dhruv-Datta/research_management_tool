@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { RefreshCw, Download, AlertTriangle, Save, Plus, Trash2, CheckCircle, FileDown, Check, Image as ImageIcon, X, ZoomIn, Star, ChevronDown, ExternalLink, Link as LinkIcon, Send, MessageSquare, FileText, BookOpen, Mic, MoreHorizontal, Pencil } from 'lucide-react';
 import Card from '@/components/Card';
@@ -17,6 +17,56 @@ import RichTextArea from '@/components/RichTextArea';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+
+const FUNDAMENTALS_BOXES = [
+  { key: 'revenueGrowth', label: 'Revenue and Growth', bg: 'bg-blue-50/50', border: 'border-blue-200/60', ring: 'focus:ring-blue-200 focus:border-blue-300', labelColor: 'text-blue-600', placeholder: 'Revenue CAGR, segment growth, unit economics, pricing, and demand drivers...' },
+  { key: 'profitability', label: 'Profitability', bg: 'bg-emerald-50/50', border: 'border-emerald-200/60', ring: 'focus:ring-emerald-200 focus:border-emerald-300', labelColor: 'text-emerald-600', placeholder: 'Margins, operating leverage, FCF conversion, EPS quality, and ROIC...' },
+  { key: 'capitalReturn', label: 'Capital Returned to Shareholders', bg: 'bg-violet-50/50', border: 'border-violet-200/60', ring: 'focus:ring-violet-200 focus:border-violet-300', labelColor: 'text-violet-600', placeholder: 'Buybacks, dividends, share count trends, and capital allocation discipline...' },
+  { key: 'misc', label: 'Misc', bg: 'bg-gray-50', border: 'border-gray-200', ring: 'focus:ring-gray-200 focus:border-gray-300', labelColor: 'text-gray-600', placeholder: 'Balance sheet context, cyclicality, one-time items, regulation, or anything else...' },
+];
+
+function FundamentalsNotesGrid({ fundamentals, onChange }) {
+  const refs = useRef({});
+
+  const syncHeights = useCallback(() => {
+    const rows = [
+      ['revenueGrowth', 'profitability'],
+      ['capitalReturn', 'misc'],
+    ];
+    rows.forEach(rowKeys => {
+      const els = rowKeys.map(k => refs.current[k]).filter(Boolean);
+      if (els.length === 0) return;
+      els.forEach(el => { el.style.height = 'auto'; });
+      const max = Math.max(...els.map(el => el.scrollHeight), 150);
+      els.forEach(el => { el.style.height = max + 'px'; });
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    syncHeights();
+  }, [syncHeights, fundamentals.revenueGrowth, fundamentals.profitability, fundamentals.capitalReturn, fundamentals.misc]);
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {FUNDAMENTALS_BOXES.map(({ key, label, bg, border, ring, labelColor, placeholder }) => (
+        <div key={key} className={`${bg} border ${border} rounded-2xl p-4`}>
+          <label className={`text-[11px] font-bold uppercase tracking-[0.18em] ${labelColor}`}>
+            {label}
+          </label>
+          <textarea
+            ref={el => { refs.current[key] = el; }}
+            value={fundamentals[key] || ''}
+            onChange={e => onChange(key, e.target.value)}
+            onInput={syncHeights}
+            placeholder={placeholder}
+            rows={6}
+            className={`mt-3 w-full bg-white/70 border ${border} rounded-2xl px-4 py-3 text-sm text-gray-800 outline-none ${ring} transition-all resize-none overflow-hidden`}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function SortableTab({ tab, isActive, isConfirming, isEditing, editingTabTitle, setEditingTabTitle, canDelete, tabCount, onSelect, onStartEdit, onFinishEdit, onConfirmDelete, onCancelDelete, onDelete, setConfirmDeleteTabId }) {
   const {
@@ -219,6 +269,25 @@ export default function ResearchPage() {
     setThesisDirty(true);
   };
 
+  const updateFundamental = (field, value) => {
+    setThesis(prev => {
+      const underwriting = prev.underwriting || {};
+      const researchWorkspace = underwriting.researchWorkspace || {};
+      const fundamentals = researchWorkspace.fundamentals || {};
+      return {
+        ...prev,
+        underwriting: {
+          ...underwriting,
+          researchWorkspace: {
+            ...researchWorkspace,
+            fundamentals: { ...fundamentals, [field]: value },
+          },
+        },
+      };
+    });
+    setThesisDirty(true);
+  };
+
   const addCoreReason = () => {
     setThesis(prev => ({ ...prev, coreReasons: [...(prev.coreReasons || []), { title: '', description: '' }] }));
     setThesisDirty(true);
@@ -241,11 +310,15 @@ export default function ResearchPage() {
   };
 
   const removeNewsUpdate = (idx) => {
-    setThesis(prev => ({
-      ...prev,
-      newsUpdates: (prev.newsUpdates || []).filter((_, i) => i !== idx),
-    }));
+    const updated = {
+      ...thesis,
+      newsUpdates: (thesis.newsUpdates || []).filter((_, i) => i !== idx),
+      _activeNewsIdx: undefined,
+    };
+    setThesis(updated);
     setThesisDirty(true);
+    const { _activeNewsIdx, ...toSave } = updated;
+    saveThesis(toSave);
   };
 
   const updateNewsUpdate = (idx, field, value) => {
@@ -1018,10 +1091,7 @@ export default function ResearchPage() {
                               />
                             </div>
                             <button
-                              onClick={() => {
-                                removeNewsUpdate(activeIdx);
-                                setThesis(prev => ({ ...prev, _activeNewsIdx: undefined }));
-                              }}
+                              onClick={() => removeNewsUpdate(activeIdx)}
                               className="flex-shrink-0 p-2 mt-5 text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all duration-200"
                             >
                               <Trash2 size={14} />
@@ -1111,6 +1181,17 @@ export default function ResearchPage() {
                       </div>
                     );
                   })()}
+                </Card>
+
+                {/* ── Fundamentals Notes ── */}
+                <Card>
+                  <h2 className="text-lg font-bold text-gray-900 mb-1">Fundamentals Notes</h2>
+                  <p className="text-xs text-gray-400 mb-6">Quick blurbs on key fundamentals. These export below each respective section in the report</p>
+
+                  <FundamentalsNotesGrid
+                    fundamentals={thesis?.underwriting?.researchWorkspace?.fundamentals || {}}
+                    onChange={updateFundamental}
+                  />
                 </Card>
 
                 {/* ── Valuation Model ── */}

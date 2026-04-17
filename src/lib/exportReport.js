@@ -384,10 +384,31 @@ function findChart(chartImages, ...keywords) {
 function renderChart(sections, chart, figureNum, caption) {
   if (!chart) return;
 
-  // Figure caption above chart
+  // Chart image
   sections.push(new Paragraph({
-    spacing: { before: 200, after: 80 },
+    spacing: { before: 200, after: chart.cagrs?.length ? 40 : 80 },
     keepNext: true,
+    alignment: AlignmentType.CENTER,
+    children: [chartImageRun(chart.url, chart.width, chart.height, 480)],
+  }));
+
+  // CAGR line
+  if (chart.cagrs && chart.cagrs.length > 0) {
+    sections.push(new Paragraph({
+      spacing: { after: 80 },
+      keepNext: true,
+      alignment: AlignmentType.CENTER,
+      children: chart.cagrs.flatMap((c, i) => [
+        ...(i > 0 ? [new TextRun({ text: '     ', font: FONT, size: 17 })] : []),
+        new TextRun({ text: `${c.label}: `, font: FONT, size: 17, color: C.light }),
+        new TextRun({ text: c.value, font: FONT, size: 17, bold: true, color: c.value.startsWith('-') ? C.red : C.accent }),
+      ]),
+    }));
+  }
+
+  // Figure caption below chart
+  sections.push(new Paragraph({
+    spacing: { before: 0, after: 120 },
     alignment: AlignmentType.CENTER,
     children: [new TextRun({
       text: `Figure ${figureNum}: ${caption}`,
@@ -397,27 +418,6 @@ function renderChart(sections, chart, figureNum, caption) {
       color: C.mid,
     })],
   }));
-
-  // Chart image
-  sections.push(new Paragraph({
-    spacing: { after: chart.cagrs?.length ? 40 : 100 },
-    keepNext: true,
-    alignment: AlignmentType.CENTER,
-    children: [chartImageRun(chart.url, chart.width, chart.height, 480)],
-  }));
-
-  // CAGR line
-  if (chart.cagrs && chart.cagrs.length > 0) {
-    sections.push(new Paragraph({
-      spacing: { after: 120 },
-      alignment: AlignmentType.CENTER,
-      children: chart.cagrs.flatMap((c, i) => [
-        ...(i > 0 ? [new TextRun({ text: '     ', font: FONT, size: 17 })] : []),
-        new TextRun({ text: `${c.label}: `, font: FONT, size: 17, color: C.light }),
-        new TextRun({ text: c.value, font: FONT, size: 17, bold: true, color: c.value.startsWith('-') ? C.red : C.accent }),
-      ]),
-    }));
-  }
 }
 
 // ── Render questions section (DD or Dislocation) ──
@@ -623,8 +623,12 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
       ],
     }));
 
-    // Investment Summary heading + Story text
-    if (hasRichContent(thesis?.assumptions)) {
+    // Investment Summary heading + Preexisting Thesis (core reasons)
+    const coreReasons = (thesis?.coreReasons || [])
+      .map(r => (typeof r === 'string' ? { title: r, description: '' } : r))
+      .filter(r => (r.title && r.title.trim()) || (r.description && r.description.trim()));
+
+    if (coreReasons.length > 0) {
       sections.push(new Paragraph({
         spacing: { before: 300, after: 100 },
         keepNext: true,
@@ -636,7 +640,41 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
           color: C.navy,
         })],
       }));
-      await appendRichContent(sections, thesis.assumptions);
+
+      coreReasons.forEach((reason, idx) => {
+        const titleText = reason.title?.trim() || `Core Reason #${idx + 1}`;
+        sections.push(new Paragraph({
+          spacing: { before: idx === 0 ? 80 : 160, after: 60 },
+          keepNext: true,
+          children: [
+            new TextRun({ text: `${idx + 1}. `, font: FONT_SERIF, size: 21, bold: true, color: C.navy }),
+            new TextRun({ text: titleText, font: FONT_SERIF, size: 21, bold: true, color: C.dark }),
+          ],
+        }));
+        if (reason.description && reason.description.trim()) {
+          reason.description.split('\n').filter(l => l.trim()).forEach(line => {
+            const p = bodyParagraph(line);
+            if (p) sections.push(p);
+          });
+        }
+      });
+    }
+
+    // Price target sentence (2Y @ Expected CAGR)
+    if (model?.computed?.priceTarget != null && !isNaN(Number(model.computed.priceTarget))) {
+      const cagrVal = model.computed.totalCAGRNoDivs;
+      const hasCagr = cagrVal != null && !isNaN(Number(cagrVal));
+      sections.push(new Paragraph({
+        spacing: { before: 200, after: 120 },
+        alignment: AlignmentType.JUSTIFIED,
+        children: [
+          new TextRun({ text: 'Our price target is ', font: FONT_SERIF, size: 20, color: C.dark }),
+          new TextRun({ text: `$${fmt(model.computed.priceTarget, 2)}`, font: FONT_SERIF, size: 20, bold: true, color: C.accent }),
+          new TextRun({ text: ', implying an expected CAGR of ', font: FONT_SERIF, size: 20, color: C.dark }),
+          new TextRun({ text: hasCagr ? fmtPct(cagrVal, 2) : '—', font: FONT_SERIF, size: 20, bold: true, color: C.accent }),
+          new TextRun({ text: ' (2-year price target at our expected CAGR).', font: FONT_SERIF, size: 20, color: C.dark }),
+        ],
+      }));
     }
 
     // Price chart right below Investment Summary
@@ -733,6 +771,13 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
       width: { size: 100, type: WidthType.PERCENTAGE },
       rows: tableRows,
     }));
+  }
+
+  // ═══════════ THE STORY ═══════════
+  if (hasRichContent(thesis?.assumptions)) {
+    sections.push(spacer(200));
+    sections.push(sectionTitle('The Story'));
+    await appendRichContent(sections, thesis.assumptions);
   }
 
   // ═══════════ REVENUE & GROWTH ═══════════
@@ -1051,7 +1096,7 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
         alignment: AlignmentType.CENTER,
         rows: [
           new TableRow({
-            children: ['', 'Expected CAGR', 'CAGR w/ Dividends', '1Y Price Target', '5Y Target Price'].map(h =>
+            children: ['', 'Expected CAGR', 'CAGR w/ Dividends', 'Price Target (2Y @ Expected CAGR)', '5Y Target Price'].map(h =>
               makeCell(h, { bold: true, align: h ? AlignmentType.CENTER : AlignmentType.LEFT, borderTop: true, borderBottom: true, heavyBorder: true, size: 16, color: C.navy })
             ),
           }),

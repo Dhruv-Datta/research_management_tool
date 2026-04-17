@@ -394,7 +394,7 @@ const ValuationModel = forwardRef(function ValuationModel({ ticker, livePrice },
               {[
                 { label: 'Expected CAGR', value: fmtPct(model.totalCAGRNoDivs, 2) },
                 { label: 'Total CAGR (w/ Divs)', value: fmtPct(model.totalCAGR, 2) },
-                { label: '1-Year Price Target', value: `$${fmt(model.priceTarget, 2)}` },
+                { label: 'Price Target (2Y @ Expected CAGR)', value: `$${fmt(model.priceTarget, 2)}` },
                 { label: '5-Year Target Price', value: `$${fmt(model.targetPrice5, 2)}` },
               ].map(item => (
                 <div key={item.label} className="bg-white border border-gray-100 rounded-xl px-4 py-3.5 shadow-sm">
