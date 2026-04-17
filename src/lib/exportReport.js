@@ -54,7 +54,7 @@ function heading(text, level = HeadingLevel.HEADING_1, opts = {}) {
 
 function sectionTitle(text) {
   return new Paragraph({
-    spacing: { before: 300, after: 60 },
+    spacing: { before: 480, after: 40 },
     keepNext: true,
     border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: C.navy } },
     children: [new TextRun({
@@ -69,7 +69,7 @@ function sectionTitle(text) {
 
 function subSectionTitle(text) {
   return new Paragraph({
-    spacing: { before: 240, after: 80 },
+    spacing: { before: 140, after: 60 },
     keepNext: true,
     children: [new TextRun({
       text,
@@ -386,7 +386,7 @@ function renderChart(sections, chart, figureNum, caption) {
 
   // Chart image
   sections.push(new Paragraph({
-    spacing: { before: 200, after: chart.cagrs?.length ? 40 : 80 },
+    spacing: { before: 100, after: chart.cagrs?.length ? 20 : 40 },
     keepNext: true,
     alignment: AlignmentType.CENTER,
     children: [chartImageRun(chart.url, chart.width, chart.height, 480)],
@@ -395,7 +395,7 @@ function renderChart(sections, chart, figureNum, caption) {
   // CAGR line
   if (chart.cagrs && chart.cagrs.length > 0) {
     sections.push(new Paragraph({
-      spacing: { after: 80 },
+      spacing: { after: 40 },
       keepNext: true,
       alignment: AlignmentType.CENTER,
       children: chart.cagrs.flatMap((c, i) => [
@@ -408,7 +408,7 @@ function renderChart(sections, chart, figureNum, caption) {
 
   // Figure caption below chart
   sections.push(new Paragraph({
-    spacing: { before: 0, after: 120 },
+    spacing: { before: 0, after: 60 },
     alignment: AlignmentType.CENTER,
     children: [new TextRun({
       text: `Figure ${figureNum}: ${caption}`,
@@ -687,7 +687,7 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
 
   // ═══════════ KEY METRICS TABLE ═══════════
   {
-    sections.push(spacer(100));
+    sections.push(spacer(60));
 
     const opMargins = tickerData?.operating_margins || [];
     const latestOpMargin = opMargins.length ? opMargins[opMargins.length - 1].operating_margin : null;
@@ -775,14 +775,12 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
 
   // ═══════════ THE STORY ═══════════
   if (hasRichContent(thesis?.assumptions)) {
-    sections.push(spacer(200));
     sections.push(sectionTitle('The Story'));
     await appendRichContent(sections, thesis.assumptions);
   }
 
   // ═══════════ REVENUE & GROWTH ═══════════
   {
-    sections.push(pageBreakParagraph());
     sections.push(sectionTitle('Revenue & Growth Profile'));
 
     const revenueChart = findChart(chartImages, 'Revenue');
@@ -794,14 +792,12 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
     // Revenue & Growth text from thesis structure
     const revenueText = researchWorkspace?.fundamentals?.revenueGrowth;
     if (hasRichContent(revenueText)) {
-      sections.push(spacer(80));
       await appendRichContent(sections, revenueText);
     }
   }
 
   // ═══════════ PROFITABILITY ═══════════
   {
-    sections.push(pageBreakParagraph());
     sections.push(sectionTitle('Profitability Profile'));
 
     const epsChart = findChart(chartImages, 'EPS');
@@ -826,14 +822,12 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
     // Profitability text from thesis structure
     const profitabilityText = researchWorkspace?.fundamentals?.profitability;
     if (hasRichContent(profitabilityText)) {
-      sections.push(spacer(80));
       await appendRichContent(sections, profitabilityText);
     }
   }
 
   // ═══════════ CAPITAL RETURNS TO SHAREHOLDERS ═══════════
   {
-    sections.push(pageBreakParagraph());
     sections.push(sectionTitle('Capital Returns to Shareholders'));
 
     const sharesChart = findChart(chartImages, 'Outstanding Shares', 'Buyback', 'Shares');
@@ -845,7 +839,6 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
     // Capital Returns text
     const capitalText = researchWorkspace?.fundamentals?.capitalReturn;
     if (hasRichContent(capitalText)) {
-      sections.push(spacer(80));
       await appendRichContent(sections, capitalText);
     }
   }
@@ -854,7 +847,6 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
   {
     const miscText = researchWorkspace?.fundamentals?.misc;
     if (hasRichContent(miscText)) {
-      sections.push(pageBreakParagraph());
       sections.push(sectionTitle('Additional Notes'));
       await appendRichContent(sections, miscText);
     }
@@ -865,7 +857,6 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
     const ddItems = researchWorkspace.dueDiligenceItems || [];
     const hasDD = normalizeQuestionItems(ddItems).some(item => item.text.trim() || hasRichContent(item.answer));
     if (hasDD) {
-      sections.push(pageBreakParagraph());
       await renderQuestions(sections, 'Due Diligence Questions', ddItems);
     }
   }
@@ -875,7 +866,6 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
     const disItems = researchWorkspace.dislocationItems || [];
     const hasDis = normalizeQuestionItems(disItems).some(item => item.text.trim() || hasRichContent(item.answer));
     if (hasDis) {
-      sections.push(pageBreakParagraph());
       await renderQuestions(sections, 'Dislocation Questions', disItems);
     }
   }
@@ -884,7 +874,6 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
   {
     const updates = (thesis?.newsUpdates || []).filter(u => u.title || u.body);
     if (updates.length > 0) {
-      sections.push(pageBreakParagraph());
       sections.push(sectionTitle('News & Recent Developments'));
 
       [...updates].reverse().forEach((entry, idx) => {
@@ -897,7 +886,7 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
           titleParts.push(new TextRun({ text: `  |  ${entry.date}`, font: FONT, size: 17, color: C.light }));
         }
         sections.push(new Paragraph({
-          spacing: { before: idx > 0 ? 280 : 160, after: 80 },
+          spacing: { before: idx > 0 ? 160 : 100, after: 60 },
           keepNext: true,
           children: titleParts,
         }));
@@ -934,7 +923,6 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
     const peChart = findChart(chartImages, 'PE Ratio');
     const fcfYieldChart = findChart(chartImages, 'FCF Yield');
     if (peChart || fcfYieldChart) {
-      sections.push(pageBreakParagraph());
       sections.push(sectionTitle('Valuation'));
 
       if (peChart) {
@@ -950,7 +938,6 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
 
   // ═══════════ VALUATION MODEL ═══════════
   if (model) {
-    sections.push(pageBreakParagraph());
     sections.push(sectionTitle('EPS-Based Valuation Model'));
 
     const inp = model.inputs || {};
@@ -965,7 +952,7 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
       has(inp.targetPE) ? fmt(Number(inp.targetPE), 2) : '—',
     ];
 
-    sections.push(spacer(80));
+    sections.push(spacer(40));
     sections.push(new Table({
       width: { size: 80, type: WidthType.PERCENTAGE },
       alignment: AlignmentType.CENTER,
@@ -983,7 +970,7 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
       ],
     }));
 
-    sections.push(spacer(160));
+    sections.push(spacer(80));
 
     // Input parameters table 2
     const inputRow2Header = ['Revenue Growth', 'COGS Growth', 'OpEx Growth', 'Net Share Dilution', 'Dividend Growth %', 'Tax Rate'];
@@ -1012,7 +999,7 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
       ],
     }));
 
-    sections.push(spacer(240));
+    sections.push(spacer(120));
 
     // Projection table
     if (model.computed) {
@@ -1088,7 +1075,7 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
         })],
       }));
 
-      sections.push(spacer(200));
+      sections.push(spacer(100));
 
       // Model output summary
       sections.push(new Table({
@@ -1116,13 +1103,13 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
 
   // ═══════════ DISCLAIMER ═══════════
   {
-    sections.push(spacer(400));
+    sections.push(spacer(200));
     sections.push(new Paragraph({
       spacing: { before: 0, after: 0 },
       border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: C.navy } },
       children: [],
     }));
-    sections.push(spacer(100));
+    sections.push(spacer(60));
 
     const disclaimerText = [
       'This report was prepared by B.D. Sterling Capital Management for internal research purposes only and does not constitute investment advice, a solicitation, or an offer to buy or sell any securities.',

@@ -20,10 +20,10 @@ const FUNDAMENTALS_BOXES = [
 ];
 
 const BOX_STYLES = {
-  blue: { bg: 'bg-blue-50/50', border: 'border-blue-200/60', ring: 'focus:ring-blue-200 focus:border-blue-300', label: 'text-blue-600' },
-  emerald: { bg: 'bg-emerald-50/50', border: 'border-emerald-200/60', ring: 'focus:ring-emerald-200 focus:border-emerald-300', label: 'text-emerald-600' },
-  violet: { bg: 'bg-violet-50/50', border: 'border-violet-200/60', ring: 'focus:ring-violet-200 focus:border-violet-300', label: 'text-violet-600' },
-  gray: { bg: 'bg-gray-50', border: 'border-gray-200', ring: 'focus:ring-gray-200 focus:border-gray-300', label: 'text-gray-600' },
+  blue: { bg: 'bg-blue-50/50', taBg: 'bg-blue-50/10', border: 'border-blue-200/60', ring: 'focus:ring-blue-200 focus:border-blue-300', label: 'text-blue-600' },
+  emerald: { bg: 'bg-emerald-50/50', taBg: 'bg-emerald-50/10', border: 'border-emerald-200/60', ring: 'focus:ring-emerald-200 focus:border-emerald-300', label: 'text-emerald-600' },
+  violet: { bg: 'bg-violet-50/50', taBg: 'bg-violet-50/10', border: 'border-violet-200/60', ring: 'focus:ring-violet-200 focus:border-violet-300', label: 'text-violet-600' },
+  gray: { bg: 'bg-gray-50', taBg: 'bg-white/70', border: 'border-gray-200', ring: 'focus:ring-gray-200 focus:border-gray-300', label: 'text-gray-600' },
 };
 
 function autoExpand(el) {
@@ -1120,7 +1120,7 @@ export default function ResearchPage() {
                           onInput={(e) => autoExpand(e.target)}
                           rows={6}
                           placeholder={placeholder}
-                          className={`mt-3 w-full bg-white/70 border ${styles.border} rounded-2xl px-4 py-3 text-sm text-gray-800 outline-none ${styles.ring} transition-all resize-none overflow-hidden`}
+                          className={`mt-3 w-full ${styles.taBg} border ${styles.border} rounded-2xl px-4 py-3 text-sm text-gray-800 outline-none ${styles.ring} transition-all resize-none overflow-hidden`}
                         />
                       </div>
                     );

@@ -19,10 +19,10 @@ import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove 
 import { CSS } from '@dnd-kit/utilities';
 
 const FUNDAMENTALS_BOXES = [
-  { key: 'revenueGrowth', label: 'Revenue and Growth', bg: 'bg-blue-50/50', border: 'border-blue-200/60', ring: 'focus:ring-blue-200 focus:border-blue-300', labelColor: 'text-blue-600', placeholder: 'Revenue CAGR, segment growth, unit economics, pricing, and demand drivers...' },
-  { key: 'profitability', label: 'Profitability', bg: 'bg-emerald-50/50', border: 'border-emerald-200/60', ring: 'focus:ring-emerald-200 focus:border-emerald-300', labelColor: 'text-emerald-600', placeholder: 'Margins, operating leverage, FCF conversion, EPS quality, and ROIC...' },
-  { key: 'capitalReturn', label: 'Capital Returned to Shareholders', bg: 'bg-violet-50/50', border: 'border-violet-200/60', ring: 'focus:ring-violet-200 focus:border-violet-300', labelColor: 'text-violet-600', placeholder: 'Buybacks, dividends, share count trends, and capital allocation discipline...' },
-  { key: 'misc', label: 'Misc', bg: 'bg-gray-50', border: 'border-gray-200', ring: 'focus:ring-gray-200 focus:border-gray-300', labelColor: 'text-gray-600', placeholder: 'Balance sheet context, cyclicality, one-time items, regulation, or anything else...' },
+  { key: 'revenueGrowth', label: 'Revenue and Growth', bg: 'bg-blue-50/50', taBg: 'bg-blue-50/10', border: 'border-blue-200/60', ring: 'focus:ring-blue-200 focus:border-blue-300', labelColor: 'text-blue-600', placeholder: 'Revenue CAGR, segment growth, unit economics, pricing, and demand drivers...' },
+  { key: 'profitability', label: 'Profitability', bg: 'bg-emerald-50/50', taBg: 'bg-emerald-50/10', border: 'border-emerald-200/60', ring: 'focus:ring-emerald-200 focus:border-emerald-300', labelColor: 'text-emerald-600', placeholder: 'Margins, operating leverage, FCF conversion, EPS quality, and ROIC...' },
+  { key: 'capitalReturn', label: 'Capital Returned to Shareholders', bg: 'bg-violet-50/50', taBg: 'bg-violet-50/10', border: 'border-violet-200/60', ring: 'focus:ring-violet-200 focus:border-violet-300', labelColor: 'text-violet-600', placeholder: 'Buybacks, dividends, share count trends, and capital allocation discipline...' },
+  { key: 'misc', label: 'Misc', bg: 'bg-gray-50', taBg: 'bg-white/70', border: 'border-gray-200', ring: 'focus:ring-gray-200 focus:border-gray-300', labelColor: 'text-gray-600', placeholder: 'Balance sheet context, cyclicality, one-time items, regulation, or anything else...' },
 ];
 
 function FundamentalsNotesGrid({ fundamentals, onChange }) {
@@ -48,7 +48,7 @@ function FundamentalsNotesGrid({ fundamentals, onChange }) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      {FUNDAMENTALS_BOXES.map(({ key, label, bg, border, ring, labelColor, placeholder }) => (
+      {FUNDAMENTALS_BOXES.map(({ key, label, bg, taBg, border, ring, labelColor, placeholder }) => (
         <div key={key} className={`${bg} border ${border} rounded-2xl p-4`}>
           <label className={`text-[11px] font-bold uppercase tracking-[0.18em] ${labelColor}`}>
             {label}
@@ -60,7 +60,7 @@ function FundamentalsNotesGrid({ fundamentals, onChange }) {
             onInput={syncHeights}
             placeholder={placeholder}
             rows={6}
-            className={`mt-3 w-full bg-white/70 border ${border} rounded-2xl px-4 py-3 text-sm text-gray-800 outline-none ${ring} transition-all resize-none overflow-hidden`}
+            className={`mt-3 w-full ${taBg} border ${border} rounded-2xl px-4 py-3 text-sm text-gray-800 outline-none ${ring} transition-all resize-none overflow-hidden`}
           />
         </div>
       ))}
@@ -517,28 +517,6 @@ export default function ResearchPage() {
     setThesisDirty(true);
   };
 
-  const addTodo = () => {
-    const updated = { ...thesis, todos: [...(thesis.todos || []), { text: '', done: false }] };
-    setThesis(updated);
-    setThesisDirty(true);
-    saveThesis(updated);
-  };
-
-  const removeTodo = (idx) => {
-    const updated = { ...thesis, todos: (thesis.todos || []).filter((_, i) => i !== idx) };
-    setThesis(updated);
-    setThesisDirty(true);
-    saveThesis(updated);
-  };
-
-  const updateTodo = (idx, field, value) => {
-    const updated = { ...thesis, todos: (thesis.todos || []).map((t, i) => i === idx ? { ...t, [field]: value } : t) };
-    setThesis(updated);
-    setThesisDirty(true);
-    // Save immediately for checkbox toggles, blur handles text inputs
-    if (field === 'done') saveThesis(updated);
-  };
-
   const generateData = async () => {
     setGenerating(true);
     setShowGenerateModal(false);
@@ -970,58 +948,15 @@ export default function ResearchPage() {
 
                 </Card>
 
-                {/* ── Research To-Do ── */}
+                {/* ── Fundamentals Notes ── */}
                 <Card>
-                  <div className="flex items-center justify-between mb-1">
-                    <h2 className="text-lg font-bold text-gray-900">Research To-Do</h2>
-                    <button
-                      onClick={addTodo}
-                      className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
-                    >
-                      <Plus size={13} />
-                      Add Item
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-400 mb-4">Quick checklist of things to research or follow up on (do not delete until checked off by other founder)</p>
+                  <h2 className="text-lg font-bold text-gray-900 mb-1">Fundamentals Notes</h2>
+                  <p className="text-xs text-gray-400 mb-6">Quick blurbs on key fundamentals. These export below each respective section in the report</p>
 
-                  {(!thesis.todos || thesis.todos.length === 0) ? (
-                    <div className="text-center py-6 border border-dashed border-gray-200 rounded-xl">
-                      <p className="text-sm text-gray-400 mb-1">No items yet</p>
-                      <p className="text-xs text-gray-300">Add tasks like &ldquo;check Q4 guidance&rdquo; or &ldquo;review competitor margins&rdquo;</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {(thesis.todos || []).map((todo, idx) => (
-                        <div key={idx} className="flex items-center gap-3 group">
-                          <button
-                            onClick={() => updateTodo(idx, 'done', !todo.done)}
-                            className={`flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
-                              todo.done
-                                ? 'bg-emerald-500 border-emerald-500'
-                                : 'border-gray-300 hover:border-emerald-400'
-                            }`}
-                          >
-                            {todo.done && <Check size={12} className="text-white" strokeWidth={3} />}
-                          </button>
-                          <input
-                            type="text"
-                            value={todo.text}
-                            onChange={e => updateTodo(idx, 'text', e.target.value)}
-                            placeholder="What needs to be done..."
-                            className={`flex-1 bg-transparent border-none outline-none text-sm transition-all duration-200 placeholder:text-gray-300 ${
-                              todo.done ? 'line-through text-gray-400' : 'text-gray-900'
-                            }`}
-                          />
-                          <button
-                            onClick={() => removeTodo(idx)}
-                            className="flex-shrink-0 p-1.5 text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all duration-200"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <FundamentalsNotesGrid
+                    fundamentals={thesis?.underwriting?.researchWorkspace?.fundamentals || {}}
+                    onChange={updateFundamental}
+                  />
                 </Card>
 
                 {/* ── News & Updates ── */}
@@ -1181,17 +1116,6 @@ export default function ResearchPage() {
                       </div>
                     );
                   })()}
-                </Card>
-
-                {/* ── Fundamentals Notes ── */}
-                <Card>
-                  <h2 className="text-lg font-bold text-gray-900 mb-1">Fundamentals Notes</h2>
-                  <p className="text-xs text-gray-400 mb-6">Quick blurbs on key fundamentals. These export below each respective section in the report</p>
-
-                  <FundamentalsNotesGrid
-                    fundamentals={thesis?.underwriting?.researchWorkspace?.fundamentals || {}}
-                    onChange={updateFundamental}
-                  />
                 </Card>
 
                 {/* ── Valuation Model ── */}
