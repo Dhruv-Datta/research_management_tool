@@ -662,7 +662,7 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
 
     // Price target sentence (2Y @ Expected CAGR)
     if (model?.computed?.priceTarget != null && !isNaN(Number(model.computed.priceTarget))) {
-      const cagrVal = model.computed.totalCAGRNoDivs;
+      const cagrVal = model.computed.totalCAGR;
       const hasCagr = cagrVal != null && !isNaN(Number(cagrVal));
       sections.push(new Paragraph({
         spacing: { before: 200, after: 120 },
