@@ -140,12 +140,12 @@ export default function WorkspacePage() {
 
   const updateIdea = async (id, patch, opts = {}) => {
     setIdeas(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i));
+    if (opts.closeEditor) setEditing(null);
     try {
       const res = await fetch('/api/ideas', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...patch }) });
       const data = await res.json();
       if (data.idea) {
         setIdeas(prev => prev.map(i => i.id === id ? data.idea : i));
-        if (opts.closeEditor) setEditing(null);
       } else if (data.error) {
         setLoadError(data.error);
       }
@@ -160,10 +160,8 @@ export default function WorkspacePage() {
       return updateIdea(idea.id, patch, opts);
     }
     const hasContent = (patch.title && patch.title.trim()) || (patch.content && patch.content.trim());
-    if (!hasContent) {
-      if (opts.closeEditor) setEditing(null);
-      return;
-    }
+    if (opts.closeEditor) setEditing(null);
+    if (!hasContent) return;
     try {
       const res = await fetch('/api/ideas', {
         method: 'POST',
@@ -179,7 +177,6 @@ export default function WorkspacePage() {
     } catch (e) {
       setLoadError(e.message || 'Failed to save');
     }
-    if (opts.closeEditor) setEditing(null);
   };
 
   const deleteIdea = async (id) => {
