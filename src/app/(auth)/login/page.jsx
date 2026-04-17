@@ -74,7 +74,7 @@ export default function LoginPage() {
             <div className={`rounded-xl transition-shadow duration-300 ${focused === 'username' ? 'shadow-md shadow-emerald-100' : ''}`}>
               <input
                 id="username"
-                type="text"
+                type="text" spellCheck={true}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 onFocus={() => setFocused('username')}

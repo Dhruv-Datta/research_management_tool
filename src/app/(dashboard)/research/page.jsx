@@ -247,7 +247,7 @@ function QuestionSection({
                     {item.done && <Check size={12} strokeWidth={3} />}
                   </button>
                   <input
-                    type="text"
+                    type="text" spellCheck={true}
                     value={item.text}
                     onChange={(e) => onChangeQuestion(item.id, e.target.value)}
                     onBlur={(e) => onSaveQuestion(item.id, e.target.value)}
@@ -325,7 +325,7 @@ function QuestionSection({
                               {sq.done && <Check size={10} strokeWidth={3} />}
                             </button>
                             <input
-                              type="text"
+                              type="text" spellCheck={true}
                               value={sq.text}
                               onChange={(e) => updateSubText(item.id, sq.id, e.target.value)}
                               onBlur={(e) => updateSubText(item.id, sq.id, e.target.value, true)}
@@ -1044,7 +1044,7 @@ export default function ResearchPage() {
             <>
               <Card className="mb-8">
                 <label className="text-xs text-gray-500 uppercase tracking-wider font-bold block mb-3">Why This Name Is Here</label>
-                <textarea
+                <textarea spellCheck={true}
                   value={researchWorkspace.note}
                   onChange={(e) => updateResearchWorkspace(workspace => ({ ...workspace, note: e.target.value }))}
                   onBlur={(e) => updateResearchWorkspace(workspace => ({ ...workspace, note: e.target.value }), true)}
@@ -1119,6 +1119,7 @@ export default function ResearchPage() {
                           onBlur={(e) => updateFundamentalBox(key, e.target.value, true)}
                           onInput={(e) => autoExpand(e.target)}
                           rows={6}
+                          spellCheck={true}
                           placeholder={placeholder}
                           className={`mt-3 w-full ${styles.taBg} border ${styles.border} rounded-2xl px-4 py-3 text-sm text-gray-800 outline-none ${styles.ring} transition-all resize-none overflow-hidden`}
                         />
@@ -1245,7 +1246,7 @@ export default function ResearchPage() {
                           <div className="flex-1">
                             <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-1.5">Title</label>
                             <input
-                              type="text"
+                              type="text" spellCheck={true}
                               value={entry.title || ''}
                               onChange={e => updateNewsUpdate(activeIdx, 'title', e.target.value)}
                               placeholder="e.g., Q3 earnings, product launch, guidance cut..."
@@ -1274,7 +1275,7 @@ export default function ResearchPage() {
 
                         <div className="mb-4">
                           <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-1.5">What Happened</label>
-                          <textarea
+                          <textarea spellCheck={true}
                             value={entry.body || ''}
                             onChange={e => updateNewsUpdate(activeIdx, 'body', e.target.value)}
                             onInput={e => autoExpand(e.target)}
@@ -1286,7 +1287,7 @@ export default function ResearchPage() {
 
                         <div>
                           <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-1.5">Impact on Research</label>
-                          <textarea
+                          <textarea spellCheck={true}
                             value={entry.impactOnAssumptions || ''}
                             onChange={e => updateNewsUpdate(activeIdx, 'impactOnAssumptions', e.target.value)}
                             onInput={e => autoExpand(e.target)}

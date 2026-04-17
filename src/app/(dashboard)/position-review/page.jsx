@@ -60,6 +60,7 @@ function FundamentalsNotesGrid({ fundamentals, onChange }) {
             onInput={syncHeights}
             placeholder={placeholder}
             rows={6}
+            spellCheck={true}
             className={`mt-3 w-full ${taBg} border ${border} rounded-2xl px-4 py-3 text-sm text-gray-800 outline-none ${ring} transition-all resize-none overflow-hidden`}
           />
         </div>
@@ -902,7 +903,7 @@ export default function ResearchPage() {
                               <span className="flex-shrink-0 w-7 h-10 flex items-center justify-center text-xs font-bold text-gray-300 mt-px">{idx + 1}.</span>
                               <div className="flex-1 space-y-2">
                                 <input
-                                  type="text"
+                                  type="text" spellCheck={true}
                                   value={r.title}
                                   onChange={e => updateCoreReason(idx, 'title', e.target.value)}
                                   placeholder={`Core reason #${idx + 1}...`}
@@ -915,6 +916,7 @@ export default function ResearchPage() {
                                   ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
                                   placeholder="Elaborate on this reason..."
                                   rows={2}
+                                  spellCheck={true}
                                   className="w-full bg-gray-50/50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 placeholder:text-gray-300 resize-none overflow-hidden"
                                 />
                               </div>
@@ -1009,7 +1011,7 @@ export default function ResearchPage() {
                             <div className="flex-1">
                               <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-1.5">Title</label>
                               <input
-                                type="text"
+                                type="text" spellCheck={true}
                                 value={entry.title || ''}
                                 onChange={e => updateNewsUpdate(activeIdx, 'title', e.target.value)}
                                 placeholder="e.g., Q3 2025 Earnings, Major Acquisition, Guidance Revision..."
@@ -1042,6 +1044,7 @@ export default function ResearchPage() {
                               ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
                               placeholder="Summarize the key takeaways..."
                               rows={3}
+                              spellCheck={true}
                               className="w-full bg-gray-50/50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 placeholder:text-gray-300 resize-none overflow-hidden"
                             />
                           </div>
@@ -1055,6 +1058,7 @@ export default function ResearchPage() {
                               ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
                               placeholder="Does this change your revenue growth, margin, or valuation assumptions? If so, how?"
                               rows={2}
+                              spellCheck={true}
                               className="w-full bg-amber-50/50 border border-amber-200/60 rounded-xl px-4 py-3 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition-all duration-200 placeholder:text-amber-300 resize-none overflow-hidden"
                             />
                           </div>
@@ -1328,7 +1332,7 @@ export default function ResearchPage() {
                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-300 uppercase tracking-wide font-medium pointer-events-none">Title</span>
                                         <input
                                           autoFocus
-                                          type="text"
+                                          type="text" spellCheck={true}
                                           value={link.title || ''}
                                           onChange={e => updateNoteLink(idx, 'title', e.target.value)}
                                           placeholder="Add a title..."
@@ -1338,7 +1342,7 @@ export default function ResearchPage() {
                                       <div className="relative">
                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-300 uppercase tracking-wide font-medium pointer-events-none">Link</span>
                                         <input
-                                          type="text"
+                                          type="text" spellCheck={true}
                                           value={link.url || ''}
                                           onChange={e => updateNoteLink(idx, 'url', e.target.value)}
                                           placeholder="https://..."

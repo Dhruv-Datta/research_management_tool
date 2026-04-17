@@ -550,7 +550,7 @@ export default function HoldingsPage() {
             className="animate-fade-in-up stagger-7"
             actions={
               <input
-                type="text" value={search} onChange={e => setSearch(e.target.value)}
+                type="text" spellCheck={true} value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Search ticker..."
                 className="w-44 bg-gray-50/50 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200"
               />
@@ -685,7 +685,7 @@ export default function HoldingsPage() {
             <form onSubmit={addHolding} className="flex flex-wrap gap-4 items-end">
               <div className="flex-1 min-w-[140px]">
                 <label className="text-xs text-gray-500 uppercase tracking-wider font-semibold block mb-1.5">Ticker Symbol</label>
-                <input type="text" value={ticker} onChange={e => setTicker(e.target.value.toUpperCase())} placeholder="e.g., AAPL" className={inputCls} />
+                <input type="text" spellCheck={true} value={ticker} onChange={e => setTicker(e.target.value.toUpperCase())} placeholder="e.g., AAPL" className={inputCls} />
               </div>
               <div className="flex-1 min-w-[140px]">
                 <label className="text-xs text-gray-500 uppercase tracking-wider font-semibold block mb-1.5">Shares</label>
@@ -1008,7 +1008,7 @@ export default function HoldingsPage() {
                           </div>
                           <form className="flex items-center gap-2 mt-3" onSubmit={e => { e.preventDefault(); addFactor(newFactorName); }}>
                             <input
-                              type="text" value={newFactorName} onChange={e => setNewFactorName(e.target.value)}
+                              type="text" spellCheck={true} value={newFactorName} onChange={e => setNewFactorName(e.target.value)}
                               placeholder="Add new factor..."
                               className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-1 focus:ring-emerald-400"
                             />
@@ -1326,7 +1326,7 @@ export default function HoldingsPage() {
               <Card
                 title="Position Fundamentals"
                 actions={
-                  <input type="text" value={fundamentalsSearch} onChange={e => setFundamentalsSearch(e.target.value)}
+                  <input type="text" spellCheck={true} value={fundamentalsSearch} onChange={e => setFundamentalsSearch(e.target.value)}
                     placeholder="Search symbol or sector..."
                     className="w-56 bg-gray-50/50 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200"
                   />

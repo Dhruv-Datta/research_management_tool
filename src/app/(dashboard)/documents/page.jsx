@@ -458,7 +458,7 @@ export default function DocumentsPage() {
                 <div>
                   <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-1">Title</label>
                   <input
-                    type="text"
+                    type="text" spellCheck={true}
                     value={uploadTitle}
                     onChange={e => setUploadTitle(e.target.value)}
                     placeholder="Document title..."
@@ -479,7 +479,7 @@ export default function DocumentsPage() {
               <div>
                 <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-1">Ticker</label>
                 <input
-                  type="text"
+                  type="text" spellCheck={true}
                   value={uploadTicker}
                   onChange={e => setUploadTicker(e.target.value.toUpperCase())}
                   placeholder="e.g. AAPL"
@@ -489,7 +489,7 @@ export default function DocumentsPage() {
               <div>
                 <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-1">Notes</label>
                 <input
-                  type="text"
+                  type="text" spellCheck={true}
                   value={uploadNotes}
                   onChange={e => setUploadNotes(e.target.value)}
                   placeholder="Quick note..."
@@ -646,7 +646,7 @@ export default function DocumentsPage() {
           <div className="relative mb-6">
             <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
-              type="text"
+              type="text" spellCheck={true}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search documents, tickers, notes..."
@@ -806,7 +806,7 @@ export default function DocumentsPage() {
                             <div>
                               <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-1">Title</label>
                               <input
-                                type="text"
+                                type="text" spellCheck={true}
                                 value={editForm.title}
                                 onChange={(e) => setEditForm(f => ({ ...f, title: e.target.value }))}
                                 autoFocus
@@ -826,7 +826,7 @@ export default function DocumentsPage() {
                             <div>
                               <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-1">Ticker</label>
                               <input
-                                type="text"
+                                type="text" spellCheck={true}
                                 value={editForm.ticker}
                                 onChange={(e) => setEditForm(f => ({ ...f, ticker: e.target.value.toUpperCase() }))}
                                 placeholder="e.g. AAPL"
@@ -836,7 +836,7 @@ export default function DocumentsPage() {
                             <div>
                               <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mb-1">Notes</label>
                               <input
-                                type="text"
+                                type="text" spellCheck={true}
                                 value={editForm.notes}
                                 onChange={(e) => setEditForm(f => ({ ...f, notes: e.target.value }))}
                                 placeholder="Quick note..."

@@ -327,7 +327,7 @@ export default function WorkspacePage() {
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
             <input
               id="workspace-search"
-              type="text"
+              type="text" spellCheck={true}
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search"
@@ -666,13 +666,13 @@ function EditModal({ idea, isNew, onClose, onSave, onDelete }) {
 
           <input
             autoFocus
-            type="text"
+            type="text" spellCheck={true}
             value={draft.title}
             onChange={e => setDraft(v => ({ ...v, title: e.target.value }))}
             placeholder="Title"
             className="w-full bg-transparent text-xl font-semibold text-gray-900 outline-none placeholder:text-gray-300 mb-2"
           />
-          <textarea
+          <textarea spellCheck={true}
             value={draft.content}
             onChange={e => setDraft(v => ({ ...v, content: e.target.value }))}
             placeholder="Write freely..."
@@ -692,7 +692,7 @@ function EditModal({ idea, isNew, onClose, onSave, onDelete }) {
             <div className="flex items-center gap-1 text-xs text-gray-400">
               <TagIcon size={11} />
               <input
-                type="text"
+                type="text" spellCheck={true}
                 value={tagDraft}
                 onChange={e => setTagDraft(e.target.value.replace(/\s+/g, ''))}
                 onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(); } }}

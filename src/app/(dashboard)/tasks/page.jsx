@@ -146,7 +146,7 @@ function AssigneePicker({ current, onSelect, onClose, anchorRef, savedAssignees 
         ) : (
           <div className="px-2.5 pb-2 pt-1 space-y-2">
             <input
-              type="text"
+              type="text" spellCheck={true}
               placeholder="Name..."
               value={customValue}
               onChange={e => setCustomValue(e.target.value)}
@@ -1319,7 +1319,7 @@ export default function TaskBoardPage() {
 
                               {/* Title */}
                               {isEditing ? (
-                                <textarea
+                                <textarea spellCheck={true}
                                   ref={editRef}
                                   value={editingTitle}
                                   onChange={e => {
@@ -1440,7 +1440,7 @@ export default function TaskBoardPage() {
                             {/* Notes area */}
                             {isEditing ? (
                               <div className="px-4 pb-3 pl-16">
-                                <textarea
+                                <textarea spellCheck={true}
                                   value={editingNotes}
                                   onChange={e => setEditingNotes(e.target.value)}
                                   onKeyDown={e => {
@@ -1498,7 +1498,7 @@ export default function TaskBoardPage() {
                                     </button>
 
                                     {isEditingSub ? (
-                                      <textarea
+                                      <textarea spellCheck={true}
                                         ref={subEditRef}
                                         value={editingSubTitle}
                                         onChange={e => {
@@ -1611,7 +1611,7 @@ export default function TaskBoardPage() {
                                     <span className="flex-shrink-0 w-4 h-4 rounded border-2 border-gray-200" />
                                     <input
                                       autoFocus
-                                      type="text"
+                                      type="text" spellCheck={true}
                                       placeholder="Subtask title..."
                                       value={newSubtaskTitle}
                                       onChange={e => setNewSubtaskTitle(e.target.value)}
@@ -1662,7 +1662,7 @@ export default function TaskBoardPage() {
                         <span className="flex-shrink-0 w-5 h-5 rounded-md border-2 border-gray-200" />
                         <input
                           autoFocus
-                          type="text"
+                          type="text" spellCheck={true}
                           placeholder="Task title..."
                           value={newTaskTitle}
                           onChange={e => setNewTaskTitle(e.target.value)}

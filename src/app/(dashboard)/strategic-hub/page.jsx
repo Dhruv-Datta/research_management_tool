@@ -206,7 +206,7 @@ function EditModal({ holding, onSave, onClose }) {
           {/* Notes */}
           <div>
             <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Notes</label>
-            <textarea value={form.notes} onChange={e => set('notes', e.target.value)}
+            <textarea spellCheck={true} value={form.notes} onChange={e => set('notes', e.target.value)}
               ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
               onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
               rows={3} placeholder="Key observations, catalysts, risks..."
@@ -577,7 +577,7 @@ export default function StrategicHubPage() {
           <h2 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Portfolio Notes</h2>
           <span className={`text-[10px] text-emerald-600 transition-opacity ${notesSaved ? 'opacity-100' : 'opacity-0'}`}>Saved</span>
         </div>
-        <textarea
+        <textarea spellCheck={true}
           value={portfolioNotes}
           onChange={e => handleNotesChange(e.target.value)}
           ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}

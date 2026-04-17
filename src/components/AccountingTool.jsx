@@ -214,7 +214,7 @@ function AddQuarterModal({ onAdd, onClose }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1">Quarter Label</label>
-            <input type="text" value={label} onChange={e => setLabel(e.target.value)} required placeholder="e.g. Q1 2026" className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/40" />
+            <input type="text" spellCheck={true} value={label} onChange={e => setLabel(e.target.value)} required placeholder="e.g. Q1 2026" className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/40" />
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 rounded-xl hover:bg-gray-100 transition-colors">Cancel</button>
@@ -984,7 +984,7 @@ function NavConverterTab({ computedTimeline, state }) {
           <p className="text-xs text-gray-400 mb-2">
             Format: &quot;MM/DD/YYYY&quot;,&quot;AUM&quot; — one entry per line
           </p>
-          <textarea
+          <textarea spellCheck={true}
             value={rawInput}
             onChange={e => setRawInput(e.target.value)}
             placeholder={`"03/23/2026","46554.253681603"\n"03/24/2026","45817.583681603"\n"03/25/2026","46113.083681603"`}

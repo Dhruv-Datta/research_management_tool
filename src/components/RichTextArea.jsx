@@ -166,6 +166,7 @@ export default function RichTextArea({ value, onChange, ticker, placeholder, row
               ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
               placeholder={idx === 0 ? placeholder : 'Continue writing...'}
               rows={idx === 0 ? rows : 2}
+              spellCheck={true}
               className={className || defaultTextClass}
             />
             <label

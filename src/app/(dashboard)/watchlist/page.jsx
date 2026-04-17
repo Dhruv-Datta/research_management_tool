@@ -729,7 +729,7 @@ function StockCard({ stock, quote, onRemove, onMove, onUpdateNote, onUpdateResea
         <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
           Why I&apos;m Interested
         </label>
-        <textarea
+        <textarea spellCheck={true}
           defaultValue={stock.note || ''}
           placeholder="Quick note on why this stock is interesting..."
           className="mt-1 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 resize-none overflow-hidden focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-300 transition-all"
@@ -756,7 +756,7 @@ function StockCard({ stock, quote, onRemove, onMove, onUpdateNote, onUpdateResea
                     <label className={`text-[10px] font-bold uppercase tracking-wider ${s.label}`}>
                       {label}
                     </label>
-                    <textarea
+                    <textarea spellCheck={true}
                       defaultValue={fundamentals[key] || ''}
                       placeholder={placeholder}
                       className={`mt-1 w-full text-xs text-gray-700 bg-transparent border-none resize-none focus:outline-none p-0`}

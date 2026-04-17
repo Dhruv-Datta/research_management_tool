@@ -1479,7 +1479,7 @@ export default function AllocationPage() {
               {/* Top row: Ticker, Return, Weight, Remove */}
               <div className="flex items-center gap-5">
                 <input
-                  type="text"
+                  type="text" spellCheck={true}
                   value={row.ticker}
                   onChange={(e) => updateAllocation(row.id, 'ticker', e.target.value.toUpperCase())}
                   className="w-20 text-sm font-bold text-gray-900 bg-transparent border-0 outline-none placeholder:text-gray-300 placeholder:font-normal"
@@ -2102,7 +2102,7 @@ export default function AllocationPage() {
                 <div key={row.id} className="group bg-white border border-gray-100 rounded-2xl px-5 py-3.5 hover:border-gray-200 hover:shadow-sm transition-all">
                   <div className="flex items-center gap-5">
                     <input
-                      type="text"
+                      type="text" spellCheck={true}
                       value={row.ticker}
                       onChange={(e) => updateRbHolding(row.id, 'ticker', e.target.value)}
                       className="w-20 text-sm font-bold text-gray-900 bg-transparent border-0 outline-none placeholder:text-gray-300 placeholder:font-normal"

@@ -98,7 +98,7 @@ function TickerFilterDropdown({ value, onChange, tickers }) {
         <div className="absolute top-full left-0 mt-1 w-56 bg-white rounded-xl border border-gray-200 shadow-lg z-50">
           <div className="p-2">
             <input
-              type="text"
+              type="text" spellCheck={true}
               value={search}
               onChange={e => setSearch(e.target.value.toUpperCase())}
               placeholder="Search tickers..."
@@ -234,7 +234,7 @@ function LinkCard({ link, onUpdate, onDelete }) {
     return (
       <div className="bg-white rounded-2xl border border-emerald-200 shadow-sm transition-all">
         <div className="flex items-center gap-1.5 px-4 py-2.5">
-          <input type="text" value={editFields.ticker}
+          <input type="text" spellCheck={true} value={editFields.ticker}
             onChange={e => setEditFields(prev => ({ ...prev, ticker: e.target.value.toUpperCase() }))}
             placeholder="AAPL,MSFT" className={`${iCls} w-24 font-bold text-center uppercase`} />
           <select value={editFields.contentType} onChange={ef('contentType')}
@@ -252,7 +252,7 @@ function LinkCard({ link, onUpdate, onDelete }) {
           </button>
         </div>
         <div className="px-4 pb-2.5">
-          <textarea value={editFields.notes} onChange={ef('notes')} placeholder="Notes..."
+          <textarea spellCheck={true} value={editFields.notes} onChange={ef('notes')} placeholder="Notes..."
             rows={2}
             className={`${iCls} w-full text-gray-500 resize-vertical min-h-[2.5rem] overflow-hidden`}
             onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
@@ -504,7 +504,7 @@ export default function LinkDatabasePage() {
             className="flex-1 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-300"
           />
           <input
-            type="text"
+            type="text" spellCheck={true}
             value={addTicker}
             onChange={e => setAddTicker(e.target.value.toUpperCase())}
             onKeyDown={e => { if (e.key === 'Enter') handleAddLink(); }}

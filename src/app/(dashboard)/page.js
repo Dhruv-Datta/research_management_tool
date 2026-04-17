@@ -616,7 +616,7 @@ export default function DashboardPage() {
                 <p className="text-xs text-gray-500">
                   Paste dates and portfolio AUM values. NAV per share and S&P 500 benchmark will be calculated automatically.
                 </p>
-                <textarea
+                <textarea spellCheck={true}
                   value={navUpdateInput}
                   onChange={e => setNavUpdateInput(e.target.value)}
                   placeholder={'"03/23/2026","46554.253681603"\n"03/24/2026","45817.583681603"\n"03/25/2026","46113.083681603"'}
