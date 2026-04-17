@@ -333,6 +333,30 @@ CREATE INDEX IF NOT EXISTS idx_strategic_notes_ticker ON strategic_notes(ticker)
 
 
 -- ============================================================
+-- 20. IDEAS (free-form workspace; not tied to any ticker)
+-- category: idea, question, todo, note, random
+-- color:    yellow, blue, green, pink, purple, gray, orange
+-- ============================================================
+CREATE TABLE IF NOT EXISTS ideas (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT DEFAULT '',
+  content TEXT DEFAULT '',
+  color TEXT DEFAULT 'yellow',
+  category TEXT DEFAULT 'idea',
+  tags JSONB DEFAULT '[]'::jsonb,
+  pinned BOOLEAN DEFAULT false,
+  archived BOOLEAN DEFAULT false,
+  position INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ideas_pinned ON ideas(pinned);
+CREATE INDEX IF NOT EXISTS idx_ideas_category ON ideas(category);
+CREATE INDEX IF NOT EXISTS idx_ideas_archived ON ideas(archived);
+
+
+-- ============================================================
 -- STORAGE BUCKETS
 -- Run these separately or create via the Supabase dashboard
 -- Dashboard > Storage > New Bucket
