@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
+import { useState, useEffect, useCallback, useRef, useLayoutEffect, memo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { RefreshCw, Download, AlertTriangle, Save, Plus, Trash2, CheckCircle, FileDown, Check, Image as ImageIcon, X, ZoomIn, Star, ChevronDown, ExternalLink, Link as LinkIcon, Send, MessageSquare, FileText, BookOpen, Mic, MoreHorizontal, Pencil } from 'lucide-react';
 import Card from '@/components/Card';
@@ -18,6 +18,8 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from 
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+const EMPTY_FUNDAMENTALS = {};
+
 const FUNDAMENTALS_BOXES = [
   { key: 'revenueGrowth', label: 'Revenue and Growth', bg: 'bg-blue-50/50', taBg: 'bg-blue-50/10', border: 'border-blue-200/60', ring: 'focus:ring-blue-200 focus:border-blue-300', labelColor: 'text-blue-600', placeholder: 'Revenue CAGR, segment growth, unit economics, pricing, and demand drivers...' },
   { key: 'profitability', label: 'Profitability', bg: 'bg-emerald-50/50', taBg: 'bg-emerald-50/10', border: 'border-emerald-200/60', ring: 'focus:ring-emerald-200 focus:border-emerald-300', labelColor: 'text-emerald-600', placeholder: 'Margins, operating leverage, FCF conversion, EPS quality, and ROIC...' },
@@ -25,7 +27,7 @@ const FUNDAMENTALS_BOXES = [
   { key: 'misc', label: 'Misc', bg: 'bg-gray-50', taBg: 'bg-white/70', border: 'border-gray-200', ring: 'focus:ring-gray-200 focus:border-gray-300', labelColor: 'text-gray-600', placeholder: 'Balance sheet context, cyclicality, one-time items, regulation, or anything else...' },
 ];
 
-function FundamentalsNotesGrid({ fundamentals, onChange }) {
+const FundamentalsNotesGrid = memo(function FundamentalsNotesGrid({ fundamentals, onChange }) {
   const refs = useRef({});
 
   const syncHeights = useCallback(() => {
@@ -67,7 +69,7 @@ function FundamentalsNotesGrid({ fundamentals, onChange }) {
       ))}
     </div>
   );
-}
+});
 
 function SortableTab({ tab, isActive, isConfirming, isEditing, editingTabTitle, setEditingTabTitle, canDelete, tabCount, onSelect, onStartEdit, onFinishEdit, onConfirmDelete, onCancelDelete, onDelete, setConfirmDeleteTabId }) {
   const {
@@ -270,7 +272,8 @@ export default function ResearchPage() {
     setThesisDirty(true);
   };
 
-  const updateFundamental = (field, value) => {
+  const updateFundamental = useCallback((field, value) => {
+    setThesisDirty(true);
     setThesis(prev => {
       const underwriting = prev.underwriting || {};
       const researchWorkspace = underwriting.researchWorkspace || {};
@@ -286,8 +289,7 @@ export default function ResearchPage() {
         },
       };
     });
-    setThesisDirty(true);
-  };
+  }, []);
 
   const addCoreReason = () => {
     setThesis(prev => ({ ...prev, coreReasons: [...(prev.coreReasons || []), { title: '', description: '' }] }));
@@ -295,11 +297,13 @@ export default function ResearchPage() {
   };
 
   const removeCoreReason = (idx) => {
-    setThesis(prev => ({
-      ...prev,
-      coreReasons: prev.coreReasons.filter((_, i) => i !== idx),
-    }));
+    const updated = {
+      ...thesis,
+      coreReasons: (thesis.coreReasons || []).filter((_, i) => i !== idx),
+    };
+    setThesis(updated);
     setThesisDirty(true);
+    saveThesis(updated);
   };
 
   const addNewsUpdate = () => {
@@ -912,8 +916,8 @@ export default function ResearchPage() {
                                 <textarea
                                   value={r.description}
                                   onChange={e => updateCoreReason(idx, 'description', e.target.value)}
-                                  onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
-                                  ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
+                                  onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; e.target.dataset.sizedFor = e.target.value; }}
+                                  ref={el => { if (el && el.dataset.sizedFor !== el.value) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; el.dataset.sizedFor = el.value; } }}
                                   placeholder="Elaborate on this reason..."
                                   rows={2}
                                   spellCheck={true}
@@ -956,7 +960,7 @@ export default function ResearchPage() {
                   <p className="text-xs text-gray-400 mb-6">Quick blurbs on key fundamentals. These export below each respective section in the report</p>
 
                   <FundamentalsNotesGrid
-                    fundamentals={thesis?.underwriting?.researchWorkspace?.fundamentals || {}}
+                    fundamentals={thesis?.underwriting?.researchWorkspace?.fundamentals || EMPTY_FUNDAMENTALS}
                     onChange={updateFundamental}
                   />
                 </Card>
@@ -1040,8 +1044,8 @@ export default function ResearchPage() {
                             <textarea
                               value={entry.body || ''}
                               onChange={e => updateNewsUpdate(activeIdx, 'body', e.target.value)}
-                              onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
-                              ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
+                              onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; e.target.dataset.sizedFor = e.target.value; }}
+                              ref={el => { if (el && el.dataset.sizedFor !== el.value) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; el.dataset.sizedFor = el.value; } }}
                               placeholder="Summarize the key takeaways..."
                               rows={3}
                               spellCheck={true}
@@ -1054,8 +1058,8 @@ export default function ResearchPage() {
                             <textarea
                               value={entry.impactOnAssumptions || ''}
                               onChange={e => updateNewsUpdate(activeIdx, 'impactOnAssumptions', e.target.value)}
-                              onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
-                              ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
+                              onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; e.target.dataset.sizedFor = e.target.value; }}
+                              ref={el => { if (el && el.dataset.sizedFor !== el.value) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; el.dataset.sizedFor = el.value; } }}
                               placeholder="Does this change your revenue growth, margin, or valuation assumptions? If so, how?"
                               rows={2}
                               spellCheck={true}
