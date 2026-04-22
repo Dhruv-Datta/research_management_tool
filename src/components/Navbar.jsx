@@ -180,16 +180,17 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-6 lg:px-12 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3 no-underline group">
           <Image
-            src="/images/fms_logo.png"
-            alt="B.D. Sterling Capital"
-            width={180}
-            height={50}
+            src="/images/wow.png"
+            alt="AlphaOS"
+            width={205}
+            height={72}
             className="h-11 w-auto object-contain"
+            unoptimized
             priority
           />
           <span className={`text-sm font-medium ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>|</span>
           <span className={`font-semibold text-sm tracking-tight transition-colors ${isDark ? 'text-gray-400 group-hover:text-emerald-400' : 'text-gray-700 group-hover:text-emerald-700'}`}>
-            Fund Management System
+            Dashboard
           </span>
         </Link>
 

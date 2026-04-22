@@ -39,11 +39,12 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="flex justify-center mb-10">
           <Image
-            src="/images/fms_logo.png"
-            alt="B.D. Sterling Capital"
-            width={200}
-            height={55}
+            src="/images/wow.png"
+            alt="AlphaOS"
+            width={220}
+            height={77}
             className="h-12 w-auto object-contain"
+            unoptimized
             priority
           />
         </div>
