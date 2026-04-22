@@ -1024,6 +1024,20 @@ export default function ResearchPage() {
 
                 </Card>
 
+                {/* ── Company Overview ── */}
+                <Card>
+                  <h2 className="text-lg font-bold text-gray-900 mb-1">Company Overview</h2>
+                  <p className="text-xs text-gray-400 mb-6">Summarize what the company does, how it makes money, and what matters most about the business</p>
+
+                  <RichTextArea
+                    value={thesis?.underwriting?.companyOverview || ''}
+                    onChange={val => updateUnderwriting('companyOverview', val)}
+                    ticker={selectedTicker}
+                    placeholder="What does this company do? Cover the business model, key segments, customers, competitive position, and the main drivers investors should understand..."
+                    rows={4}
+                  />
+                </Card>
+
                 {/* ── Fundamentals Notes ── */}
                 <Card>
                   <h2 className="text-lg font-bold text-gray-900 mb-1">Fundamentals Notes</h2>

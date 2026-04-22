@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getValuationExpectedReturn } from '@/lib/valuationModel';
 
 // Aggregates portfolio, thesis, research, task, and strategic note data
 // into a single payload for the Strategic Hub view
@@ -13,6 +14,7 @@ export async function GET() {
       tasksRes,
       notesRes,
       allocRes,
+      valuationModelsRes,
     ] = await Promise.all([
       supabase.from('holdings').select('*'),
       supabase.from('portfolio_cash').select('cash').eq('id', 1).single(),
@@ -21,6 +23,7 @@ export async function GET() {
       supabase.from('tasks').select('id, title, priority, done, status, notes, board_id, created_at'),
       supabase.from('strategic_notes').select('*'),
       supabase.from('allocation_config').select('config').eq('id', 1).single(),
+      supabase.from('valuation_models').select('ticker, inputs'),
     ]);
 
     const holdings = holdingsRes.data || [];
@@ -30,6 +33,7 @@ export async function GET() {
     const tasks = tasksRes.data || [];
     const strategicNotes = notesRes.data || [];
     const allocConfig = allocRes.data?.config || {};
+    const valuationModels = valuationModelsRes.data || [];
 
     // Build thesis map
     const thesisMap = {};
@@ -54,15 +58,20 @@ export async function GET() {
       notesMap[n.ticker] = n;
     }
 
-    // Allocation target weights and expected returns from config
+    // Allocation target weights from config
     const allocRows = allocConfig.rows || [];
     const targetWeightMap = {};
-    const expectedReturnMap = {};
     for (const r of allocRows) {
       if (r.ticker) {
         if (r.userWeight != null) targetWeightMap[r.ticker] = Number(r.userWeight);
-        if (r.expectedReturn != null) expectedReturnMap[r.ticker] = Number(r.expectedReturn);
       }
+    }
+
+    // Valuation expected return is the Total CAGR with dividends reinvested.
+    const valuationModelMap = {};
+    for (const vm of valuationModels) {
+      const tk = (vm.ticker || '').toUpperCase();
+      if (tk) valuationModelMap[tk] = vm.inputs || null;
     }
 
     // Build per-holding enriched data
@@ -74,6 +83,8 @@ export async function GET() {
       const thesis = thesisMap[tk] || null;
       const ls = linkStats[tk] || { total: 0, unread: 0, unsummarized: 0 };
       const note = notesMap[tk] || null;
+      const valuationInputs = valuationModelMap[tk] || null;
+      const valuationExpectedReturn = getValuationExpectedReturn(valuationInputs);
 
       // Research gaps
       const hasThesis = !!thesis;
@@ -122,7 +133,8 @@ export async function GET() {
         strategicNotes: note?.notes || '',
         alternatives: note?.alternatives || '',
         targetWeight: note?.target_weight ?? targetWeightMap[tk] ?? null,
-        expectedReturn: note?.expected_return ?? expectedReturnMap[tk] ?? null,
+        expectedReturn: valuationExpectedReturn == null ? null : valuationExpectedReturn * 100,
+        valuationInputs,
         attentionPriority: note?.priority || 'normal',
         sortOrder: note?.sort_order ?? 0,
         // Research gaps

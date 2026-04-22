@@ -8,6 +8,7 @@ import {
   BarChart3, Shield, X, RefreshCw, Crosshair, ChevronUp, ChevronDown, ClipboardList, Target,
 } from 'lucide-react';
 import TaskBoardPage from '../tasks/page';
+import { getValuationExpectedReturn } from '@/lib/valuationModel';
 
 /* ── helpers ── */
 const fmt$ = v => {
@@ -110,12 +111,14 @@ function EditModal({ holding, onSave, onClose }) {
     action_reason: holding.actionReason || '',
     notes: holding.strategicNotes || '',
     priority: holding.attentionPriority ?? 'normal',
-    expected_return: holding.expectedReturn ?? '',
   });
   const formRef = useRef(form);
-  formRef.current = form;
 
-  const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+  const set = (k, v) => setForm(prev => {
+    const next = { ...prev, [k]: v };
+    formRef.current = next;
+    return next;
+  });
 
   // Auto-save on unmount (clicking off)
   useEffect(() => {
@@ -192,15 +195,6 @@ function EditModal({ holding, onSave, onClose }) {
                 );
               })}
             </div>
-          </div>
-
-          {/* Expected Return */}
-          <div>
-            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">Expected Return %</label>
-            <input type="number" step="0.5" value={form.expected_return}
-              onChange={e => set('expected_return', e.target.value)}
-              placeholder="e.g. 15"
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400" />
           </div>
 
           {/* Notes */}
@@ -359,11 +353,11 @@ export default function StrategicHubPage() {
     await Promise.all([
       fetch('/api/strategic-notes', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker: cur.ticker, sentiment: cur.sentiment, conviction: cur.conviction, action: cur.action, notes: cur.strategicNotes, priority: cur.attentionPriority, expected_return: cur.expectedReturn, sort_order: newA }),
+        body: JSON.stringify({ ticker: cur.ticker, sentiment: cur.sentiment, conviction: cur.conviction, action: cur.action, notes: cur.strategicNotes, priority: cur.attentionPriority, sort_order: newA }),
       }),
       fetch('/api/strategic-notes', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker: other.ticker, sentiment: other.sentiment, conviction: other.conviction, action: other.action, notes: other.strategicNotes, priority: other.attentionPriority, expected_return: other.expectedReturn, sort_order: newB }),
+        body: JSON.stringify({ ticker: other.ticker, sentiment: other.sentiment, conviction: other.conviction, action: other.action, notes: other.strategicNotes, priority: other.attentionPriority, sort_order: newB }),
       }),
     ]);
   }, []);
@@ -374,12 +368,23 @@ export default function StrategicHubPage() {
     return data.holdings.map(h => {
       const q = quotes?.[h.ticker];
       const price = q?.price || 0;
+      const valuationExpectedReturn = getValuationExpectedReturn(h.valuationInputs, q?.price);
       const mktVal = h.shares * price;
       const costVal = h.shares * h.costBasis;
       const gl = mktVal - costVal;
       const glPct = costVal > 0 ? (gl / costVal) * 100 : 0;
       const dayChange = q?.dayChangePct || 0;
-      return { ...h, price, mktVal, costVal, gl, glPct, dayChange, sector: q?.sector || '' };
+      return {
+        ...h,
+        price,
+        mktVal,
+        costVal,
+        gl,
+        glPct,
+        dayChange,
+        sector: q?.sector || '',
+        expectedReturn: valuationExpectedReturn == null ? null : valuationExpectedReturn * 100,
+      };
     });
   }, [data, quotes]);
 

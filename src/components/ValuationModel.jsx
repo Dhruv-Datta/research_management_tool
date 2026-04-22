@@ -2,26 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useImperativeHandle, forwardRef } from 'react';
 import { RefreshCw, Save, CheckCircle } from 'lucide-react';
-
-const DEFAULT_INPUTS = {
-  ticker: '',
-  sharePrice: '',
-  targetPE: '',
-  revenueGrowth: '',
-  opexGrowth: '',
-  cogsGrowth: '',
-  netShareDilution: '',
-  dividendGrowth: '',
-  currentDividend: '',
-  taxRate: 0.21,
-  baseRevenue: '',
-  baseCOGS: '',
-  baseOpex: '',
-  baseNonOpIncome: '',
-  baseTaxExpense: '',
-  baseShares: '',
-  baseYear: 2026,
-};
+import { DEFAULT_VALUATION_INPUTS, computeValuationModel } from '@/lib/valuationModel';
 
 function fmt(v, decimals = 2) {
   if (v === null || v === undefined || isNaN(v)) return '—';
@@ -111,12 +92,12 @@ const ValuationModel = forwardRef(function ValuationModel({ ticker, livePrice },
       .then(r => r.json())
       .then(result => {
         if (result.exists && result.inputs) {
-          setInputs({ ...DEFAULT_INPUTS, ticker, ...result.inputs, ...(livePrice ? { sharePrice: livePrice } : {}) });
+          setInputs({ ...DEFAULT_VALUATION_INPUTS, ticker, ...result.inputs, ...(livePrice ? { sharePrice: livePrice } : {}) });
         } else {
-          setInputs({ ...DEFAULT_INPUTS, ticker, sharePrice: livePrice || '' });
+          setInputs({ ...DEFAULT_VALUATION_INPUTS, ticker, sharePrice: livePrice || '' });
         }
       })
-      .catch(() => setInputs({ ...DEFAULT_INPUTS, ticker, sharePrice: livePrice || '' }))
+      .catch(() => setInputs({ ...DEFAULT_VALUATION_INPUTS, ticker, sharePrice: livePrice || '' }))
       .finally(() => setLoading(false));
   }, [ticker]);
 
@@ -148,63 +129,7 @@ const ValuationModel = forwardRef(function ValuationModel({ ticker, livePrice },
 
   const model = useMemo(() => {
     if (!inputs) return null;
-    const p = (v) => (v === '' || v === undefined || v === null || isNaN(Number(v))) ? 0 : Number(v);
-
-    const sharePrice = p(inputs.sharePrice);
-    const targetPE = p(inputs.targetPE);
-    const revG = p(inputs.revenueGrowth);
-    const opexG = p(inputs.opexGrowth);
-    const cogsG = p(inputs.cogsGrowth);
-    const dilution = p(inputs.netShareDilution);
-    const divG = p(inputs.dividendGrowth);
-    const curDiv = p(inputs.currentDividend);
-    const taxRate = p(inputs.taxRate);
-    const baseYear = p(inputs.baseYear);
-    const baseRev = p(inputs.baseRevenue);
-    const baseCOGS = p(inputs.baseCOGS);
-    const baseOpex = p(inputs.baseOpex);
-    const baseNonOp = p(inputs.baseNonOpIncome);
-    const baseTax = p(inputs.baseTaxExpense);
-    const baseShares = p(inputs.baseShares);
-
-    const years = [0, 1, 2, 3, 4, 5];
-    const yearLabels = years.map(i => baseYear + i);
-
-    const revenue = [baseRev];
-    for (let i = 1; i <= 5; i++) revenue.push(revenue[i - 1] * (1 + revG));
-    const cogs = [baseCOGS];
-    for (let i = 1; i <= 5; i++) cogs.push(cogs[i - 1] * (1 + cogsG));
-    const opex = [baseOpex];
-    for (let i = 1; i <= 5; i++) opex.push(opex[i - 1] * (1 + opexG));
-    const opIncome = years.map(i => revenue[i] - cogs[i] - opex[i]);
-    const opMargin = years.map(i => revenue[i] !== 0 ? opIncome[i] / revenue[i] : 0);
-    const nonOpIncome = [baseNonOp, 0, 0, 0, 0, 0];
-    const taxExpense = [baseTax];
-    for (let i = 1; i <= 5; i++) taxExpense.push(opIncome[i] * taxRate);
-    const netIncome = years.map(i => opIncome[i] - taxExpense[i] + nonOpIncome[i]);
-    const shares = [baseShares];
-    for (let i = 1; i <= 5; i++) shares.push(shares[i - 1] * (1 + dilution));
-    const eps = years.map(i => shares[i] !== 0 ? netIncome[i] / shares[i] : 0);
-    const epsGrowth = (eps[0] !== 0 && eps[5] !== 0) ? Math.pow(eps[5] / eps[0], 1 / 5) - 1 : 0;
-    const targetPrice5 = targetPE * eps[5];
-    const priceCAGR = (sharePrice > 0 && targetPrice5 > 0) ? Math.pow(targetPrice5 / sharePrice, 1 / 5) - 1 : 0;
-    const priceArr = [sharePrice];
-    for (let i = 1; i <= 5; i++) priceArr.push(priceArr[i - 1] * (1 + priceCAGR));
-    const divShares = [1];
-    for (let i = 1; i <= 5; i++) {
-      const divFactor = sharePrice > 0 ? (curDiv / sharePrice) * Math.pow((1 + divG) / (1 + priceCAGR), i - 1) : 0;
-      divShares.push((1 + divFactor) * divShares[i - 1]);
-    }
-    const totalCAGRNoDivs = priceCAGR;
-    const totalCAGR = (sharePrice > 0 && divShares[5] * priceArr[5] > 0)
-      ? Math.pow((divShares[5] * priceArr[5]) / sharePrice, 1 / 5) - 1 : 0;
-    const priceTarget = priceArr[2];
-
-    return {
-      yearLabels, revenue, cogs, opex, opIncome, opMargin, nonOpIncome,
-      taxExpense, netIncome, shares, eps, epsGrowth, priceArr, divShares,
-      totalCAGRNoDivs, totalCAGR, priceTarget, targetPrice5, priceCAGR,
-    };
+    return computeValuationModel(inputs);
   }, [inputs]);
 
   // Expose model data for export

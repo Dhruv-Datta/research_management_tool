@@ -7,6 +7,17 @@ const DEFAULT_WATCHLIST = {
   activeWatchlistId: 'default',
 };
 
+function orderStocks(stocks = []) {
+  return stocks
+    .map((stock, index) => ({ stock, index }))
+    .sort((a, b) => {
+      const aPos = Number.isFinite(a.stock?.position) ? a.stock.position : a.index;
+      const bPos = Number.isFinite(b.stock?.position) ? b.stock.position : b.index;
+      return aPos - bPos || a.index - b.index;
+    })
+    .map(({ stock }, position) => ({ ...stock, position }));
+}
+
 export async function loadWatchlist() {
   const [{ data: watchlists, error: wErr }, { data: setting, error: sErr }] = await Promise.all([
     supabase.from('watchlists').select('*'),
@@ -21,7 +32,7 @@ export async function loadWatchlist() {
     watchlists: watchlists.map(w => ({
       id: w.id,
       name: w.name,
-      stocks: w.stocks || [],
+      stocks: orderStocks(w.stocks || []),
     })),
     activeWatchlistId: setting?.value || 'default',
   };
@@ -47,7 +58,7 @@ export async function saveWatchlist(data) {
       watchlists.map(w => ({
         id: w.id,
         name: w.name,
-        stocks: w.stocks || [],
+        stocks: orderStocks(w.stocks || []),
       }))
     );
     if (error) throw new Error(error.message);

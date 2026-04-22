@@ -6,6 +6,7 @@ const DEFAULT_THESIS = {
   assumptions: '',
   valuation: '',
   underwriting: {
+    companyOverview: '',
     revenueCAGR: '',
     operatingMargin: '',
     buybackRate: '',

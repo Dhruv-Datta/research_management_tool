@@ -660,6 +660,24 @@ export async function exportReport({ ticker, thesis, model, tickerData, liveQuot
       });
     }
 
+    if (hasRichContent(thesis?.underwriting?.companyOverview)) {
+      if (coreReasons.length === 0) {
+        sections.push(new Paragraph({
+          spacing: { before: 300, after: 100 },
+          keepNext: true,
+          children: [new TextRun({
+            text: 'Investment Summary',
+            font: FONT_SERIF,
+            bold: true,
+            size: 26,
+            color: C.navy,
+          })],
+        }));
+      }
+      sections.push(subSectionTitle('Company Overview'));
+      await appendRichContent(sections, thesis.underwriting.companyOverview);
+    }
+
     // Price target sentence (2Y @ Expected CAGR)
     if (model?.computed?.priceTarget != null && !isNaN(Number(model.computed.priceTarget))) {
       const cagrVal = model.computed.totalCAGR;

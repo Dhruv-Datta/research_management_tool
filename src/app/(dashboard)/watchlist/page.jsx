@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from 'react';
 import { useCache } from '@/lib/CacheContext';
 import { formatMoneyPrecise, formatPct, formatLargeNumber } from '@/lib/formatters';
-import { Plus, X, ArrowRight, ArrowLeft, Eye, FlaskConical, TrendingUp, TrendingDown, Square, CheckSquare, ChevronDown, Pencil, Trash2, Check, List, ClipboardList, ChevronRight } from 'lucide-react';
+import { Plus, X, ArrowRight, ArrowLeft, Eye, FlaskConical, TrendingUp, TrendingDown, Square, CheckSquare, ChevronDown, Pencil, Trash2, Check, List, ClipboardList, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -37,6 +37,17 @@ function normalizeQuestionItems(items) {
       })),
     };
   });
+}
+
+function orderStocks(stocks = []) {
+  return stocks
+    .map((stock, index) => ({ stock, index }))
+    .sort((a, b) => {
+      const aPos = Number.isFinite(a.stock?.position) ? a.stock.position : a.index;
+      const bPos = Number.isFinite(b.stock?.position) ? b.stock.position : b.index;
+      return aPos - bPos || a.index - b.index;
+    })
+    .map(({ stock }, position) => ({ ...stock, position }));
 }
 
 const DIP_PERIODS = [
@@ -631,7 +642,17 @@ function DislocationChecklist({ items, onUpdate }) {
 }
 
 /* ── Stock Card ───────────────────────────────────────────────── */
-function StockCard({ stock, quote, onRemove, onMove, onUpdateNote, onUpdateResearch }) {
+function StockCard({
+  stock,
+  quote,
+  onRemove,
+  onMove,
+  onMoveOrder,
+  onUpdateNote,
+  onUpdateResearch,
+  canMoveLeft = false,
+  canMoveRight = false,
+}) {
   const isResearching = stock.stage === 'researching';
   const isInResearch = stock.stage === 'research';
   const fundamentals = stock.fundamentals || {};
@@ -639,7 +660,7 @@ function StockCard({ stock, quote, onRemove, onMove, onUpdateNote, onUpdateResea
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
-    <div className="relative bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-5">
+    <div data-stock-ticker={stock.ticker} className="relative bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-5">
       {/* Delete confirmation overlay */}
       {confirmDelete && (
         <div className="absolute inset-0 z-10 bg-white/95 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center gap-3 p-6">
@@ -701,13 +722,33 @@ function StockCard({ stock, quote, onRemove, onMove, onUpdateNote, onUpdateResea
             <div className="h-7 w-24 bg-gray-100 rounded animate-pulse mt-1" />
           )}
         </div>
-        <button
-          onClick={() => setConfirmDelete(true)}
-          className="text-red-400 hover:text-red-600 transition-colors p-1"
-          title="Remove"
-        >
-          <X size={16} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => onMoveOrder(stock.ticker, 'left')}
+            disabled={!canMoveLeft}
+            className="text-gray-300 hover:text-gray-600 disabled:opacity-25 disabled:hover:text-gray-300 transition-colors p-1"
+            title="Move left"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => onMoveOrder(stock.ticker, 'right')}
+            disabled={!canMoveRight}
+            className="text-gray-300 hover:text-gray-600 disabled:opacity-25 disabled:hover:text-gray-300 transition-colors p-1"
+            title="Move right"
+          >
+            <ChevronRight size={16} />
+          </button>
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="text-red-400 hover:text-red-600 transition-colors p-1"
+            title="Remove"
+          >
+            <X size={16} />
+          </button>
+        </div>
       </div>
 
       {/* 52-week range */}
@@ -1001,6 +1042,11 @@ export default function WatchlistPage() {
   const [quotes, setQuotes] = useState({});
   const [tickerInput, setTickerInput] = useState('');
   const [loading, setLoading] = useState(true);
+  const stockAreaRef = useRef(null);
+  const prevPositionsRef = useRef(new Map());
+  const movedTickersRef = useRef(new Set());
+  const pendingScrollRef = useRef(null);
+  const shouldAnimateRef = useRef(false);
 
   const watchlists = (allData?.watchlists || []).toSorted((a, b) => {
     const aMain = a.name?.toLowerCase().includes('b.d. sterling') || a.name?.toLowerCase().includes('bd sterling') ? 0 : 1;
@@ -1009,7 +1055,7 @@ export default function WatchlistPage() {
   });
   const activeId = allData?.activeWatchlistId || 'default';
   const activeWatchlist = watchlists.find(w => w.id === activeId);
-  const stocks = activeWatchlist?.stocks || [];
+  const stocks = useMemo(() => orderStocks(activeWatchlist?.stocks || []), [activeWatchlist]);
 
   // Load watchlist
   const loadData = useCallback(async () => {
@@ -1045,10 +1091,11 @@ export default function WatchlistPage() {
 
   // Helper: update active watchlist's stocks and save
   const saveStocks = useCallback(async (updatedStocks) => {
+    const orderedStocks = orderStocks(updatedStocks);
     const updatedData = {
       ...allData,
       watchlists: allData.watchlists.map(wl =>
-        wl.id === activeId ? { ...wl, stocks: updatedStocks } : wl
+        wl.id === activeId ? { ...wl, stocks: orderedStocks } : wl
       ),
     };
     await saveData(updatedData);
@@ -1226,6 +1273,43 @@ export default function WatchlistPage() {
     } catch {}
   };
 
+  const moveStockOrder = async (ticker, direction) => {
+    const clicked = stocks.find(s => s.ticker === ticker);
+    if (!clicked) return;
+
+    const sameStage = stocks.filter(s => s.stage === clicked.stage);
+    const displayIdx = sameStage.findIndex(s => s.ticker === ticker);
+    if (displayIdx < 0) return;
+
+    const neighborIdx = direction === 'left' ? displayIdx - 1 : displayIdx + 1;
+    const neighbor = sameStage[neighborIdx];
+    if (!neighbor) return;
+
+    const updated = [...stocks];
+    const aIdx = updated.findIndex(s => s.ticker === ticker);
+    const bIdx = updated.findIndex(s => s.ticker === neighbor.ticker);
+    if (aIdx < 0 || bIdx < 0) return;
+
+    const area = stockAreaRef.current;
+    if (area) {
+      const currentPositions = new Map();
+      area.querySelectorAll('[data-stock-ticker]').forEach(el => {
+        const cardTicker = el.getAttribute('data-stock-ticker');
+        const rect = el.getBoundingClientRect();
+        currentPositions.set(cardTicker, { x: rect.left, y: rect.top });
+      });
+      prevPositionsRef.current = currentPositions;
+    }
+
+    [updated[aIdx], updated[bIdx]] = [updated[bIdx], updated[aIdx]];
+    const renumbered = updated.map((stock, position) => ({ ...stock, position }));
+
+    movedTickersRef.current = new Set([ticker, neighbor.ticker]);
+    pendingScrollRef.current = { x: window.scrollX, y: window.scrollY };
+    shouldAnimateRef.current = true;
+    await saveStocks(renumbered);
+  };
+
   const updateNote = async (ticker, note) => {
     await saveStocks(stocks.map(s =>
       s.ticker === ticker ? { ...s, note } : s
@@ -1241,6 +1325,45 @@ export default function WatchlistPage() {
   const watching = stocks.filter(s => s.stage === 'watching');
   const researching = stocks.filter(s => s.stage === 'researching');
   const research = stocks.filter(s => s.stage === 'research');
+
+  useLayoutEffect(() => {
+    const area = stockAreaRef.current;
+    if (!area) return;
+    const pendingScroll = pendingScrollRef.current;
+    if (shouldAnimateRef.current && pendingScroll) {
+      window.scrollTo(pendingScroll.x, pendingScroll.y);
+    }
+    const cards = area.querySelectorAll('[data-stock-ticker]');
+    const newPositions = new Map();
+    cards.forEach(el => {
+      const ticker = el.getAttribute('data-stock-ticker');
+      const rect = el.getBoundingClientRect();
+      newPositions.set(ticker, { x: rect.left, y: rect.top });
+      if (shouldAnimateRef.current && movedTickersRef.current.has(ticker)) {
+        const prev = prevPositionsRef.current.get(ticker);
+        if (prev && (prev.x !== rect.left || prev.y !== rect.top)) {
+          const dx = prev.x - rect.left;
+          const dy = prev.y - rect.top;
+          try {
+            el.animate(
+              [
+                { transform: `translate(${dx}px, ${dy}px)` },
+                { transform: 'translate(0px, 0px)' },
+              ],
+              { duration: 220, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)' }
+            );
+          } catch {}
+        }
+      }
+    });
+    if (shouldAnimateRef.current && pendingScroll) {
+      requestAnimationFrame(() => window.scrollTo(pendingScroll.x, pendingScroll.y));
+    }
+    prevPositionsRef.current = newPositions;
+    movedTickersRef.current = new Set();
+    pendingScrollRef.current = null;
+    shouldAnimateRef.current = false;
+  });
 
   if (loading) {
     return (
@@ -1315,82 +1438,93 @@ export default function WatchlistPage() {
           </div>
         )}
 
-        {/* Watching Section */}
-        {watching.length > 0 && (
-          <section className="mb-12 animate-fade-in-up stagger-4">
-            <div className="flex items-center gap-2 mb-4">
-              <Eye size={18} className="text-emerald-600" />
-              <h2 className="text-lg font-bold text-gray-800">Watching</h2>
-              <span className="text-xs text-gray-400 font-medium bg-gray-100 px-2 py-0.5 rounded-full">
-                {watching.length}
-              </span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {watching.map(stock => (
-                <StockCard
-                  key={stock.ticker}
-                  stock={stock}
-                  quote={quotes[stock.ticker]}
-                  onRemove={removeStock}
-                  onMove={moveStock}
-                  onUpdateNote={updateNote}
-                  onUpdateResearch={updateResearch}
-                />
-              ))}
-            </div>
-          </section>
-        )}
+        <div ref={stockAreaRef}>
+          {/* Watching Section */}
+          {watching.length > 0 && (
+            <section className="mb-12 animate-fade-in-up stagger-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Eye size={18} className="text-emerald-600" />
+                <h2 className="text-lg font-bold text-gray-800">Watching</h2>
+                <span className="text-xs text-gray-400 font-medium bg-gray-100 px-2 py-0.5 rounded-full">
+                  {watching.length}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {watching.map((stock, index) => (
+                  <StockCard
+                    key={stock.ticker}
+                    stock={stock}
+                    quote={quotes[stock.ticker]}
+                    onRemove={removeStock}
+                    onMove={moveStock}
+                    onMoveOrder={moveStockOrder}
+                    onUpdateNote={updateNote}
+                    onUpdateResearch={updateResearch}
+                    canMoveLeft={index > 0}
+                    canMoveRight={index < watching.length - 1}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
 
-        {/* Currently Researching Section */}
-        {researching.length > 0 && (
-          <section className="animate-fade-in-up stagger-6">
-            <div className="flex items-center gap-2 mb-4">
-              <FlaskConical size={18} className="text-amber-600" />
-              <h2 className="text-lg font-bold text-gray-800">On Queue for Researching</h2>
-              <span className="text-xs text-gray-400 font-medium bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full">
-                {researching.length}
-              </span>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {researching.map(stock => (
-                <StockCard
-                  key={stock.ticker}
-                  stock={stock}
-                  quote={quotes[stock.ticker]}
-                  onRemove={removeStock}
-                  onMove={moveStock}
-                  onUpdateNote={updateNote}
-                  onUpdateResearch={updateResearch}
-                />
-              ))}
-            </div>
-          </section>
-        )}
+          {/* Currently Researching Section */}
+          {researching.length > 0 && (
+            <section className="animate-fade-in-up stagger-6">
+              <div className="flex items-center gap-2 mb-4">
+                <FlaskConical size={18} className="text-amber-600" />
+                <h2 className="text-lg font-bold text-gray-800">On Queue for Researching</h2>
+                <span className="text-xs text-gray-400 font-medium bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full">
+                  {researching.length}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {researching.map((stock, index) => (
+                  <StockCard
+                    key={stock.ticker}
+                    stock={stock}
+                    quote={quotes[stock.ticker]}
+                    onRemove={removeStock}
+                    onMove={moveStock}
+                    onMoveOrder={moveStockOrder}
+                    onUpdateNote={updateNote}
+                    onUpdateResearch={updateResearch}
+                    canMoveLeft={index > 0}
+                    canMoveRight={index < researching.length - 1}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
 
-        {research.length > 0 && (
-          <section className="mt-12 animate-fade-in-up stagger-8">
-            <div className="flex items-center gap-2 mb-4">
-              <ClipboardList size={18} className="text-blue-600" />
-              <h2 className="text-lg font-bold text-gray-800">Research</h2>
-              <span className="text-xs text-gray-400 font-medium bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">
-                {research.length}
-              </span>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {research.map(stock => (
-                <StockCard
-                  key={stock.ticker}
-                  stock={stock}
-                  quote={quotes[stock.ticker]}
-                  onRemove={removeStock}
-                  onMove={moveStock}
-                  onUpdateNote={updateNote}
-                  onUpdateResearch={updateResearch}
-                />
-              ))}
-            </div>
-          </section>
-        )}
+          {research.length > 0 && (
+            <section className="mt-12 animate-fade-in-up stagger-8">
+              <div className="flex items-center gap-2 mb-4">
+                <ClipboardList size={18} className="text-blue-600" />
+                <h2 className="text-lg font-bold text-gray-800">Research</h2>
+                <span className="text-xs text-gray-400 font-medium bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">
+                  {research.length}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {research.map((stock, index) => (
+                  <StockCard
+                    key={stock.ticker}
+                    stock={stock}
+                    quote={quotes[stock.ticker]}
+                    onRemove={removeStock}
+                    onMove={moveStock}
+                    onMoveOrder={moveStockOrder}
+                    onUpdateNote={updateNote}
+                    onUpdateResearch={updateResearch}
+                    canMoveLeft={index > 0}
+                    canMoveRight={index < research.length - 1}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
       </div>
     </div>
   );
