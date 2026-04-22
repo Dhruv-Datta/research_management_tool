@@ -650,6 +650,7 @@ function StockCard({
   onMoveOrder,
   onUpdateNote,
   onUpdateResearch,
+  onSyncNoteRows,
   canMoveLeft = false,
   canMoveRight = false,
 }) {
@@ -660,7 +661,7 @@ function StockCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
-    <div data-stock-ticker={stock.ticker} className="relative bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-5">
+    <div data-stock-ticker={stock.ticker} className="relative h-full flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-5">
       {/* Delete confirmation overlay */}
       {confirmDelete && (
         <div className="absolute inset-0 z-10 bg-white/95 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center gap-3 p-6">
@@ -771,12 +772,16 @@ function StockCard({
           Why I&apos;m Interested
         </label>
         <textarea spellCheck={true}
+          data-watchlist-note
           defaultValue={stock.note || ''}
           placeholder="Quick note on why this stock is interesting..."
-          className="mt-1 w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 resize-none overflow-hidden focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-300 transition-all"
+          className="mt-1 w-full min-h-[68px] text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 resize-none overflow-hidden focus:outline-none focus:ring-2 focus:ring-emerald-200 focus:border-emerald-300 transition-all"
           rows={2}
-          ref={(el) => { if (el) autoExpand(el); }}
-          onInput={(e) => autoExpand(e.target)}
+          ref={(el) => { if (el) { autoExpand(el); onSyncNoteRows(); } }}
+          onInput={(e) => {
+            autoExpand(e.target);
+            onSyncNoteRows();
+          }}
           onBlur={(e) => onUpdateNote(stock.ticker, e.target.value)}
         />
       </div>
@@ -1045,6 +1050,7 @@ export default function WatchlistPage() {
   const stockAreaRef = useRef(null);
   const prevPositionsRef = useRef(new Map());
   const movedTickersRef = useRef(new Set());
+  const noteRowsFrameRef = useRef(null);
   const pendingScrollRef = useRef(null);
   const shouldAnimateRef = useRef(false);
 
@@ -1326,7 +1332,62 @@ export default function WatchlistPage() {
   const researching = stocks.filter(s => s.stage === 'researching');
   const research = stocks.filter(s => s.stage === 'research');
 
+  const syncNoteRows = useCallback(() => {
+    if (noteRowsFrameRef.current) return;
+    noteRowsFrameRef.current = requestAnimationFrame(() => {
+      noteRowsFrameRef.current = null;
+      const area = stockAreaRef.current;
+      if (!area) return;
+
+      const grids = [...area.querySelectorAll('[data-stock-grid]')];
+      grids.forEach(grid => {
+        const cards = [...grid.querySelectorAll('[data-stock-ticker]')];
+        const rowGroups = [];
+
+        cards.forEach(card => {
+          const note = card.querySelector('[data-watchlist-note]');
+          if (!note) return;
+          note.style.height = 'auto';
+        });
+
+        cards.forEach(card => {
+          const note = card.querySelector('[data-watchlist-note]');
+          if (!note) return;
+
+          const top = card.getBoundingClientRect().top;
+          let row = rowGroups.find(group => Math.abs(group.top - top) < 2);
+          if (!row) {
+            row = { top, notes: [] };
+            rowGroups.push(row);
+          }
+          row.notes.push(note);
+        });
+
+        rowGroups.forEach(row => {
+          const rowHeight = Math.max(68, ...row.notes.map(note => note.scrollHeight));
+          row.notes.forEach(note => {
+            note.style.height = `${rowHeight}px`;
+          });
+        });
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    syncNoteRows();
+    window.addEventListener('resize', syncNoteRows);
+    return () => {
+      window.removeEventListener('resize', syncNoteRows);
+      if (noteRowsFrameRef.current) {
+        cancelAnimationFrame(noteRowsFrameRef.current);
+        noteRowsFrameRef.current = null;
+      }
+    };
+  }, [syncNoteRows, stocks.length, activeId]);
+
   useLayoutEffect(() => {
+    syncNoteRows();
+
     const area = stockAreaRef.current;
     if (!area) return;
     const pendingScroll = pendingScrollRef.current;
@@ -1449,7 +1510,7 @@ export default function WatchlistPage() {
                   {watching.length}
                 </span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div data-stock-grid="watching" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {watching.map((stock, index) => (
                   <StockCard
                     key={stock.ticker}
@@ -1460,6 +1521,7 @@ export default function WatchlistPage() {
                     onMoveOrder={moveStockOrder}
                     onUpdateNote={updateNote}
                     onUpdateResearch={updateResearch}
+                    onSyncNoteRows={syncNoteRows}
                     canMoveLeft={index > 0}
                     canMoveRight={index < watching.length - 1}
                   />
@@ -1478,7 +1540,7 @@ export default function WatchlistPage() {
                   {researching.length}
                 </span>
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div data-stock-grid="researching" className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {researching.map((stock, index) => (
                   <StockCard
                     key={stock.ticker}
@@ -1489,6 +1551,7 @@ export default function WatchlistPage() {
                     onMoveOrder={moveStockOrder}
                     onUpdateNote={updateNote}
                     onUpdateResearch={updateResearch}
+                    onSyncNoteRows={syncNoteRows}
                     canMoveLeft={index > 0}
                     canMoveRight={index < researching.length - 1}
                   />
@@ -1506,7 +1569,7 @@ export default function WatchlistPage() {
                   {research.length}
                 </span>
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div data-stock-grid="research" className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {research.map((stock, index) => (
                   <StockCard
                     key={stock.ticker}
@@ -1517,6 +1580,7 @@ export default function WatchlistPage() {
                     onMoveOrder={moveStockOrder}
                     onUpdateNote={updateNote}
                     onUpdateResearch={updateResearch}
+                    onSyncNoteRows={syncNoteRows}
                     canMoveLeft={index > 0}
                     canMoveRight={index < research.length - 1}
                   />
