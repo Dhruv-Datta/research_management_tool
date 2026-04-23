@@ -10,8 +10,8 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata = {
-  title: "Fund Management System",
-  description: "Portfolio tracking and research management tool",
+  title: "AlphaOS",
+  description: "Fund Management System",
 };
 
 export default function RootLayout({ children }) {

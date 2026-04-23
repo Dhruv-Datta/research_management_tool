@@ -82,16 +82,16 @@ function NavDropdown({ group, pathname, searchParams, isDark }) {
       <button
         onClick={() => setOpen(o => !o)}
         className={`
-          flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200
+          flex items-center gap-1.5 px-4 py-2 rounded-xl text-[15px] font-semibold transition-all duration-200
           ${isGroupActive
             ? isDark ? 'text-emerald-400 bg-emerald-500/15' : 'text-emerald-700 bg-emerald-50'
             : isDark ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
           }
         `}
       >
-        <Icon size={15} />
+        <Icon size={16} />
         {group.label}
-        <ChevronDown size={13} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown size={14} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
         {isGroupActive && (
           <span className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full ${isDark ? 'bg-emerald-400' : 'bg-emerald-500'}`} />
         )}
@@ -119,14 +119,14 @@ function NavDropdown({ group, pathname, searchParams, isDark }) {
                 href={href}
                 onClick={() => setOpen(false)}
                 className={`
-                  flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium no-underline transition-all duration-150
+                  flex items-center gap-2.5 px-4 py-2.5 text-[15px] font-medium no-underline transition-all duration-150
                   ${isItemActive
                     ? isDark ? 'text-emerald-400 bg-emerald-500/15' : 'text-emerald-700 bg-emerald-50'
                     : isDark ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }
                 `}
               >
-                <ItemIcon size={15} className={isItemActive ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-gray-500' : 'text-gray-400')} />
+                <ItemIcon size={16} className={isItemActive ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-gray-500' : 'text-gray-400')} />
                 {label}
               </Link>
             );
@@ -178,18 +178,18 @@ export default function Navbar() {
       }}
     >
       <div className="max-w-7xl mx-auto px-6 lg:px-12 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-3 no-underline group">
+        <Link href="/" className="flex items-center gap-3.5 no-underline group">
           <Image
             src="/images/wow.png"
             alt="AlphaOS"
             width={205}
             height={72}
-            className="h-11 w-auto object-contain"
+            className="h-9 w-auto object-contain"
             unoptimized
             priority
           />
-          <span className={`text-sm font-medium ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>|</span>
-          <span className={`font-semibold text-sm tracking-tight transition-colors ${isDark ? 'text-gray-400 group-hover:text-emerald-400' : 'text-gray-700 group-hover:text-emerald-700'}`}>
+          <span className={`text-lg font-medium ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>|</span>
+          <span className={`font-semibold text-[17px] tracking-tight transition-colors ${isDark ? 'text-gray-400 group-hover:text-emerald-400' : 'text-gray-700 group-hover:text-emerald-700'}`}>
             Dashboard
           </span>
         </Link>
@@ -202,14 +202,14 @@ export default function Navbar() {
                 <Link
                   href="/strategic-hub"
                   className={`
-                    relative flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 no-underline
+                    relative flex items-center gap-1.5 px-4 py-2 rounded-xl text-[15px] font-semibold transition-all duration-200 no-underline
                     ${pathname === '/strategic-hub' || pathname.startsWith('/strategic-hub/')
                       ? isDark ? 'text-emerald-400 bg-emerald-500/15' : 'text-emerald-700 bg-emerald-50'
                       : isDark ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
                     }
                   `}
                 >
-                  <Target size={15} />
+                  <Target size={16} />
                   Strategic Hub
                   {(pathname === '/strategic-hub' || pathname.startsWith('/strategic-hub/')) && (
                     <span className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full ${isDark ? 'bg-emerald-400' : 'bg-emerald-500'}`} />
@@ -224,10 +224,10 @@ export default function Navbar() {
               await logout();
               window.location.href = '/login';
             }}
-            className={`ml-4 p-2 rounded-lg transition-all duration-200 ${isDark ? 'text-gray-500 hover:text-red-400 hover:bg-red-500/10' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
+            className={`ml-4 p-2.5 rounded-lg transition-all duration-200 ${isDark ? 'text-gray-500 hover:text-red-400 hover:bg-red-500/10' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
             title="Sign out"
           >
-            <LogOut size={16} />
+            <LogOut size={17} />
           </button>
         </div>
       </div>
